@@ -59,14 +59,18 @@ from app_config import (
     CROSS_SITE_SESSION_COOKIES,
     CS_SAMPLE_ONLY_TOP_MATCH_THRESHOLD,
     EMAIL_PIN_ATTEMPT_LIMIT_PER_IP,
+    EMAIL_PIN_COOLDOWN_ESCALATE_AFTER,
+    EMAIL_PIN_ESCALATED_COOLDOWN_SECONDS,
     EmailPinConfigurationError,
     EMAIL_PIN_LENGTH,
     EMAIL_PIN_MAX_ATTEMPTS,
+    EMAIL_PIN_MAX_COOLDOWN_SECONDS,
     EMAIL_PIN_PURPOSES,
     EMAIL_PIN_RATE_WINDOW_MINUTES,
     EMAIL_PIN_REQUEST_LIMIT_PER_EMAIL,
     EMAIL_PIN_REQUEST_LIMIT_PER_IP,
     EMAIL_PIN_REQUEST_WINDOW_MINUTES,
+    EMAIL_PIN_RESEND_COOLDOWN_SECONDS,
     EMAIL_PIN_TTL_MINUTES,
     email_pin_dev_mode_requested,
     FRONTEND_DIR,
@@ -1164,15 +1168,45 @@ def get_rate_limit_retry_after(
     return max(1, int((reset_at - now).total_seconds()) + 1)
 
 
+def get_email_pin_cooldown_seconds(previous_requests: int) -> int:
+    """Wait required after `previous_requests` PIN requests in the current window."""
+    if previous_requests <= 0:
+        return 0
+    if previous_requests < EMAIL_PIN_COOLDOWN_ESCALATE_AFTER:
+        return EMAIL_PIN_RESEND_COOLDOWN_SECONDS
+    doublings = min(previous_requests - EMAIL_PIN_COOLDOWN_ESCALATE_AFTER, 16)
+    return min(
+        EMAIL_PIN_MAX_COOLDOWN_SECONDS,
+        EMAIL_PIN_ESCALATED_COOLDOWN_SECONDS * (2 ** doublings),
+    )
+
+
+def get_cooldown_retry_after(last_event_at: Any, cooldown_seconds: int, now: datetime) -> int:
+    if cooldown_seconds <= 0 or not isinstance(last_event_at, datetime):
+        return 0
+    if last_event_at.tzinfo is not None:
+        last_event_at = last_event_at.astimezone(timezone.utc).replace(tzinfo=None)
+    remaining = (last_event_at + timedelta(seconds=cooldown_seconds) - now).total_seconds()
+    return max(0, math.ceil(remaining))
+
+
 def enforce_rate_limit_specs(
     limit_specs: list[tuple[str, str, int, int]],
     detail: str,
     error_type: type[RequestRateLimitError] = RequestRateLimitError,
-) -> None:
-    """Store hashed rate-limit events so limits survive worker restarts and scale out."""
+    cooldown_event_type: str = "",
+    cooldown_detail: str = "",
+) -> int:
+    """Store hashed rate-limit events so limits survive worker restarts and scale out.
+
+    When `cooldown_event_type` is set, events of that type must also wait an
+    escalating cooldown since the previous one. Returns the wait that will apply
+    to the next event of that type (0 when no cooldown is configured).
+    """
     now = utc_now_naive()
     connection = None
     cursor = None
+    next_cooldown_seconds = 0
     try:
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
@@ -1201,6 +1235,23 @@ def enforce_rate_limit_specs(
                     now,
                 )
                 raise error_type(detail, retry_after)
+            if event_type == cooldown_event_type:
+                if recent_events:
+                    cooldown_retry_after = get_cooldown_retry_after(
+                        recent_events[-1].get("created_at"),
+                        get_email_pin_cooldown_seconds(len(recent_events)),
+                        now,
+                    )
+                    if cooldown_retry_after > 0:
+                        raise error_type(cooldown_detail or detail, cooldown_retry_after)
+                next_cooldown_seconds = get_email_pin_cooldown_seconds(len(recent_events) + 1)
+                if len(recent_events) + 1 >= limit:
+                    # This request uses the last slot, so the next one waits for the window.
+                    oldest_event_at = recent_events[0].get("created_at") if recent_events else now
+                    next_cooldown_seconds = max(
+                        next_cooldown_seconds,
+                        get_rate_limit_retry_after(oldest_event_at, window_minutes, now),
+                    )
             pending_events.append((event_type, subject_hash))
 
         for event_type, subject_hash in pending_events:
@@ -1227,6 +1278,7 @@ def enforce_rate_limit_specs(
             cursor.close()
         if connection is not None:
             connection.close()
+    return next_cooldown_seconds
 
 
 def enforce_email_pin_rate_limits(
@@ -1234,8 +1286,12 @@ def enforce_email_pin_rate_limits(
     email: str,
     client_ip: str,
     purpose: str = "",
-) -> None:
-    """Apply durable, privacy-preserving PIN limits shared by all app workers."""
+) -> int:
+    """Apply durable, privacy-preserving PIN limits shared by all app workers.
+
+    For PIN requests, returns the seconds to wait before the next request for
+    the same email and purpose.
+    """
     normalized_email = normalize_email(email)
     normalized_purpose = normalize_pin_purpose(purpose)
     normalized_ip = normalize_rate_limit_client_ip(client_ip)
@@ -1256,6 +1312,8 @@ def enforce_email_pin_rate_limits(
             ),
         ]
         detail = "Too many PIN requests. Please wait before requesting another PIN."
+        cooldown_event_type = "pin_request_email"
+        cooldown_detail = "A PIN was sent recently. Please wait before requesting another PIN."
     elif event_kind == "attempt":
         limit_specs = [
             (
@@ -1266,10 +1324,25 @@ def enforce_email_pin_rate_limits(
             )
         ]
         detail = "Too many PIN attempts. Please wait before trying again."
+        cooldown_event_type = ""
+        cooldown_detail = ""
     else:
         raise ValueError("Unsupported email PIN rate-limit event kind")
 
-    enforce_rate_limit_specs(limit_specs, detail, EmailPinRateLimitError)
+    return enforce_rate_limit_specs(
+        limit_specs,
+        detail,
+        EmailPinRateLimitError,
+        cooldown_event_type,
+        cooldown_detail,
+    )
+
+
+def normalize_resend_cooldown(value: Any) -> int:
+    # Rate limiting can be mocked out, so fall back to the base cooldown.
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    return EMAIL_PIN_RESEND_COOLDOWN_SECONDS
 
 
 def enforce_login_rate_limits(email: str, client_ip: str) -> None:
@@ -8479,7 +8552,7 @@ def send_auth_pin():
         return jsonify({"detail": "Email verification is temporarily unavailable"}), 503
 
     try:
-        enforce_email_pin_rate_limits(
+        resend_cooldown = enforce_email_pin_rate_limits(
             "request",
             email,
             get_request_client_ip(),
@@ -8513,6 +8586,7 @@ def send_auth_pin():
         "message": "Verification PIN sent",
         "purpose": purpose,
         "expires_in_minutes": EMAIL_PIN_TTL_MINUTES,
+        "resend_available_in_seconds": normalize_resend_cooldown(resend_cooldown),
     }
     if should_return_dev_pin(delivery):
         response["dev_pin"] = pin
@@ -8834,7 +8908,9 @@ def send_own_email_change_pin():
             return jsonify({"detail": "This email is already registered."}), 409
 
         purpose = f"email_change_{int(current_user['id'])}"
-        enforce_email_pin_rate_limits("request", new_email, get_request_client_ip(), purpose)
+        resend_cooldown = enforce_email_pin_rate_limits(
+            "request", new_email, get_request_client_ip(), purpose
+        )
         pin, _expires_at, pin_id = create_email_pin(new_email, purpose)
         try:
             delivery = send_email_pin(new_email, pin, purpose)
@@ -8856,6 +8932,7 @@ def send_own_email_change_pin():
     response: dict[str, Any] = {
         "message": "Verification PIN sent to your new email address.",
         "expires_in_minutes": EMAIL_PIN_TTL_MINUTES,
+        "resend_available_in_seconds": normalize_resend_cooldown(resend_cooldown),
     }
     if should_return_dev_pin(delivery):
         response["dev_pin"] = pin
@@ -8949,7 +9026,10 @@ def normalize_avatar_image(raw_image: bytes) -> bytes:
                 raise ValueError("Image dimensions are too large.")
             source.load()
             image = ImageOps.exif_transpose(source)
-            image.thumbnail((AVATAR_OUTPUT_EDGE, AVATAR_OUTPUT_EDGE), Image.Resampling.LANCZOS)
+            # The app crops photos to a square in the browser; centre-crop here
+            # too so every stored avatar is square whatever the client sends.
+            edge = min(image.width, image.height, AVATAR_OUTPUT_EDGE)
+            image = ImageOps.fit(image, (edge, edge), Image.Resampling.LANCZOS)
             rgba = image.convert("RGBA")
             normalized = Image.new("RGB", rgba.size, (255, 255, 255))
             normalized.paste(rgba, mask=rgba.getchannel("A"))

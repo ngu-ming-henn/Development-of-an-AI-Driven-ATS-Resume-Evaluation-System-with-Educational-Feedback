@@ -612,7 +612,7 @@ h1, h2, h3, .font-headline {
             </div>
           </div>
           <input class="account-file-input" id="profileAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="profileAvatarHint" tabindex="-1">
-          <p class="account-field-hint" id="profileAvatarHint">JPG, PNG, or WebP · up to 2 MB.</p>
+          <p class="account-field-hint" id="profileAvatarHint">JPG, PNG, or WebP · up to 10 MB. You can crop it to a square.</p>
           <p class="account-inline-message" id="profileAvatarMessage" role="status" aria-live="polite" hidden></p>
           <form id="profileNameForm" class="account-form">
             <div class="account-info-grid">
@@ -1640,8 +1640,9 @@ function isProfilePinReady() {
 
 function refreshProfilePinButtonState() {
   if (!sendProfilePinBtn) return;
-  sendProfilePinBtn.disabled = sendProfilePinBtn.dataset.pinBusy === "true" || !isProfilePinReady();
+  sendProfilePinBtn.disabled = sendProfilePinBtn.dataset.pinBusy === "true" || window.CareerNavigatorCommon.isPinCoolingDown(sendProfilePinBtn) || !isProfilePinReady();
 }
+if (sendProfilePinBtn) sendProfilePinBtn.addEventListener("pin-cooldown-end", refreshProfilePinButtonState);
 
 function openAccountWorkspace(view = "info") {
   const currentUser = getStoredUser();

@@ -205,7 +205,7 @@ class SelfServiceProfileTests(unittest.TestCase):
         self.assertEqual(params[:2], (TEST_USER["id"], "image/jpeg"))
         with Image.open(io.BytesIO(base64.b64decode(params[2]))) as normalized:
             self.assertEqual(normalized.format, "JPEG")
-            self.assertEqual(normalized.size, (64, 32))
+            self.assertEqual(normalized.size, (32, 32))
             self.assertFalse(normalized.getexif())
 
         with self.auth_user(), patch.object(app_module, "get_db_connection") as database:

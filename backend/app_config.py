@@ -79,13 +79,27 @@ EMAIL_PIN_LENGTH = 6
 EMAIL_PIN_TTL_MINUTES = get_bounded_integer_environment("EMAIL_PIN_TTL_MINUTES", 10, 1, 60)
 EMAIL_PIN_MAX_ATTEMPTS = get_bounded_integer_environment("EMAIL_PIN_MAX_ATTEMPTS", 5, 1, 10)
 EMAIL_PIN_REQUEST_LIMIT_PER_EMAIL = get_bounded_integer_environment(
-    "EMAIL_PIN_REQUEST_LIMIT_PER_EMAIL", 3, 1, 20
+    "EMAIL_PIN_REQUEST_LIMIT_PER_EMAIL", 6, 1, 20
 )
 EMAIL_PIN_REQUEST_LIMIT_PER_IP = get_bounded_integer_environment(
     "EMAIL_PIN_REQUEST_LIMIT_PER_IP", 10, 1, 100
 )
 EMAIL_PIN_REQUEST_WINDOW_MINUTES = get_bounded_integer_environment(
-    "EMAIL_PIN_REQUEST_WINDOW_MINUTES", 15, 1, 1440
+    "EMAIL_PIN_REQUEST_WINDOW_MINUTES", 60, 1, 1440
+)
+# Wait between PIN requests for the same email. The first few resends use the
+# base cooldown; after that each request doubles the wait, up to the maximum.
+EMAIL_PIN_RESEND_COOLDOWN_SECONDS = get_bounded_integer_environment(
+    "EMAIL_PIN_RESEND_COOLDOWN_SECONDS", 60, 0, 3600
+)
+EMAIL_PIN_COOLDOWN_ESCALATE_AFTER = get_bounded_integer_environment(
+    "EMAIL_PIN_COOLDOWN_ESCALATE_AFTER", 3, 1, 20
+)
+EMAIL_PIN_ESCALATED_COOLDOWN_SECONDS = get_bounded_integer_environment(
+    "EMAIL_PIN_ESCALATED_COOLDOWN_SECONDS", 300, 0, 86400
+)
+EMAIL_PIN_MAX_COOLDOWN_SECONDS = get_bounded_integer_environment(
+    "EMAIL_PIN_MAX_COOLDOWN_SECONDS", 1800, 0, 86400
 )
 EMAIL_PIN_ATTEMPT_LIMIT_PER_IP = get_bounded_integer_environment(
     "EMAIL_PIN_ATTEMPT_LIMIT_PER_IP", 20, 1, 200

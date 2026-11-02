@@ -706,7 +706,12 @@
     "Passed checks": "Semakan lulus",
     "Account": "Akaun",
     "Account sections": "Bahagian akaun",
-    "JPG, PNG, or WebP · up to 2 MB.": "JPG, PNG atau WebP · sehingga 2 MB.",
+    "JPG, PNG, or WebP · up to 10 MB. You can crop it to a square.": "JPG, PNG atau WebP · sehingga 10 MB. Anda boleh memangkasnya menjadi segi empat sama.",
+    "Choose an image 10 MB or smaller.": "Pilih imej bersaiz 10 MB atau kurang.",
+    "Crop your photo": "Pangkas foto anda",
+    "Drag the photo to choose the part to show. Use the slider to zoom.": "Seret foto untuk memilih bahagian yang dipaparkan. Gunakan peluncur untuk mengezum.",
+    "Zoom": "Zum",
+    "Use photo": "Guna foto",
     "Live system activity totals": "Jumlah aktiviti sistem semasa",
     "All": "Semua",
     "Today": "Hari ini",
@@ -825,6 +830,7 @@
     "Could not load PDF preview renderer.": "Tidak dapat memuatkan pemapar pratonton PDF."
   };
   const dynamicTranslations = [
+    [/^Resend in ([0-9:]+s?)$/, (match) => `Hantar semula dalam ${match[1]}`],
     [/^Open account for (.+)$/, (match) => `Buka akaun untuk ${match[1]}`],
     [/^Open profile for (.+)$/, (match) => `Buka profil untuk ${match[1]}`],
     [/^Signed in as (.+)\. You can now check your resume\.$/, (match) => `Log masuk sebagai ${match[1]}. Anda kini boleh menyemak resume.`],
@@ -1039,6 +1045,303 @@
     }, 3800);
   }
 
+  const AVATAR_CROP_OUTPUT_EDGE = 512;
+
+  function loadImageFile(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => resolve({ image, url });
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Choose a readable JPG, PNG, or WebP image."));
+      };
+      image.src = url;
+    });
+  }
+
+  // Let the user drag and zoom a photo inside a square frame. Resolves with a
+  // square JPEG blob, or null when cancelled.
+  async function openAvatarCropper(file) {
+    const { image, url } = await loadImageFile(file);
+    const naturalWidth = image.naturalWidth;
+    const naturalHeight = image.naturalHeight;
+    if (!naturalWidth || !naturalHeight) {
+      URL.revokeObjectURL(url);
+      throw new Error("Choose a readable JPG, PNG, or WebP image.");
+    }
+
+    const previousFocus = document.activeElement;
+    const backdrop = document.createElement("div");
+    backdrop.className = "avatar-cropper-backdrop";
+    backdrop.setAttribute("role", "dialog");
+    backdrop.setAttribute("aria-modal", "true");
+    backdrop.setAttribute("aria-hidden", "false");
+    backdrop.setAttribute("aria-labelledby", "avatarCropperTitle");
+    backdrop.innerHTML = `<div class="avatar-cropper">
+        <h3 id="avatarCropperTitle">Crop your photo</h3>
+        <p>Drag the photo to choose the part to show. Use the slider to zoom.</p>
+        <div class="avatar-cropper-stage" tabindex="0" aria-label="Photo position. Use arrow keys to move and + or - to zoom.">
+          <img alt="" draggable="false">
+        </div>
+        <label class="avatar-cropper-zoom"><span>Zoom</span><input type="range" min="1" max="4" step="0.01" value="1" aria-label="Zoom"></label>
+        <div class="avatar-cropper-actions">
+          <button class="account-secondary" type="button" data-crop-cancel>Cancel</button>
+          <button class="account-primary" type="button" data-crop-save>Use photo</button>
+        </div>
+      </div>`;
+    const stage = backdrop.querySelector(".avatar-cropper-stage");
+    const preview = stage.querySelector("img");
+    const zoomInput = backdrop.querySelector('input[type="range"]');
+    const cancelButton = backdrop.querySelector("[data-crop-cancel]");
+    const saveButton = backdrop.querySelector("[data-crop-save]");
+    preview.src = url;
+    document.body.appendChild(backdrop);
+
+    let stageSize = stage.clientWidth || 280;
+    let zoom = 1;
+    let scale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    const coverScale = () => stageSize / Math.min(naturalWidth, naturalHeight);
+    const clampOffsets = () => {
+      offsetX = Math.min(0, Math.max(stageSize - naturalWidth * scale, offsetX));
+      offsetY = Math.min(0, Math.max(stageSize - naturalHeight * scale, offsetY));
+    };
+    const render = () => {
+      clampOffsets();
+      preview.style.width = naturalWidth * scale + "px";
+      preview.style.height = naturalHeight * scale + "px";
+      preview.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+    };
+    // Zoom around a point in the frame so that point stays under the pointer.
+    const setZoom = (nextZoom, focusX = stageSize / 2, focusY = stageSize / 2) => {
+      zoom = Math.min(4, Math.max(1, nextZoom));
+      const imageX = (focusX - offsetX) / scale;
+      const imageY = (focusY - offsetY) / scale;
+      scale = coverScale() * zoom;
+      offsetX = focusX - imageX * scale;
+      offsetY = focusY - imageY * scale;
+      zoomInput.value = String(zoom);
+      render();
+    };
+
+    scale = coverScale();
+    offsetX = (stageSize - naturalWidth * scale) / 2;
+    offsetY = (stageSize - naturalHeight * scale) / 2;
+    render();
+
+    const onResize = () => {
+      const nextSize = stage.clientWidth;
+      if (!nextSize || nextSize === stageSize) return;
+      const ratio = nextSize / stageSize;
+      stageSize = nextSize;
+      offsetX *= ratio;
+      offsetY *= ratio;
+      scale = coverScale() * zoom;
+      render();
+    };
+    window.addEventListener("resize", onResize);
+
+    let drag = null;
+    stage.addEventListener("pointerdown", (event) => {
+      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, startX: offsetX, startY: offsetY };
+      stage.setPointerCapture(event.pointerId);
+      stage.classList.add("is-dragging");
+    });
+    stage.addEventListener("pointermove", (event) => {
+      if (!drag || drag.id !== event.pointerId) return;
+      offsetX = drag.startX + event.clientX - drag.x;
+      offsetY = drag.startY + event.clientY - drag.y;
+      render();
+    });
+    const endDrag = (event) => {
+      if (!drag || drag.id !== event.pointerId) return;
+      drag = null;
+      stage.classList.remove("is-dragging");
+    };
+    stage.addEventListener("pointerup", endDrag);
+    stage.addEventListener("pointercancel", endDrag);
+    stage.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      const bounds = stage.getBoundingClientRect();
+      setZoom(zoom * (event.deltaY < 0 ? 1.08 : 1 / 1.08), event.clientX - bounds.left, event.clientY - bounds.top);
+    }, { passive: false });
+    stage.addEventListener("keydown", (event) => {
+      const step = event.shiftKey ? 30 : 10;
+      const moves = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
+      if (moves[event.key]) {
+        event.preventDefault();
+        offsetX += moves[event.key][0];
+        offsetY += moves[event.key][1];
+        render();
+      } else if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        setZoom(zoom * 1.1);
+      } else if (event.key === "-") {
+        event.preventDefault();
+        setZoom(zoom / 1.1);
+      }
+    });
+    zoomInput.addEventListener("input", () => setZoom(Number(zoomInput.value) || 1));
+
+    return new Promise((resolve) => {
+      const finish = (result) => {
+        window.removeEventListener("resize", onResize);
+        backdrop.remove();
+        URL.revokeObjectURL(url);
+        if (previousFocus && typeof previousFocus.focus === "function") previousFocus.focus({ preventScroll: true });
+        resolve(result);
+      };
+      backdrop.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          finish(null);
+        } else if (event.key === "Tab") {
+          // Keep focus in the cropper without closing the account dialog behind it.
+          event.stopPropagation();
+          const focusable = [stage, zoomInput, cancelButton, saveButton];
+          const index = focusable.indexOf(document.activeElement);
+          const next = event.shiftKey
+            ? focusable[(index <= 0 ? focusable.length : index) - 1]
+            : focusable[(index + 1) % focusable.length];
+          event.preventDefault();
+          next.focus();
+        }
+      });
+      backdrop.addEventListener("click", (event) => {
+        if (event.target === backdrop) finish(null);
+      });
+      cancelButton.addEventListener("click", () => finish(null));
+      saveButton.addEventListener("click", () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = AVATAR_CROP_OUTPUT_EDGE;
+        canvas.height = AVATAR_CROP_OUTPUT_EDGE;
+        const context = canvas.getContext("2d");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.imageSmoothingQuality = "high";
+        const sourceSize = stageSize / scale;
+        context.drawImage(image, -offsetX / scale, -offsetY / scale, sourceSize, sourceSize, 0, 0, canvas.width, canvas.height);
+        saveButton.disabled = true;
+        canvas.toBlob((blob) => finish(blob), "image/jpeg", 0.9);
+      });
+      saveButton.focus({ preventScroll: true });
+    });
+  }
+
+  // Resend cooldowns survive closing the modal or reloading the page (per tab).
+  const PIN_COOLDOWN_STORAGE_KEY = "careerNavigatorPinCooldowns";
+  const pinCooldownTimers = new WeakMap();
+
+  function readPinCooldowns() {
+    try {
+      const stored = JSON.parse(window.sessionStorage.getItem(PIN_COOLDOWN_STORAGE_KEY) || "{}");
+      return stored && typeof stored === "object" ? stored : {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function storePinCooldown(buttonId, until) {
+    if (!buttonId) return;
+    try {
+      const cooldowns = readPinCooldowns();
+      if (until) cooldowns[buttonId] = until;
+      else delete cooldowns[buttonId];
+      window.sessionStorage.setItem(PIN_COOLDOWN_STORAGE_KEY, JSON.stringify(cooldowns));
+    } catch (error) {
+      // Storage can be unavailable in private mode; the in-page timer still works.
+    }
+  }
+
+  function getPinCooldownRemaining(button) {
+    if (!button) return 0;
+    const until = Number(button.dataset.pinCooldownUntil || 0);
+    return Math.max(0, Math.ceil((until - Date.now()) / 1000));
+  }
+
+  function isPinCoolingDown(button) {
+    return getPinCooldownRemaining(button) > 0;
+  }
+
+  function formatPinWait(seconds) {
+    if (seconds < 60) return seconds + "s";
+    const minutes = Math.floor(seconds / 60);
+    const rest = seconds % 60;
+    return minutes + ":" + String(rest).padStart(2, "0");
+  }
+
+  function formatPinWaitWords(seconds) {
+    if (seconds < 60) return seconds + " second" + (seconds === 1 ? "" : "s");
+    const minutes = Math.ceil(seconds / 60);
+    return minutes + " minute" + (minutes === 1 ? "" : "s");
+  }
+
+  function runPinCooldown(button) {
+    window.clearInterval(pinCooldownTimers.get(button));
+    const tick = () => {
+      const remaining = getPinCooldownRemaining(button);
+      if (remaining <= 0) {
+        window.clearInterval(pinCooldownTimers.get(button));
+        pinCooldownTimers.delete(button);
+        delete button.dataset.pinCooldownUntil;
+        storePinCooldown(button.id, 0);
+        button.textContent = "Send PIN";
+        button.removeAttribute("title");
+        button.disabled = false;
+        // Pages re-check whether the form is ready to send a PIN.
+        button.dispatchEvent(new CustomEvent("pin-cooldown-end", { bubbles: true }));
+        return;
+      }
+      button.disabled = true;
+      button.textContent = "Resend in " + formatPinWait(remaining);
+      button.title = "You can request another PIN in " + formatPinWaitWords(remaining) + ".";
+    };
+    tick();
+    if (button.dataset.pinCooldownUntil) {
+      pinCooldownTimers.set(button, window.setInterval(tick, 1000));
+    }
+  }
+
+  function startPinCooldown(button, seconds) {
+    const waitSeconds = Math.max(0, Math.ceil(Number(seconds) || 0));
+    if (!button || !waitSeconds) return;
+    const until = Date.now() + waitSeconds * 1000;
+    button.dataset.pinCooldownUntil = String(until);
+    storePinCooldown(button.id, until);
+    runPinCooldown(button);
+  }
+
+  function restorePinCooldowns() {
+    const cooldowns = readPinCooldowns();
+    Object.keys(cooldowns).forEach((buttonId) => {
+      const until = Number(cooldowns[buttonId]) || 0;
+      const button = document.getElementById(buttonId);
+      if (until <= Date.now()) {
+        storePinCooldown(buttonId, 0);
+      } else if (button) {
+        button.dataset.pinCooldownUntil = String(until);
+        runPinCooldown(button);
+      }
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", restorePinCooldowns, { once: true });
+  } else {
+    restorePinCooldowns();
+  }
+
+  function getPinRetryAfter(response, payload) {
+    const fromBody = Number(payload && payload.retry_after_seconds);
+    if (fromBody > 0) return fromBody;
+    const fromHeader = Number(response.headers.get("Retry-After"));
+    return fromHeader > 0 ? fromHeader : 0;
+  }
+
   async function requestAuthPin(email, purpose, button, messageSetter, apiBaseUrl) {
     const cleanEmail = (email || "").trim().toLowerCase();
     if (!cleanEmail) {
@@ -1046,6 +1349,9 @@
     }
     if (!isValidEmail(cleanEmail)) {
       throw new Error("Enter a valid email address first.");
+    }
+    if (isPinCoolingDown(button)) {
+      throw new Error("Please wait " + formatPinWaitWords(getPinCooldownRemaining(button)) + " before requesting another PIN.");
     }
     if (button) {
       button.disabled = true;
@@ -1057,15 +1363,24 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: cleanEmail, purpose })
       });
-      const payload = await response.json();
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 429) {
+        const retryAfter = getPinRetryAfter(response, payload);
+        startPinCooldown(button, retryAfter);
+        throw new Error((payload.detail || "Too many PIN requests.") +
+          (retryAfter ? " Try again in " + formatPinWaitWords(retryAfter) + "." : ""));
+      }
       if (!response.ok) {
         throw new Error(payload.detail || "Could not send PIN");
       }
+      const resendWait = Number(payload.resend_available_in_seconds) || 0;
+      startPinCooldown(button, resendWait);
       const devPin = payload.dev_pin ? " Dev PIN: " + payload.dev_pin : "";
-      messageSetter("PIN sent to " + cleanEmail + ". It expires in " + payload.expires_in_minutes + " minutes." + devPin);
+      const resendNote = resendWait ? " You can request another PIN in " + formatPinWaitWords(resendWait) + "." : "";
+      messageSetter("PIN sent to " + cleanEmail + ". It expires in " + payload.expires_in_minutes + " minutes." + resendNote + devPin);
       showToast("PIN sent successfully. Check your email.", "success");
     } finally {
-      if (button) {
+      if (button && !isPinCoolingDown(button)) {
         button.disabled = false;
         button.textContent = "Send PIN";
       }
@@ -1503,7 +1818,7 @@
       if (!sendEmailPinButton) return;
       const newEmail = newEmailInput?.value.trim().toLowerCase() || "";
       const currentEmail = String(currentUser?.email || "").toLowerCase();
-      sendEmailPinButton.disabled = emailPinSending || !currentUser || Boolean(currentUser.is_admin) ||
+      sendEmailPinButton.disabled = emailPinSending || isPinCoolingDown(sendEmailPinButton) || !currentUser || Boolean(currentUser.is_admin) ||
         !isValidEmail(newEmail) || !newEmailInput.checkValidity() || newEmail === currentEmail || !emailPasswordInput?.value.trim();
     }
 
@@ -1586,12 +1901,15 @@
       if (!file || !currentUser) return;
       avatarInput.value = "";
       if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return showMessage(avatarMessage, "Choose a JPG, PNG, or WebP image.", true);
-      if (file.size > 2 * 1024 * 1024) return showMessage(avatarMessage, "Choose an image 2 MB or smaller.", true);
+      if (file.size > 10 * 1024 * 1024) return showMessage(avatarMessage, "Choose an image 10 MB or smaller.", true);
       if (chooseAvatarButton) chooseAvatarButton.disabled = true;
-      showMessage(avatarMessage, "Uploading photo...");
       try {
+        showMessage(avatarMessage, "");
+        const croppedPhoto = await openAvatarCropper(file);
+        if (!croppedPhoto) return;
+        showMessage(avatarMessage, "Uploading photo...");
         const formData = new FormData();
-        formData.append("avatar", file);
+        formData.append("avatar", croppedPhoto, "avatar.jpg");
         const response = await fetch(apiBaseUrl + "/users/me/avatar", {
           method: "PUT",
           credentials: "include",
@@ -1631,9 +1949,10 @@
       updateEmailPinAvailability();
     });
     if (emailPasswordInput) emailPasswordInput.addEventListener("input", updateEmailPinAvailability);
+    if (sendEmailPinButton) sendEmailPinButton.addEventListener("pin-cooldown-end", updateEmailPinAvailability);
     updateEmailPinAvailability();
     if (sendEmailPinButton) sendEmailPinButton.addEventListener("click", async () => {
-      if (emailPinSending || !currentUser || currentUser.is_admin) return;
+      if (emailPinSending || isPinCoolingDown(sendEmailPinButton) || !currentUser || currentUser.is_admin) return;
       const newEmail = newEmailInput.value.trim().toLowerCase();
       const currentPassword = emailPasswordInput.value;
       if (!isValidEmail(newEmail) || !newEmailInput.checkValidity()) return showMessage(emailMessage, "Enter a valid new email address.", true);
@@ -1650,9 +1969,18 @@
           body: JSON.stringify({ new_email: newEmail, current_password: currentPassword })
         });
         const payload = await response.json().catch(() => ({}));
+        if (response.status === 429) {
+          const retryAfter = getPinRetryAfter(response, payload);
+          startPinCooldown(sendEmailPinButton, retryAfter);
+          throw new Error(responseError(payload, "Too many PIN requests.") +
+            (retryAfter ? " Try again in " + formatPinWaitWords(retryAfter) + "." : ""));
+        }
         if (!response.ok) throw new Error(responseError(payload, "Could not send the verification PIN."));
+        const resendWait = Number(payload.resend_available_in_seconds) || 0;
+        startPinCooldown(sendEmailPinButton, resendWait);
         const devPin = payload.dev_pin ? " Dev PIN: " + payload.dev_pin : "";
-        showMessage(emailMessage, "PIN sent to " + newEmail + ". Enter it below to confirm the change." + devPin);
+        const resendNote = resendWait ? " You can request another PIN in " + formatPinWaitWords(resendWait) + "." : "";
+        showMessage(emailMessage, "PIN sent to " + newEmail + ". Enter it below to confirm the change." + resendNote + devPin);
       } catch (error) {
         showMessage(emailMessage, error.message || "Could not send the verification PIN.", true);
       } finally {
@@ -1940,6 +2268,7 @@
     getToastMessage,
     showToast,
     requestAuthPin,
+    isPinCoolingDown,
     clearProfileSensitiveFields,
     populateProfileForm,
     setModalOpen,
