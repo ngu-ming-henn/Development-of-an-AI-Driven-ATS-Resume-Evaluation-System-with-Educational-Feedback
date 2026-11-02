@@ -38,7 +38,7 @@ class FakeCursor:
             raise app_module.DatabaseError("delete failed")
 
     def fetchone(self):
-        return {"id": 2} if self.user_exists else None
+        return {"id": 2, "email": "Student@Example.com"} if self.user_exists else None
 
     def close(self):
         self.closed = True
@@ -92,11 +92,12 @@ class UserDeletionPrivacyTests(unittest.TestCase):
         ]
         self.assertEqual(
             [query.split()[2] for query, _ in delete_queries],
-            ["download_history", "resume_analyses", "users"],
+            ["download_history", "resume_analyses", "email_verification_pins", "users"],
         )
         self.assertEqual(delete_queries[0][1], (2, 2))
         self.assertEqual(delete_queries[1][1], (2,))
-        self.assertEqual(delete_queries[2][1], (2,))
+        self.assertEqual(delete_queries[2][1], ("student@example.com", "email_change_2"))
+        self.assertEqual(delete_queries[3][1], (2,))
         self.assertTrue(connection.committed)
         self.assertFalse(connection.rolled_back)
         self.assertTrue(connection.fake_cursor.closed)
