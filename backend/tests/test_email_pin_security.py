@@ -7,7 +7,7 @@ import subprocess
 import sys
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -406,6 +406,8 @@ class DurableEmailPinRateLimitTests(unittest.TestCase):
             EMAIL_PIN_REQUEST_LIMIT_PER_IP=10,
             EMAIL_PIN_REQUEST_WINDOW_MINUTES=15,
             EMAIL_PIN_RATE_WINDOW_MINUTES=15,
+            EMAIL_PIN_RESEND_COOLDOWN_SECONDS=0,
+            EMAIL_PIN_ESCALATED_COOLDOWN_SECONDS=0,
         ):
             app_module.enforce_email_pin_rate_limits(
                 "request",
@@ -456,6 +458,8 @@ class DurableEmailPinRateLimitTests(unittest.TestCase):
             EMAIL_PIN_REQUEST_LIMIT_PER_IP=10,
             EMAIL_PIN_REQUEST_WINDOW_MINUTES=15,
             EMAIL_PIN_RATE_WINDOW_MINUTES=15,
+            EMAIL_PIN_RESEND_COOLDOWN_SECONDS=0,
+            EMAIL_PIN_ESCALATED_COOLDOWN_SECONDS=0,
         ):
             for index in range(10):
                 app_module.enforce_email_pin_rate_limits(
@@ -475,6 +479,79 @@ class DurableEmailPinRateLimitTests(unittest.TestCase):
 
         self.assertIn("requests", blocked.exception.detail.lower())
         self.assertEqual(len(self.event_store.events), 20)
+
+    def request_pin_at(self, moment: datetime, email: str = "cooldown@example.com") -> int:
+        with patch.object(app_module, "utc_now_naive", return_value=moment):
+            return app_module.enforce_email_pin_rate_limits(
+                "request", email, "198.51.100.90", purpose="register"
+            )
+
+    def test_resend_waits_sixty_seconds_then_escalates_after_three_requests(self):
+        start = datetime(2026, 9, 10, 12, 0, 0)
+        with patch.multiple(
+            app_module,
+            EMAIL_PIN_REQUEST_LIMIT_PER_EMAIL=6,
+            EMAIL_PIN_REQUEST_LIMIT_PER_IP=100,
+            EMAIL_PIN_REQUEST_WINDOW_MINUTES=60,
+            EMAIL_PIN_RESEND_COOLDOWN_SECONDS=60,
+            EMAIL_PIN_COOLDOWN_ESCALATE_AFTER=3,
+            EMAIL_PIN_ESCALATED_COOLDOWN_SECONDS=300,
+            EMAIL_PIN_MAX_COOLDOWN_SECONDS=1800,
+        ):
+            self.assertEqual(self.request_pin_at(start), 60)
+
+            with self.assertRaises(app_module.EmailPinRateLimitError) as blocked:
+                self.request_pin_at(start + timedelta(seconds=20))
+            self.assertEqual(blocked.exception.retry_after_seconds, 40)
+            self.assertIn("recently", blocked.exception.detail.lower())
+
+            self.assertEqual(self.request_pin_at(start + timedelta(seconds=60)), 60)
+            self.assertEqual(self.request_pin_at(start + timedelta(seconds=120)), 300)
+
+            with self.assertRaises(app_module.EmailPinRateLimitError) as escalated:
+                self.request_pin_at(start + timedelta(seconds=240))
+            self.assertEqual(escalated.exception.retry_after_seconds, 180)
+
+            self.assertEqual(self.request_pin_at(start + timedelta(seconds=420)), 600)
+            with self.assertRaises(app_module.EmailPinRateLimitError):
+                self.request_pin_at(start + timedelta(seconds=900))
+            self.assertEqual(self.request_pin_at(start + timedelta(seconds=1020)), 1200)
+
+            # Another email address has its own cooldown.
+            self.assertEqual(
+                self.request_pin_at(start + timedelta(seconds=20), "other@example.com"),
+                60,
+            )
+
+    def test_cooldown_resets_after_the_request_window(self):
+        start = datetime(2026, 9, 10, 12, 0, 0)
+        with patch.multiple(
+            app_module,
+            EMAIL_PIN_REQUEST_LIMIT_PER_EMAIL=6,
+            EMAIL_PIN_REQUEST_LIMIT_PER_IP=100,
+            EMAIL_PIN_REQUEST_WINDOW_MINUTES=60,
+            EMAIL_PIN_RESEND_COOLDOWN_SECONDS=60,
+            EMAIL_PIN_COOLDOWN_ESCALATE_AFTER=3,
+            EMAIL_PIN_ESCALATED_COOLDOWN_SECONDS=300,
+            EMAIL_PIN_MAX_COOLDOWN_SECONDS=1800,
+        ):
+            for offset in (0, 60, 120):
+                self.request_pin_at(start + timedelta(seconds=offset))
+            self.assertEqual(self.request_pin_at(start + timedelta(minutes=125)), 60)
+
+    def test_last_request_in_window_reports_wait_until_window_reopens(self):
+        start = datetime(2026, 9, 10, 12, 0, 0)
+        with patch.multiple(
+            app_module,
+            EMAIL_PIN_REQUEST_LIMIT_PER_EMAIL=2,
+            EMAIL_PIN_REQUEST_LIMIT_PER_IP=100,
+            EMAIL_PIN_REQUEST_WINDOW_MINUTES=60,
+            EMAIL_PIN_RESEND_COOLDOWN_SECONDS=60,
+            EMAIL_PIN_COOLDOWN_ESCALATE_AFTER=3,
+        ):
+            self.request_pin_at(start)
+            next_wait = self.request_pin_at(start + timedelta(seconds=60))
+        self.assertEqual(next_wait, 60 * 60 - 60 + 1)
 
     def test_twenty_first_verification_attempt_from_same_ip_is_blocked(self):
         with patch.multiple(

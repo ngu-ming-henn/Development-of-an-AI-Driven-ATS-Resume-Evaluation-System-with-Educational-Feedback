@@ -994,7 +994,7 @@ Download PDF
             </div>
           </div>
           <input class="account-file-input" id="profileAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="profileAvatarHint" tabindex="-1">
-          <p class="account-field-hint" id="profileAvatarHint">JPG, PNG, or WebP · up to 2 MB.</p>
+          <p class="account-field-hint" id="profileAvatarHint">JPG, PNG, or WebP · up to 10 MB. You can crop it to a square.</p>
           <p class="account-inline-message" id="profileAvatarMessage" role="status" aria-live="polite" hidden></p>
           <form id="profileNameForm" class="account-form">
             <div class="account-info-grid">
@@ -1295,10 +1295,12 @@ Download PDF
     }
 
     function refreshPinButtonStates() {
-        if (sendRegisterPinBtn) sendRegisterPinBtn.disabled = sendRegisterPinBtn.dataset.pinBusy === "true" || !isRegisterPinReady();
-        if (sendResetPinBtn) sendResetPinBtn.disabled = sendResetPinBtn.dataset.pinBusy === "true" || !isResetPinReady();
-        if (sendProfilePinBtn) sendProfilePinBtn.disabled = sendProfilePinBtn.dataset.pinBusy === "true" || !isProfilePinReady();
+        if (sendRegisterPinBtn) sendRegisterPinBtn.disabled = sendRegisterPinBtn.dataset.pinBusy === "true" || window.CareerNavigatorCommon.isPinCoolingDown(sendRegisterPinBtn) || !isRegisterPinReady();
+        if (sendResetPinBtn) sendResetPinBtn.disabled = sendResetPinBtn.dataset.pinBusy === "true" || window.CareerNavigatorCommon.isPinCoolingDown(sendResetPinBtn) || !isResetPinReady();
+        if (sendProfilePinBtn) sendProfilePinBtn.disabled = sendProfilePinBtn.dataset.pinBusy === "true" || window.CareerNavigatorCommon.isPinCoolingDown(sendProfilePinBtn) || !isProfilePinReady();
     }
+    [sendRegisterPinBtn, sendResetPinBtn, sendProfilePinBtn].filter(Boolean)
+        .forEach((button) => button.addEventListener("pin-cooldown-end", refreshPinButtonStates));
 
     [registerNameInput, registerEmailInput, registerPasswordInput, resetEmailInput, resetPasswordInput, profilePasswordInput]
         .filter(Boolean).forEach((input) => {
