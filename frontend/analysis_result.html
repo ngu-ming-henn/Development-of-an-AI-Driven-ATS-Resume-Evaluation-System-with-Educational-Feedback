@@ -201,7 +201,11 @@
         .report-quick-list p { margin-top: .4rem; color: var(--studio-muted); font-size: .84rem; line-height: 1.55; }
         .report-tabs { display: flex; gap: .45rem; overflow-x: auto; margin: 1.3rem 0 2.5rem; padding: .35rem; border: 1px solid var(--studio-border); border-radius: 12px; background: white; scrollbar-width: thin; }
         .report-tabs a { flex: 0 0 auto; padding: .6rem .9rem; border-radius: 8px; color: var(--studio-muted); font-size: .86rem; font-weight: 700; white-space: nowrap; text-decoration: none; }
-        .report-tabs a:hover, .report-tabs a:focus-visible { background: #eaf4f6; color: var(--studio-teal-dark); }
+        .report-tabs a:focus-visible { background: #eaf4f6; color: var(--studio-teal-dark); }
+        /* Touch screens keep :hover on the last tapped tab, so only use it with a real pointer. */
+        @media (hover: hover) {
+            .report-tabs a:hover { background: #eaf4f6; color: var(--studio-teal-dark); }
+        }
         .report-tabs a[aria-current="location"], .report-tabs a[aria-current="location"]:hover { background: #e5f2ff; color: #0065c5; box-shadow: inset 0 -2px 0 #0877de; }
         .report-section { scroll-margin-top: 9.5rem; }
         .report-section-title { margin-bottom: 1rem; font-size: clamp(1.5rem,2.8vw,2rem); font-weight: 800; letter-spacing: -.035em; }
@@ -446,11 +450,11 @@
             .career-container { width: min(100% - 32px, 1200px); }
             .career-footer-inner { grid-template-columns: 1fr; }
             .career-footer-identity { grid-column: auto; }
-            .report-tabs { position: static; display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: .25rem; overflow: visible; margin: 1.4rem 0 2rem; padding: .3rem; }
-            .report-tabs a { display: flex; min-width: 0; min-height: 2.75rem; align-items: center; justify-content: center; padding: .45rem .2rem; font-size: .78rem; line-height: 1.2; text-align: center; white-space: normal; }
-            .report-tabs a:nth-child(-n+3) { grid-column: span 2; }
-            .report-tabs a:nth-child(n+4) { grid-column: span 3; }
-            .report-section { scroll-margin-top: 5.25rem; margin-bottom: 2.75rem; }
+            /* One sticky row under the header that scrolls sideways; the active tab is kept in view. */
+            .report-tabs { top: var(--report-nav-height, 5.5rem); gap: .25rem; overflow-x: auto; overscroll-behavior-x: contain; margin: 1.4rem 0 2rem; padding: .3rem; background: rgba(255,255,255,.97); box-shadow: 0 8px 18px rgba(22,35,56,.06); scrollbar-width: none; }
+            .report-tabs::-webkit-scrollbar { display: none; }
+            .report-tabs a { display: flex; min-height: 2.5rem; align-items: center; padding: .45rem .8rem; font-size: .8rem; line-height: 1.2; }
+            .report-section { scroll-margin-top: calc(var(--report-nav-height, 5.5rem) + 4rem); margin-bottom: 2.75rem; }
             .report-section-title { margin-bottom: 1.1rem; font-size: clamp(1.55rem,5vw,2rem); }
         }
         @media (max-width: 480px) {
@@ -3702,7 +3706,20 @@ Download PDF
                 if (item === link) item.setAttribute("aria-current", "location");
                 else item.removeAttribute("aria-current");
             });
+            // On phones the tabs scroll sideways; keep the active one visible.
+            if (tabs.scrollWidth > tabs.clientWidth) {
+                const left = link.offsetLeft - (tabs.clientWidth - link.offsetWidth) / 2;
+                tabs.scrollTo({ left: Math.max(0, left), behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+            }
         };
+
+        // The sticky tabs sit just below the header, whose height changes with screen width.
+        const syncNavHeight = () => {
+            if (!navigation) return;
+            document.documentElement.style.setProperty("--report-nav-height", navigation.offsetHeight + "px");
+        };
+        syncNavHeight();
+        if (navigation && "ResizeObserver" in window) new ResizeObserver(syncNavHeight).observe(navigation);
 
         const updateActiveSection = () => {
             const navBottom = navigation ? navigation.getBoundingClientRect().bottom : 0;
