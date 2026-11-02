@@ -87,8 +87,73 @@ class SelfServiceProfileTests(unittest.TestCase):
             self.client.get("/users/me/avatar"),
             self.client.put("/users/me/avatar", data={"avatar": (io.BytesIO(b"image"), "photo.png")}),
             self.client.delete("/users/me/avatar"),
+            self.client.delete("/users/me", json={"confirm_email": "ming@example.com", "current_password": "Secret!123"}),
         )
         self.assertTrue(all(response.status_code == 401 for response in requests))
+
+    def test_account_deletion_removes_all_user_data_and_signs_out(self):
+        connection = FakeConnection()
+        with self.auth_user(), patch.object(app_module, "enforce_login_rate_limits"), patch.object(
+            app_module, "verify_current_user_password", return_value=True
+        ) as verify, patch.object(app_module, "get_db_connection", return_value=connection), patch.object(
+            app_module, "clear_login_session"
+        ) as clear_session:
+            response = self.client.delete(
+                "/users/me",
+                json={"confirm_email": " Ming@Example.com ", "current_password": "Secret!123"},
+            )
+        self.assertEqual(response.status_code, 200, response.get_json())
+        verify.assert_called_once_with(TEST_USER["id"], "Secret!123")
+        clear_session.assert_called_once()
+        self.assertTrue(connection.committed)
+        self.assertTrue(connection.closed)
+        queries = connection.cursor_instance.queries
+        self.assertTrue(queries[0][0].startswith("delete from download_history"))
+        self.assertEqual(queries[0][1], (23, 23))
+        self.assertEqual(queries[1], ("delete from resume_analyses where user_id = %s", (23,)))
+        self.assertEqual(queries[2][1], ("ming@example.com", "email_change_23"))
+        self.assertEqual(queries[-1], ("delete from users where id = %s", (23,)))
+
+    def test_account_deletion_requires_matching_email_and_password(self):
+        payloads = (
+            {"confirm_email": "someone@example.com", "current_password": "Secret!123"},
+            {"confirm_email": "ming@example.com", "current_password": ""},
+            {"confirm_email": "", "current_password": "Secret!123"},
+        )
+        for payload in payloads:
+            with self.auth_user(), patch.object(app_module, "get_db_connection") as database, patch.object(
+                app_module, "verify_current_user_password"
+            ) as verify:
+                response = self.client.delete("/users/me", json=payload)
+            self.assertEqual(response.status_code, 400, payload)
+            verify.assert_not_called()
+            database.assert_not_called()
+
+        with self.auth_user(), patch.object(app_module, "enforce_login_rate_limits"), patch.object(
+            app_module, "verify_current_user_password", return_value=False
+        ), patch.object(app_module, "get_db_connection") as database, patch.object(
+            app_module, "clear_login_session"
+        ) as clear_session:
+            wrong = self.client.delete(
+                "/users/me",
+                json={"confirm_email": "ming@example.com", "current_password": "wrong"},
+            )
+        self.assertEqual(wrong.status_code, 401)
+        database.assert_not_called()
+        clear_session.assert_not_called()
+
+    def test_admin_account_cannot_delete_itself(self):
+        admin = {**TEST_USER, "is_admin": 1}
+        with self.auth_user(admin), patch.object(app_module, "verify_current_user_password") as verify, patch.object(
+            app_module, "get_db_connection"
+        ) as database:
+            response = self.client.delete(
+                "/users/me",
+                json={"confirm_email": "ming@example.com", "current_password": "Secret!123"},
+            )
+        self.assertEqual(response.status_code, 403)
+        verify.assert_not_called()
+        database.assert_not_called()
 
     def test_name_update_is_bounded_and_only_updates_current_user(self):
         updated = {**TEST_USER, "full_name": "Ming Updated"}

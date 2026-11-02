@@ -433,3 +433,83 @@ input[type="password"]::-ms-clear { display: none !important; }
 .avatar-cropper-zoom { display: flex; align-items: center; gap: 12px; margin-top: 16px; font-size: 12px; font-weight: 700; color: #334155; }
 .avatar-cropper-zoom input { flex: 1; accent-color: #0068ca; }
 .avatar-cropper-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+/* Delete account: danger card in Settings and the confirmation dialog. */
+.account-danger-card { border-color: #f1c9cf; background: #fff8f9; }
+.account-danger-card h3 { color: #9e2433; }
+.account-danger {
+  display: inline-flex;
+  min-height: 43px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 17px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: #c62f40;
+  color: #fff;
+  font: 800 13px/1.3 Inter, sans-serif;
+  cursor: pointer;
+  transition: background-color .18s ease, transform .18s ease;
+}
+.account-danger:hover:not(:disabled) { background: #a92433; transform: translateY(-1px); }
+.account-danger:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.account-delete-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow-y: auto;
+  background: rgba(15, 23, 42, .6);
+}
+.account-delete-dialog {
+  width: min(430px, 100%);
+  padding: 24px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, .3);
+  color: #182d45;
+  animation: account-workspace-enter .22s ease-out;
+}
+.account-delete-icon { display: grid; width: 46px; height: 46px; place-items: center; border-radius: 14px; background: #fde8eb; color: #c62f40; }
+.account-delete-icon svg { width: 24px; height: 24px; }
+.account-delete-dialog h3 { margin: 14px 0 8px; font: 800 20px/1.3 Manrope, Inter, sans-serif; }
+.account-delete-dialog p, .account-delete-dialog li { margin: 0; color: #4b5d73; font-size: 13px; line-height: 1.55; }
+.account-delete-dialog ul { margin: 6px 0 10px; padding-left: 20px; list-style: disc; }
+.account-delete-dialog .account-delete-final { color: #9e2433; font-weight: 700; }
+.account-delete-timer { margin: 16px 0 14px; }
+.account-delete-timer-bar { height: 6px; overflow: hidden; border-radius: 999px; background: #f6d7dc; }
+.account-delete-timer-bar span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: #c62f40;
+  transform-origin: left center;
+  animation: account-delete-wait var(--delete-wait, 5s) linear forwards;
+}
+.account-delete-timer.is-done .account-delete-timer-bar { background: #d7f0e2; }
+.account-delete-timer.is-done .account-delete-timer-bar span { background: #1f8a55; animation: none; transform: scaleX(1); }
+.account-delete-timer p { margin-top: 7px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.account-delete-timer.is-done p { color: #1f7a4c; }
+.account-delete-confirm { display: grid; gap: 7px; margin: 0; padding: 0; border: 0; transition: opacity .2s ease; }
+.account-delete-confirm:disabled { opacity: .45; }
+.account-delete-confirm label { color: #24384f; font-size: 12px; font-weight: 700; }
+.account-delete-confirm label strong { color: #9e2433; overflow-wrap: anywhere; }
+.account-delete-confirm input { width: 100%; min-height: 42px; margin-bottom: 6px; padding: 9px 12px; border: 1px solid #cfdcea; border-radius: 10px; background: #fff; color: #182d45; font-size: 14px; }
+.account-delete-confirm input:focus { border-color: #c62f40; outline: 3px solid rgba(198, 47, 64, .15); }
+.account-delete-confirm:disabled input { background: #f2f5f8; cursor: not-allowed; }
+.account-delete-dialog .account-inline-message { margin-top: 8px; }
+.account-delete-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+@keyframes account-delete-wait { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (max-width: 480px) {
+  .account-delete-dialog { padding: 20px 18px; }
+  .account-delete-actions { flex-direction: column-reverse; }
+  .account-delete-actions button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .account-delete-dialog { animation: none; }
+  .account-delete-timer-bar span { animation: none; }
+  .account-danger { transition: none; }
+}

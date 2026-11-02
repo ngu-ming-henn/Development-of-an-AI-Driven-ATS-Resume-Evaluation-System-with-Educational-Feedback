@@ -382,6 +382,22 @@
     "Build an improved draft": "Bina draf yang lebih baik",
     "Built for students learning to improve a resume": "Dibina untuk pelajar yang ingin menambah baik resume",
     "Cancel": "Batal",
+    "Delete account": "Padam akaun",
+    "Permanently delete your account, profile photo, saved reports, uploaded resume files, and download history. This cannot be undone.": "Padam akaun, foto profil, laporan tersimpan, fail resume yang dimuat naik dan sejarah muat turun anda secara kekal. Tindakan ini tidak boleh dibatalkan.",
+    "Delete your account?": "Padam akaun anda?",
+    "This permanently deletes:": "Tindakan ini memadam secara kekal:",
+    "Your profile, name, email, and photo": "Profil, nama, e-mel dan foto anda",
+    "All saved reports and uploaded resume files": "Semua laporan tersimpan dan fail resume yang dimuat naik",
+    "Your download history": "Sejarah muat turun anda",
+    "You will be signed out and the account cannot be recovered.": "Anda akan dilog keluar dan akaun tidak boleh dipulihkan.",
+    "You can now confirm below.": "Anda kini boleh mengesahkan di bawah.",
+    "To confirm, type your account email:": "Untuk mengesahkan, taip e-mel akaun anda:",
+    "Delete my account": "Padam akaun saya",
+    "Deleting...": "Memadam...",
+    "Your account and all of its data have been deleted.": "Akaun anda dan semua datanya telah dipadam.",
+    "The email you typed does not match your account.": "E-mel yang anda taip tidak sepadan dengan akaun anda.",
+    "Current password is incorrect.": "Kata laluan semasa tidak betul.",
+    "Could not delete your account.": "Akaun anda tidak dapat dipadam.",
     "Change password": "Tukar kata laluan",
     "Check your resume": "Semak resume anda",
     "Check the file used for this analysis, build an updated draft, or save the full feedback report.": "Semak fail yang digunakan untuk analisis ini, bina draf terkini atau simpan laporan penuh.",
@@ -831,6 +847,7 @@
   };
   const dynamicTranslations = [
     [/^Resend in ([0-9:]+s?)$/, (match) => `Hantar semula dalam ${match[1]}`],
+    [/^Read the warning\. You can confirm in ([0-9]+)s\.$/, (match) => `Baca amaran ini. Anda boleh mengesahkan dalam ${match[1]}s.`],
     [/^Open account for (.+)$/, (match) => `Buka akaun untuk ${match[1]}`],
     [/^Open profile for (.+)$/, (match) => `Buka profil untuk ${match[1]}`],
     [/^Signed in as (.+)\. You can now check your resume\.$/, (match) => `Log masuk sebagai ${match[1]}. Anda kini boleh menyemak resume.`],
@@ -1045,6 +1062,30 @@
     }, 3800);
   }
 
+  // Escape and Tab handling for a dialog opened on top of the account dialog.
+  // Stops the events here so the account dialog behind it stays open.
+  function bindStackedDialogKeys(dialog, onEscape) {
+    dialog.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        onEscape();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      event.stopPropagation();
+      const focusable = Array.from(dialog.querySelectorAll('button, input, [tabindex="0"]'))
+        .filter((item) => !item.matches(":disabled") && item.getClientRects().length);
+      if (!focusable.length) return;
+      const index = focusable.indexOf(document.activeElement);
+      const next = event.shiftKey
+        ? focusable[(index <= 0 ? focusable.length : index) - 1]
+        : focusable[(index + 1) % focusable.length];
+      event.preventDefault();
+      next.focus();
+    });
+  }
+
   const AVATAR_CROP_OUTPUT_EDGE = 512;
 
   function loadImageFile(file) {
@@ -1194,23 +1235,7 @@
         if (previousFocus && typeof previousFocus.focus === "function") previousFocus.focus({ preventScroll: true });
         resolve(result);
       };
-      backdrop.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          event.stopPropagation();
-          finish(null);
-        } else if (event.key === "Tab") {
-          // Keep focus in the cropper without closing the account dialog behind it.
-          event.stopPropagation();
-          const focusable = [stage, zoomInput, cancelButton, saveButton];
-          const index = focusable.indexOf(document.activeElement);
-          const next = event.shiftKey
-            ? focusable[(index <= 0 ? focusable.length : index) - 1]
-            : focusable[(index + 1) % focusable.length];
-          event.preventDefault();
-          next.focus();
-        }
-      });
+      bindStackedDialogKeys(backdrop, () => finish(null));
       backdrop.addEventListener("click", (event) => {
         if (event.target === backdrop) finish(null);
       });
@@ -1329,10 +1354,29 @@
     });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", restorePinCooldowns, { once: true });
-  } else {
+  // A message saved before a redirect, shown once on the next page.
+  const FLASH_TOAST_STORAGE_KEY = "careerNavigatorFlashToast";
+
+  function showFlashToast() {
+    try {
+      const message = sessionStorage.getItem(FLASH_TOAST_STORAGE_KEY);
+      if (!message) return;
+      sessionStorage.removeItem(FLASH_TOAST_STORAGE_KEY);
+      showToast(message, "success");
+    } catch (error) {
+      // Nothing to show when storage is unavailable.
+    }
+  }
+
+  function initializeStoredUiState() {
     restorePinCooldowns();
+    showFlashToast();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initializeStoredUiState, { once: true });
+  } else {
+    initializeStoredUiState();
   }
 
   function getPinRetryAfter(response, payload) {
@@ -1744,6 +1788,8 @@
     const emailChangeCard = modal && modal.querySelector("#profileEmailChangeCard");
     const adminEmailNote = modal && modal.querySelector("#profileAdminEmailNote");
     const emailInfoNote = modal && modal.querySelector("#profileEmailInfoNote");
+    const deleteAccountCard = modal && modal.querySelector("#profileDeleteAccountCard");
+    const openDeleteAccountButton = modal && modal.querySelector("#openDeleteAccountBtn");
     let hasAccount = false;
     let currentView = "info";
     let currentUser = null;
@@ -1835,6 +1881,155 @@
       if (currentView === "history" && typeof options.onHistory === "function") options.onHistory();
     }
 
+    const DELETE_ACCOUNT_WAIT_SECONDS = 5;
+
+    // Remove everything this browser kept for the deleted account.
+    function clearDeletedAccountStorage(email) {
+      try {
+        localStorage.removeItem("analysisHistory_" + String(email || "").toLowerCase());
+        ["analysisResult", "analysisOwner", "pipelineStatus", "uploadedResumeName", "selectedJobRole", "selectedJobDescription", "analysisStartedAt"]
+          .forEach((key) => localStorage.removeItem(key));
+        ["resumeVisualPreviewDataUrl", "resumeVisualPreviewType", "resumeVisualPreviewName", "resumeVisualPreviewResultKey", "resumeRenderedPreviewDataUrl", "resumeRenderedPreviewName", "resumeRenderedPreviewResultKey"]
+          .forEach((key) => {
+            localStorage.removeItem(key);
+            sessionStorage.removeItem(key);
+          });
+        sessionStorage.removeItem(PIN_COOLDOWN_STORAGE_KEY);
+      } catch (error) {
+        // Storage can be unavailable in private browsing; the server data is already gone.
+      }
+    }
+
+    function openDeleteAccountDialog() {
+      if (!currentUser || currentUser.is_admin) return;
+      const accountEmail = String(currentUser.email || "").toLowerCase();
+      const previousFocus = document.activeElement;
+      const dialog = document.createElement("div");
+      dialog.className = "account-delete-backdrop";
+      dialog.setAttribute("role", "alertdialog");
+      dialog.setAttribute("aria-modal", "true");
+      dialog.setAttribute("aria-hidden", "false");
+      dialog.setAttribute("aria-labelledby", "deleteAccountTitle");
+      dialog.setAttribute("aria-describedby", "deleteAccountWarning");
+      dialog.innerHTML = `<form class="account-delete-dialog" novalidate>
+          <div class="account-delete-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 10v4.5M12 17.5h.01"/></svg></div>
+          <h3 id="deleteAccountTitle">Delete your account?</h3>
+          <div id="deleteAccountWarning">
+            <p>This permanently deletes:</p>
+            <ul>
+              <li>Your profile, name, email, and photo</li>
+              <li>All saved reports and uploaded resume files</li>
+              <li>Your download history</li>
+            </ul>
+            <p class="account-delete-final">You will be signed out and the account cannot be recovered.</p>
+          </div>
+          <div class="account-delete-timer" role="status" aria-live="polite">
+            <div class="account-delete-timer-bar"><span></span></div>
+            <p data-delete-timer-text></p>
+          </div>
+          <fieldset class="account-delete-confirm" disabled>
+            <label for="deleteAccountEmailInput">To confirm, type your account email: <strong data-no-translate></strong></label>
+            <input id="deleteAccountEmailInput" type="email" autocomplete="off" autocapitalize="off" spellcheck="false">
+            <label for="deleteAccountPasswordInput">Current password</label>
+            <input id="deleteAccountPasswordInput" type="password" autocomplete="current-password">
+          </fieldset>
+          <p class="account-inline-message is-error" data-delete-message role="alert" hidden></p>
+          <div class="account-delete-actions">
+            <button class="account-secondary" type="button" data-delete-cancel>Cancel</button>
+            <button class="account-danger" type="submit" data-delete-submit disabled>Delete my account</button>
+          </div>
+        </form>`;
+      const form = dialog.querySelector("form");
+      const timerText = dialog.querySelector("[data-delete-timer-text]");
+      const timer = dialog.querySelector(".account-delete-timer");
+      const confirmFields = dialog.querySelector(".account-delete-confirm");
+      const emailInput = dialog.querySelector("#deleteAccountEmailInput");
+      const passwordInput = dialog.querySelector("#deleteAccountPasswordInput");
+      const message = dialog.querySelector("[data-delete-message]");
+      const cancelButton = dialog.querySelector("[data-delete-cancel]");
+      const submitButton = dialog.querySelector("[data-delete-submit]");
+      dialog.querySelector("label strong").textContent = accountEmail;
+      dialog.style.setProperty("--delete-wait", DELETE_ACCOUNT_WAIT_SECONDS + "s");
+      document.body.appendChild(dialog);
+
+      let deleting = false;
+      let ready = false;
+      let remaining = DELETE_ACCOUNT_WAIT_SECONDS;
+      const renderTimer = () => {
+        timerText.textContent = "Read the warning. You can confirm in " + remaining + "s.";
+      };
+      renderTimer();
+      const countdown = window.setInterval(() => {
+        remaining -= 1;
+        if (remaining > 0) return renderTimer();
+        window.clearInterval(countdown);
+        ready = true;
+        timer.classList.add("is-done");
+        timerText.textContent = "You can now confirm below.";
+        confirmFields.disabled = false;
+        emailInput.focus({ preventScroll: true });
+      }, 1000);
+
+      const updateSubmit = () => {
+        submitButton.disabled = deleting || !ready
+          || emailInput.value.trim().toLowerCase() !== accountEmail || !passwordInput.value;
+      };
+      emailInput.addEventListener("input", updateSubmit);
+      passwordInput.addEventListener("input", updateSubmit);
+
+      const close = () => {
+        if (deleting) return;
+        window.clearInterval(countdown);
+        dialog.remove();
+        if (previousFocus && typeof previousFocus.focus === "function") previousFocus.focus({ preventScroll: true });
+      };
+      bindStackedDialogKeys(dialog, close);
+      cancelButton.addEventListener("click", close);
+      dialog.addEventListener("click", (event) => {
+        if (event.target === dialog) close();
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        updateSubmit();
+        if (submitButton.disabled) return;
+        deleting = true;
+        submitButton.disabled = true;
+        cancelButton.disabled = true;
+        submitButton.textContent = "Deleting...";
+        showMessage(message, "");
+        try {
+          const response = await fetch(apiBaseUrl + "/users/me", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({ confirm_email: emailInput.value.trim(), current_password: passwordInput.value })
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(responseError(payload, "Could not delete your account."));
+          clearDeletedAccountStorage(accountEmail);
+          try {
+            sessionStorage.setItem(FLASH_TOAST_STORAGE_KEY, "Your account and all of its data have been deleted.");
+          } catch (error) {
+            // The redirect still shows the signed-out home page.
+          }
+          setAuthUser(null);
+          window.location.replace("home_page.html");
+        } catch (error) {
+          deleting = false;
+          cancelButton.disabled = false;
+          submitButton.textContent = "Delete my account";
+          passwordInput.value = "";
+          updateSubmit();
+          showMessage(message, error.message || "Could not delete your account.", true);
+          passwordInput.focus({ preventScroll: true });
+        }
+      });
+      cancelButton.focus({ preventScroll: true });
+    }
+
+    if (openDeleteAccountButton) openDeleteAccountButton.addEventListener("click", openDeleteAccountDialog);
+
     function setUser(user) {
       hasAccount = Boolean(user);
       currentUser = user || null;
@@ -1851,6 +2046,7 @@
         modal.querySelectorAll("[data-account-guest-only]").forEach((element) => { element.hidden = hasAccount; });
         const isAdmin = Boolean(user && user.is_admin);
         if (emailChangeCard) emailChangeCard.hidden = isAdmin;
+        if (deleteAccountCard) deleteAccountCard.hidden = isAdmin;
         if (adminEmailNote) adminEmailNote.hidden = !isAdmin;
         if (emailInfoNote) emailInfoNote.textContent = isAdmin ? "Administrator email is managed separately." : "Email changes need verification.";
         goButtons.forEach((button) => { if (button.dataset.accountGo === "settings") button.hidden = isAdmin; });

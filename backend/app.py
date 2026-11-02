@@ -9434,6 +9434,85 @@ def update_admin_user(user_id: int):
     return jsonify({"message": "User updated", "user": serialize_user(updated_user)})
 
 
+def delete_user_records(cursor: Any, user_id: int, email: str) -> None:
+    """Delete an account and everything stored for it inside the caller's transaction.
+
+    Avatars and original resume files are removed by their ON DELETE CASCADE
+    foreign keys; reports and download history only set user_id to NULL, so
+    they are deleted explicitly here.
+    """
+    cursor.execute(
+        """
+        DELETE FROM download_history
+        WHERE user_id = %s
+           OR analysis_id IN (
+                SELECT id FROM resume_analyses WHERE user_id = %s
+           )
+        """,
+        (user_id, user_id),
+    )
+    cursor.execute("DELETE FROM resume_analyses WHERE user_id = %s", (user_id,))
+    cursor.execute(
+        "DELETE FROM email_verification_pins WHERE email = %s OR purpose = %s",
+        (normalize_email(email), f"email_change_{int(user_id)}"),
+    )
+    cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+
+
+@app.delete("/users/me")
+def delete_own_account():
+    """Permanently delete the signed-in account and all of its saved data."""
+    current_user, auth_error = authenticate_json_request()
+    if auth_error:
+        return auth_error
+
+    current_email = normalize_email(str(current_user.get("email") or ""))
+    if is_user_admin(current_user) or is_configured_admin_email(current_email):
+        return jsonify({"detail": "Administrator accounts cannot be deleted here."}), 403
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"detail": "Type your email and current password to delete your account."}), 400
+    confirm_email = normalize_email(str(payload.get("confirm_email") or ""))
+    current_password = payload.get("current_password")
+    if not confirm_email or confirm_email != current_email:
+        return jsonify({"detail": "The email you typed does not match your account."}), 400
+    if not isinstance(current_password, str) or not current_password or len(current_password) > 1024:
+        return jsonify({"detail": "Current password is required."}), 400
+
+    user_id = int(current_user["id"])
+    try:
+        enforce_login_rate_limits(current_email, get_request_client_ip())
+        if not verify_current_user_password(user_id, current_password):
+            return jsonify({"detail": "Current password is incorrect."}), 401
+    except RequestRateLimitError as error:
+        return build_rate_limit_response(error)
+    except DatabaseErrors:
+        return jsonify({"detail": "Database error while deleting your account."}), 500
+
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+        delete_user_records(cursor, user_id, current_email)
+        connection.commit()
+    except DatabaseErrors:
+        if connection is not None:
+            connection.rollback()
+        return jsonify({"detail": "Database error while deleting your account."}), 500
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
+
+    clear_login_session()
+    response = jsonify({"message": "Your account and all of its data have been deleted."})
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @app.delete("/admin/users/<int:user_id>")
 def delete_admin_user(user_id: int):
     admin_error = require_admin_json_response()
@@ -9447,21 +9526,11 @@ def delete_admin_user(user_id: int):
     try:
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
-        cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
-        if not cursor.fetchone():
+        cursor.execute("SELECT id, email FROM users WHERE id = %s", (user_id,))
+        user_row = cursor.fetchone()
+        if not user_row:
             return jsonify({"detail": "User not found"}), 404
-        cursor.execute(
-            """
-            DELETE FROM download_history
-            WHERE user_id = %s
-               OR analysis_id IN (
-                    SELECT id FROM resume_analyses WHERE user_id = %s
-               )
-            """,
-            (user_id, user_id),
-        )
-        cursor.execute("DELETE FROM resume_analyses WHERE user_id = %s", (user_id,))
-        cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+        delete_user_records(cursor, user_id, str(user_row.get("email") or ""))
         connection.commit()
     except DatabaseErrors:
         if connection is not None:
