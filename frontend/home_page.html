@@ -1447,6 +1447,10 @@
   if (resetEmailInput && resetPinInput) {
     resetEmailInput.addEventListener("input", () => { resetPinInput.value = ""; });
   }
+  const { attachPinStatus, clearPinStatus } = window.CareerNavigatorCommon;
+  const showPinCheckResult = (valid, detail) => setAuthMessage(detail, !valid);
+  attachPinStatus(registerPinInput, { emailInput: registerEmailInput, sendButton: sendRegisterPinBtn, purpose: "register", apiBaseUrl: API_BASE_URL, onResult: showPinCheckResult });
+  attachPinStatus(resetPinInput, { emailInput: resetEmailInput, sendButton: sendResetPinBtn, purpose: "password_reset", apiBaseUrl: API_BASE_URL, onResult: showPinCheckResult });
   window.addEventListener("pageshow", refreshPinButtonStates);
   window.setTimeout(refreshPinButtonStates, 300);
   refreshPinButtonStates();
@@ -1468,6 +1472,7 @@
         input.value = "";
       }
     });
+    [registerPinInput, resetPinInput].forEach(clearPinStatus);
     if (keepLoginEmail && loginEmailInput) {
       loginEmailInput.value = keepLoginEmail;
     }
@@ -1660,9 +1665,11 @@
     if (authModalDescription) authModalDescription.textContent = copy.description;
     if (!isRegister && registerPinInput) {
       registerPinInput.value = "";
+      clearPinStatus(registerPinInput);
     }
     if (!isReset) {
       if (resetPinInput) resetPinInput.value = "";
+      clearPinStatus(resetPinInput);
       if (resetPasswordInput) {
         resetPasswordInput.value = "";
         resetPasswordInput.dispatchEvent(new Event("input", { bubbles: true }));

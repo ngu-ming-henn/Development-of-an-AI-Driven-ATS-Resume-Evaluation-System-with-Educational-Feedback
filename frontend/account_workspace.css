@@ -37,6 +37,49 @@ input[type="password"]::-ms-clear { display: none !important; }
 #authModal button[aria-label^="Close"] { display: inline-grid; flex: 0 0 36px; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: #f0f5f7; color: #0064c8; }
 #authModal button[aria-label^="Close"]:hover { background: #e1edf1; }
 
+/* Live PIN check: a drawn tick when the PIN matches, a cross and a shake when it does not. */
+.pin-status-wrap { position: relative; flex: 1 1 auto; width: 100%; min-width: 0; }
+#authModal .pin-status-wrap .pin-status-input { padding-right: 2.9rem; transition: border-color .2s ease, box-shadow .2s ease; }
+.pin-status-spinner,
+.pin-status-icon { position: absolute; top: 50%; right: .8rem; display: none; width: 1.4rem; height: 1.4rem; margin-top: -.7rem; pointer-events: none; }
+.pin-status-spinner { border: 2px solid #d6e4e9; border-top-color: #0064c8; border-radius: 50%; }
+.pin-status-icon { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.pin-status-icon circle { stroke-width: 1.8; stroke-dasharray: 64; stroke-dashoffset: 64; transform: rotate(-90deg); transform-origin: 12px 12px; }
+.pin-status-icon path { stroke-dasharray: 16; stroke-dashoffset: 16; }
+.pin-status-ok { color: #16a34a; }
+.pin-status-bad { color: #c9515d; }
+.pin-status-wrap[data-pin-status="checking"] .pin-status-spinner { display: block; animation: pin-status-spin .7s linear infinite; }
+.pin-status-wrap[data-pin-status="valid"] .pin-status-ok,
+.pin-status-wrap[data-pin-status="invalid"] .pin-status-bad { display: block; animation: pin-status-pop .45s cubic-bezier(.34, 1.56, .64, 1) both; }
+.pin-status-wrap[data-pin-status="valid"] .pin-status-icon circle,
+.pin-status-wrap[data-pin-status="invalid"] .pin-status-icon circle { animation: pin-status-draw .4s ease-out forwards; }
+.pin-status-wrap[data-pin-status="valid"] .pin-status-icon path,
+.pin-status-wrap[data-pin-status="invalid"] .pin-status-icon path { animation: pin-status-draw .25s ease-out .3s forwards; }
+.pin-status-wrap[data-pin-status="invalid"] .pin-status-icon path + path { animation-delay: .45s; }
+#authModal .pin-status-wrap[data-pin-status="valid"] .pin-status-input { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, .16); }
+#authModal .pin-status-wrap[data-pin-status="invalid"] .pin-status-input { border-color: #c9515d; box-shadow: 0 0 0 3px rgba(201, 81, 93, .16); }
+.pin-status-wrap[data-pin-status="invalid"] { animation: pin-status-shake .42s ease-in-out; }
+@keyframes pin-status-spin { to { transform: rotate(360deg); } }
+@keyframes pin-status-draw { to { stroke-dashoffset: 0; } }
+@keyframes pin-status-pop {
+  0% { opacity: 0; transform: scale(.4); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes pin-status-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pin-status-wrap,
+  .pin-status-wrap .pin-status-icon,
+  .pin-status-wrap .pin-status-icon circle,
+  .pin-status-wrap .pin-status-icon path { animation: none !important; }
+  #authModal .pin-status-wrap .pin-status-input { transition: none; }
+  .pin-status-icon circle,
+  .pin-status-icon path { stroke-dashoffset: 0; }
+}
+
 .account-backdrop {
   position: absolute;
   inset: 0;

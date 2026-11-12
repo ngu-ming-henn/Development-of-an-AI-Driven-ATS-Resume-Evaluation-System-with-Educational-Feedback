@@ -637,6 +637,74 @@ class PerPinAttemptLimitTests(unittest.TestCase):
         )
         self.assertTrue(all(connection.closed for connection in self.pin_store.connections))
 
+    def check_pin(self, pin: str = PIN):
+        return self.client.post(
+            "/auth/pin/check",
+            json={"email": "pin-check@example.com", "purpose": "password_reset", "verification_pin": pin},
+        )
+
+    def test_pin_check_confirms_a_correct_pin_without_consuming_it(self):
+        with patch.object(
+            app_module, "get_db_connection", self.pin_store
+        ), patch.object(
+            app_module, "enforce_email_pin_rate_limits", return_value=None
+        ), patch.object(
+            app_module, "check_password_hash", return_value=True
+        ):
+            response = self.check_pin()
+
+        self.assertEqual(response.status_code, 200, response.get_json())
+        self.assertEqual(response.get_json(), {"valid": True, "detail": "PIN verified."})
+        self.assertFalse(self.pin_store.consumed)
+        self.assertEqual(self.pin_store.attempts, 0)
+        connection = self.pin_store.connections[0]
+        self.assertEqual(connection.commits, 0)
+        self.assertTrue(connection.rolled_back)
+        self.assertTrue(connection.closed)
+
+    def test_pin_check_counts_wrong_guesses_toward_the_attempt_limit(self):
+        with patch.object(
+            app_module, "get_db_connection", self.pin_store
+        ), patch.object(
+            app_module, "enforce_email_pin_rate_limits", return_value=None
+        ), patch.object(
+            app_module, "check_password_hash", return_value=False
+        ), patch.multiple(
+            app_module,
+            EMAIL_PIN_MAX_ATTEMPTS=5,
+            EMAIL_PIN_RATE_WINDOW_MINUTES=15,
+        ):
+            first_four = [self.check_pin("000000") for _ in range(4)]
+            fifth = self.check_pin("000000")
+
+        self.assertTrue(all(response.status_code == 200 for response in first_four))
+        self.assertTrue(
+            all(response.get_json() == {"valid": False, "detail": "Invalid PIN."} for response in first_four)
+        )
+        self.assertEqual(fifth.status_code, 429, fifth.get_json())
+        self.assertEqual(self.pin_store.attempts, 5)
+        self.assertTrue(self.pin_store.consumed)
+
+    def test_pin_check_rejects_bad_input_before_touching_the_database(self):
+        with patch.object(app_module, "get_db_connection") as get_connection, patch.object(
+            app_module, "enforce_email_pin_rate_limits"
+        ) as enforce_limits:
+            short_pin = self.check_pin("1234")
+            bad_purpose = self.client.post(
+                "/auth/pin/check",
+                json={"email": "pin-check@example.com", "purpose": "email_change", "verification_pin": PIN},
+            )
+            bad_email = self.client.post(
+                "/auth/pin/check",
+                json={"email": "not-an-email", "purpose": "register", "verification_pin": PIN},
+            )
+
+        self.assertEqual(short_pin.status_code, 400)
+        self.assertEqual(bad_purpose.status_code, 400)
+        self.assertEqual(bad_email.status_code, 400)
+        get_connection.assert_not_called()
+        enforce_limits.assert_not_called()
+
 
 class EmailPinRateLimitRouteTests(unittest.TestCase):
     def setUp(self):
@@ -710,6 +778,21 @@ class EmailPinRateLimitRouteTests(unittest.TestCase):
         email_exists.assert_not_called()
         create_pin.assert_not_called()
         send_pin.assert_not_called()
+
+    def test_pin_check_route_returns_429_before_checking_the_pin(self):
+        with patch.object(
+            app_module,
+            "enforce_email_pin_rate_limits",
+            side_effect=self.rate_limit_error(),
+        ), patch.object(app_module, "consume_email_pin") as consume_pin:
+            response = self.client.post(
+                "/auth/pin/check",
+                json={"email": "check-rate@example.com", "purpose": "register", "verification_pin": PIN},
+                environ_base={"REMOTE_ADDR": "198.51.100.84"},
+            )
+
+        self.assert_rate_limited(response)
+        consume_pin.assert_not_called()
 
     def test_registration_route_returns_429_before_checking_or_consuming_pin(self):
         with patch.object(

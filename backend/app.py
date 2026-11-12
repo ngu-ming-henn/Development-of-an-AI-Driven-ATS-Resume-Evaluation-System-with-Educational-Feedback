@@ -1619,7 +1619,12 @@ def invalidate_email_pin(pin_id: int) -> bool:
             connection.close()
 
 
-def consume_email_pin(email: str, purpose: str, pin: str) -> tuple[bool, str]:
+def consume_email_pin(email: str, purpose: str, pin: str, *, consume: bool = True) -> tuple[bool, str]:
+    """Verify the newest active PIN for this email and purpose.
+
+    With `consume=False` a correct PIN stays usable for the real submit, but a
+    wrong guess still counts toward the per-PIN attempt limit.
+    """
     normalized_pin = normalize_pin(pin)
     if len(normalized_pin) != EMAIL_PIN_LENGTH:
         return False, f"Enter the {EMAIL_PIN_LENGTH}-digit PIN."
@@ -1697,6 +1702,10 @@ def consume_email_pin(email: str, purpose: str, pin: str) -> tuple[bool, str]:
             )
             connection.commit()
             return False, "Invalid PIN."
+
+        if not consume:
+            connection.rollback()
+            return True, "PIN verified."
 
         cursor.execute(
             f"UPDATE email_verification_pins SET consumed_at = {utc_now_sql()} WHERE id = %s",
@@ -8652,6 +8661,37 @@ def send_auth_pin():
     return jsonify(response)
 
 
+@app.post("/auth/pin/check")
+def check_auth_pin():
+    """Let the sign-up and reset forms confirm a typed PIN without using it up."""
+    payload = request.get_json(silent=True) or {}
+    email = normalize_email(payload.get("email", ""))
+    purpose = normalize_pin_purpose(payload.get("purpose", ""))
+    verification_pin = normalize_pin(payload.get("verification_pin", payload.get("pin", "")))
+
+    if not email or not is_valid_email(email):
+        return jsonify({"detail": "Please provide a valid email address"}), 400
+    if purpose not in EMAIL_PIN_PURPOSES:
+        return jsonify({"detail": "Unsupported PIN purpose"}), 400
+    if len(verification_pin) != EMAIL_PIN_LENGTH:
+        return jsonify({"detail": f"Enter the {EMAIL_PIN_LENGTH}-digit PIN."}), 400
+
+    try:
+        enforce_email_pin_rate_limits(
+            "attempt",
+            email,
+            get_request_client_ip(),
+            purpose,
+        )
+        pin_ok, pin_detail = consume_email_pin(email, purpose, verification_pin, consume=False)
+    except EmailPinRateLimitError as error:
+        return build_rate_limit_response(error)
+    except DatabaseErrors:
+        return jsonify({"detail": "Database error while checking the PIN"}), 500
+
+    return jsonify({"valid": pin_ok, "detail": pin_detail})
+
+
 @app.post("/users/register")
 def register_user():
     payload = request.get_json(silent=True) or {}
@@ -10359,6 +10399,7 @@ def api_index():
                 "GET /health",
                 "POST /analyze-file",
                 "POST /auth/pin/send",
+                "POST /auth/pin/check",
                 "POST /users/register",
                 "POST /users/login",
                 "POST /users/logout",

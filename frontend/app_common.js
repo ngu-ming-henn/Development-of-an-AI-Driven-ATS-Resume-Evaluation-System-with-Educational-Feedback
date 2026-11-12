@@ -1417,6 +1417,104 @@
     }
   }
 
+  // Live PIN feedback: once six digits are typed, ask the server whether the PIN
+  // matches and animate a tick or a cross inside the field.
+  const PIN_STATUS_MARKUP =
+    '<span class="pin-status-spinner" aria-hidden="true"></span>' +
+    '<svg class="pin-status-icon pin-status-ok" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M7.5 12.5l3 3 6-6.5"></path></svg>' +
+    '<svg class="pin-status-icon pin-status-bad" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8.5 8.5l7 7"></path><path d="M15.5 8.5l-7 7"></path></svg>';
+  const pinStatusControllers = new WeakMap();
+
+  function setPinStatus(input, state) {
+    const wrap = input.parentElement;
+    if (!wrap || !wrap.classList.contains("pin-status-wrap")) return;
+    if (state) wrap.dataset.pinStatus = state;
+    else delete wrap.dataset.pinStatus;
+    if (state === "invalid") input.setAttribute("aria-invalid", "true");
+    else input.removeAttribute("aria-invalid");
+  }
+
+  function attachPinStatus(input, options = {}) {
+    if (!input || !input.parentNode || pinStatusControllers.has(input)) return;
+    const { emailInput, sendButton, purpose, apiBaseUrl = "", onResult } = options;
+    const wrap = document.createElement("div");
+    wrap.className = "pin-status-wrap";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    wrap.insertAdjacentHTML("beforeend", PIN_STATUS_MARKUP);
+    input.classList.add("pin-status-input");
+
+    let timer = 0;
+    let sequence = 0;
+    // Remember the last answer so retyping the same PIN does not use up another attempt.
+    let lastCheck = null;
+
+    const reset = () => {
+      window.clearTimeout(timer);
+      sequence += 1;
+      lastCheck = null;
+      setPinStatus(input, "");
+    };
+
+    const report = (valid, detail) => {
+      if (typeof onResult === "function" && detail) onResult(valid, detail);
+    };
+
+    const check = async () => {
+      const pin = input.value.trim();
+      const email = String(emailInput ? emailInput.value : "").trim().toLowerCase();
+      if (!/^[0-9]{6}$/.test(pin) || !isValidEmail(email)) {
+        setPinStatus(input, "");
+        return;
+      }
+      const key = email + "|" + pin;
+      if (lastCheck && lastCheck.key === key) {
+        setPinStatus(input, lastCheck.valid ? "valid" : "invalid");
+        return;
+      }
+      const current = ++sequence;
+      setPinStatus(input, "checking");
+      try {
+        const response = await fetch(apiBaseUrl + "/auth/pin/check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, purpose, verification_pin: pin })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (current !== sequence) return;
+        if (response.ok || response.status === 429) {
+          const valid = Boolean(response.ok && payload.valid);
+          const detail = payload.detail || (valid ? "PIN verified." : "Invalid PIN.");
+          lastCheck = { key, valid };
+          setPinStatus(input, valid ? "valid" : "invalid");
+          report(valid, detail);
+        } else {
+          // No verdict (bad request or server error): leave the field neutral.
+          setPinStatus(input, "");
+        }
+      } catch (error) {
+        if (current === sequence) setPinStatus(input, "");
+      }
+    };
+
+    input.addEventListener("input", () => {
+      window.clearTimeout(timer);
+      sequence += 1;
+      setPinStatus(input, "");
+      // Short pause so pasted PINs and the page's digit sanitiser settle first.
+      timer = window.setTimeout(check, 200);
+    });
+    // A different email or a freshly sent PIN makes the previous answer stale.
+    if (emailInput) emailInput.addEventListener("input", reset);
+    if (sendButton) sendButton.addEventListener("click", reset);
+    pinStatusControllers.set(input, { reset });
+  }
+
+  function clearPinStatus(input) {
+    const controller = input && pinStatusControllers.get(input);
+    if (controller) controller.reset();
+  }
+
   function clearProfileSensitiveFields(elements) {
     if (elements.passwordInput) {
       elements.passwordInput.value = "";
@@ -2450,6 +2548,8 @@
     showToast,
     requestAuthPin,
     isPinCoolingDown,
+    attachPinStatus,
+    clearPinStatus,
     clearProfileSensitiveFields,
     populateProfileForm,
     setModalOpen,
