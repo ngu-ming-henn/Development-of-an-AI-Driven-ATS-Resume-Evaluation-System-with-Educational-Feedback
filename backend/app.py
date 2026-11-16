@@ -5824,15 +5824,25 @@ def extract_resume_contact(
     ]
     if compact_link_lines:
         link_scan_text += "\n" + "\n".join(compact_link_lines)
+    # Stop at `|` as well: the whitespace-free copy of a line such as
+    # `LinkedIn: <url> | GitHub: <url>` otherwise yields one glued link.
+    # The generic-domain branch must not swallow text glued onto a LinkedIn or
+    # GitHub host (`Full-StackDeveloperlinkedin.com/in/...`).
     extracted_links = re.findall(
-        r"(?:https?://)?(?:www\.)?(?:linkedin\.com|github\.com|[\w.-]+\.(?:app|dev|io|me|com)/)[^\s,;)]*",
+        r"(?:https?://)?(?:www\.)?(?:linkedin\.com|github\.com|(?![\w.-]*(?:linkedin|github)\.com)[\w.-]+\.(?:app|dev|io|me|com)/)[^\s,;)|]*",
         link_scan_text,
         re.I,
     )
-    links = unique_clean_values(
-        [normalize_resume_link(link) for link in list(extra_links or []) + extracted_links],
-        5,
-    )
+    links: list[str] = []
+    seen_link_keys: set[str] = set()
+    for link in [normalize_resume_link(link) for link in list(extra_links or []) + extracted_links]:
+        link_key = re.sub(r"^https?://(?:www\.)?", "", link.lower()).rstrip("/")
+        if not link or not link_key or link_key in seen_link_keys:
+            continue
+        seen_link_keys.add(link_key)
+        links.append(link)
+        if len(links) >= 5:
+            break
 
     provided_name = normalize_text(candidate_name)
     resume_name = infer_resume_name_from_text(text)
@@ -6331,6 +6341,904 @@ def extract_education_lines(resume_text: str, education_markers: list[str]) -> l
     return []
 
 
+# Section-aware parsing for resumes that use clear single-column headings.
+# The sentence-scoring extractors above work on any layout, but they cannot
+# tell which heading a sentence came from, so a summary sentence can land in
+# Experience or a job bullet can land in Education. When the source resume
+# has reliable headings, these helpers keep every line in its own section and
+# each bullet under its own job or project. Any section that does not parse
+# cleanly (for example two-column templates whose columns interleave) falls
+# back to the sentence-scoring extractors.
+RESUME_SECTION_HEADING_ALIASES: dict[str, tuple[str, ...]] = {
+    "summary": (
+        "about me",
+        "career objective",
+        "career summary",
+        "objective",
+        "personal profile",
+        "professional profile",
+        "professional summary",
+        "profile",
+        "summary",
+    ),
+    "experience": (
+        "employment",
+        "employment history",
+        "experience",
+        "internship",
+        "internship experience",
+        "internships",
+        "professional experience",
+        "relevant experience",
+        "work experience",
+        "work experiences",
+        "work history",
+    ),
+    "education": (
+        "academic background",
+        "academic qualifications",
+        "education",
+        "education background",
+        "educational background",
+        "education and qualifications",
+    ),
+    "projects": (
+        "academic projects",
+        "key projects",
+        "personal projects",
+        "project experience",
+        "projects",
+        "projects experience",
+        "selected projects",
+        "technical projects",
+    ),
+    "skills": (
+        "core competencies",
+        "core skills",
+        "key skills",
+        "skills",
+        "skills and other",
+        "skills and tools",
+        "skills other",
+        "tech stack",
+        "technical skills",
+        "technical stack",
+    ),
+    "certifications": (
+        "certificates",
+        "certification",
+        "certifications",
+        "certifications and training",
+        "licenses and certifications",
+        "licenses certifications",
+    ),
+    "achievements": (
+        "achievement",
+        "achievements",
+        "awards",
+        "awards and achievements",
+        "honors",
+        "honors and awards",
+        "honours",
+    ),
+    "other": (
+        "activities",
+        "additional information",
+        "co curricular activities",
+        "contact",
+        "extracurricular activities",
+        "hobbies",
+        "interests",
+        "language",
+        "languages",
+        "leadership",
+        "my contact",
+        "other",
+        "portfolio",
+        "previous experience",
+        "referees",
+        "references",
+        "volunteer experience",
+        "volunteering",
+    ),
+}
+RESUME_SECTION_HEADING_LOOKUP = {
+    alias: section
+    for section, aliases in RESUME_SECTION_HEADING_ALIASES.items()
+    for alias in aliases
+}
+RESUME_MONTH_PATTERN = (
+    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|"
+    r"sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+)
+RESUME_DATE_POINT_PATTERN = (
+    rf"(?:{RESUME_MONTH_PATTERN}\.?\s*(?:19|20)\d{{2}}|(?:0?[1-9]|1[0-2])\s*/\s*(?:19|20)\d{{2}}|(?:19|20)\d{{2}})"
+)
+RESUME_DATE_RANGE_PATTERN = re.compile(
+    rf"\b{RESUME_DATE_POINT_PATTERN}\s*(?:-|\bto\b|\buntil\b)\s*"
+    rf"(?:{RESUME_DATE_POINT_PATTERN}|present|current|now|ongoing|today)\b",
+    re.I,
+)
+RESUME_SINGLE_DATE_PATTERN = re.compile(
+    rf"\b(?:(?:expected|graduat(?:ed|ing)|class of)\s*:?\s*)?{RESUME_MONTH_PATTERN}\.?\s*(?:19|20)\d{{2}}\b"
+    rf"|\b(?:expected|graduat(?:ed|ing)|class of)\s*:?\s*(?:19|20)\d{{2}}\b"
+    rf"|(?<![\d/])\b(?:0?[1-9]|1[0-2])/(?:19|20)\d{{2}}\b",
+    re.I,
+)
+RESUME_TEMPLATE_TIP_PATTERN = re.compile(r"^tips?\s+(?:to|for)\s+(?:the\s+)?job\s*-?\s*seekers?\b", re.I)
+# A lone year that ends a header line, as in `MASLEE EXPRESS 2022`.
+RESUME_TRAILING_YEAR_PATTERN = re.compile(r"(?<![\d/-])\b(?:19|20)\d{2}\s*$")
+RESUME_BULLET_MARKER_PATTERN = re.compile(r"^(?:[-*+•·«»]|¢«?|©|®|(?:e¢?|o)(?=\s+(?:=\s+)?[A-Z]))\s+(?:=\s+)?")
+# Some PDFs, and every OCR pass, read the round bullet glyph as `e`, `¢`, or `«`.
+# A lone `e`/`¢`/`«` followed by a capitalised word is never normal prose, so it
+# marks the start of another bullet even in the middle of a line.
+RESUME_INLINE_BULLET_MARKER_PATTERN = re.compile(r"\s+(?:e¢?|¢«?|«|©)\s+(?:=\s+)?(?=[A-Z])")
+RESUME_IRREGULAR_ACTION_VERBS = {
+    "began",
+    "brought",
+    "built",
+    "cut",
+    "drove",
+    "grew",
+    "held",
+    "kept",
+    "led",
+    "made",
+    "oversaw",
+    "ran",
+    "rebuilt",
+    "rewrote",
+    "set",
+    "sold",
+    "taught",
+    "took",
+    "troubleshot",
+    "undertook",
+    "won",
+    "wrote",
+}
+RESUME_TITLE_CASE_STOPWORDS = {"a", "an", "and", "as", "at", "by", "for", "in", "of", "on", "or", "the", "to", "with", "&"}
+RESUME_ROLE_TITLE_PATTERN = re.compile(
+    r"\b(?:intern(?:ship)?|trainee|developer|engineer|technician|analyst|administrator|manager|assistant|"
+    r"associate|executive|consultant|specialist|officer|designer|tester|lead|architect|scientist|programmer|dba|admin|"
+    r"coordinator|supervisor|director|clerk|representative|operator|instructor|tutor|lecturer|teacher|"
+    r"researcher|volunteer|freelancer?|founder|co-founder|president|secretary|treasurer)\b",
+    re.I,
+)
+RESUME_ORGANIZATION_PATTERN = re.compile(
+    r"\b(?:sdn\.?\s*bhd|bhd|inc|ltd|llc|plc|corp(?:oration)?|company|group|enterprise|holdings|technologies|solutions)\b",
+    re.I,
+)
+EDUCATION_CREDENTIAL_PATTERN = re.compile(
+    r"(?<![A-Za-z])(?:bachelor(?:'?s)?|master(?:'?s)?|diploma|doctor(?:ate)?|ph\.?\s?d|"
+    r"associate(?:'?s)?\s+(?:of|degree|in)|foundation\s+(?:in|of|studies)|certificate|degree|"
+    r"b\.\s?(?:sc|s|a|eng|tech|comp)\.?|m\.\s?(?:sc|s|a|eng|tech)\.?|bsc|msc|beng|meng|mba|stpm|spm|"
+    r"a-?\s?levels?|o-?\s?levels?|igcse|matriculation|sijil|pre-?university)(?![A-Za-z])",
+    re.I,
+)
+EDUCATION_INSTITUTION_PATTERN = re.compile(
+    r"\b(?:universit(?:y|i|ies)|college|kolej|politeknik|polytechnic|institute|institut|school|sekolah|"
+    r"smk|sjk|academy|akademi|campus|kampus)\b",
+    re.I,
+)
+EDUCATION_GRADE_PATTERN = re.compile(
+    r"\b(c?gpa|cpa)\s*[:\-]?\s*(\d(?:\.\s?\d{1,2})?)(?:\s*/\s*(\d(?:\.\s?\d{1,2})?))?",
+    re.I,
+)
+EDUCATION_DETAIL_PATTERN = re.compile(
+    r"\b(?:coursework|courses|thesis|dissertation|final year project|fyp|dean'?s list|honou?rs|awards?|awarded|study abroad|exchange|"
+    r"scholarship|achievement|activities|society|club|minor|major|specialization|specialisation)\b",
+    re.I,
+)
+RESUME_WORD_REPAIR_EXTRA_WORDS = {
+    "application",
+    "applications",
+    "authentication",
+    "collaboration",
+    "communication",
+    "communications",
+    "configuration",
+    "database",
+    "databases",
+    "deployment",
+    "development",
+    "developer",
+    "dissemination",
+    "documentation",
+    "efficiency",
+    "engineering",
+    "environment",
+    "experience",
+    "functionality",
+    "hardware",
+    "implementation",
+    "information",
+    "infrastructure",
+    "integration",
+    "maintenance",
+    "management",
+    "optimization",
+    "performance",
+    "physical",
+    "processing",
+    "professional",
+    "programming",
+    "requirements",
+    "responsibilities",
+    "responsive",
+    "software",
+    "technologies",
+    "technology",
+    "troubleshooting",
+    "university",
+}
+_RESUME_WORD_REPAIR_VOCABULARY: frozenset[str] | None = None
+
+
+def get_resume_word_repair_vocabulary() -> frozenset[str]:
+    """Known whole words used to rejoin words that PDF extraction split apart."""
+
+    global _RESUME_WORD_REPAIR_VOCABULARY
+    if _RESUME_WORD_REPAIR_VOCABULARY is None:
+        words = set(RESUME_WORD_REPAIR_EXTRA_WORDS)
+        catalog_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "job_catalog_seed.json")
+        try:
+            with open(catalog_path, encoding="utf-8") as catalog_file:
+                words.update(re.findall(r"[a-z]{3,}", catalog_file.read().lower()))
+        except OSError:
+            pass
+        _RESUME_WORD_REPAIR_VOCABULARY = frozenset(words)
+    return _RESUME_WORD_REPAIR_VOCABULARY
+
+
+def repair_split_resume_words(text: str, document_words: set[str] | frozenset[str] = frozenset()) -> str:
+    """Rejoin PDF word breaks such as `tech nologies` without merging real word pairs."""
+
+    vocabulary = get_resume_word_repair_vocabulary()
+
+    def join_fragments(match: re.Match[str]) -> str:
+        left = match.group(1)
+        right = match.group(2).lower()
+        combined = (left + right).lower()
+        if right in vocabulary or right in KEYWORD_STOPWORDS:
+            return match.group(0)
+        if combined in vocabulary or combined in document_words:
+            return left
+        return match.group(0)
+
+    repaired = re.sub(r"\b([A-Za-z]{2,}) (?=([a-z]{3,})\b)", join_fragments, text)
+    # `T F-IDF` style breaks inside hyphenated acronyms.
+    return re.sub(r"\b([B-HJ-Z])\s+(?=[A-Z]{1,4}-[A-Z]{2,}\b)", r"\1", repaired)
+
+
+def polish_structured_resume_text(value: str, document_words: set[str] | frozenset[str] = frozenset(), sentence: bool = True) -> str:
+    text = normalize_text(sanitize_resume_text_artifacts(str(value or "")))
+    text = RESUME_BULLET_MARKER_PATTERN.sub("", text)
+    text = re.sub(r"(?<=[A-Za-z])\s+-(?=[a-z])", "-", text)
+    text = repair_split_resume_words(text, document_words)
+    text = re.sub(r"\s+([,;:.!?])", r"\1", text)
+    text = normalize_text(text).strip(" |")
+    if sentence:
+        text = text.rstrip(" ,;:")
+        if text and text[-1] not in ".!?":
+            text += "."
+    return text
+
+
+def detect_resume_section_heading(line: str) -> str:
+    stripped = normalize_text(line).strip(" :|-")
+    if not stripped or len(stripped) > 48:
+        return ""
+    return RESUME_SECTION_HEADING_LOOKUP.get(normalize_match_text(stripped), "")
+
+
+def split_resume_into_sections(resume_text: str) -> dict[str, list[str]]:
+    """Group cleaned source lines under the resume's own section headings."""
+
+    sections: dict[str, list[str]] = {"header": []}
+    current = "header"
+    for raw_line in str(resume_text or "").splitlines():
+        section = detect_resume_section_heading(raw_line)
+        if section:
+            current = section
+            if current in sections:
+                sections[current].append("")
+            else:
+                sections[current] = []
+            continue
+        sections[current].append(raw_line)
+    return sections
+
+
+def format_resume_date_text(value: str) -> str:
+    text = normalize_text(value)
+    text = re.sub(rf"\b({RESUME_MONTH_PATTERN})\.?(?=(?:19|20)\d{{2}})", r"\1 ", text, flags=re.I)
+    text = re.sub(r"\s*(?:-|\bto\b|\buntil\b)\s*", " - ", text, count=1, flags=re.I)
+    text = re.sub(
+        r"\b(present|current|now|ongoing|today)\b",
+        lambda match: match.group(1).capitalize(),
+        text,
+        flags=re.I,
+    )
+    return normalize_text(text)
+
+
+def resume_date_sort_key(dates: str) -> tuple[int, int, int, int] | None:
+    """Return (end_year, end_month, start_year, start_month) for reverse-chronological order."""
+
+    if not dates:
+        return None
+    month_numbers = {
+        "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+        "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+    }
+
+    def point_key(point: str) -> tuple[int, int] | None:
+        if re.search(r"\b(?:present|current|now|ongoing|today)\b", point, re.I):
+            return 9999, 12
+        year_match = re.search(r"(?:19|20)\d{2}", point)
+        if not year_match:
+            return None
+        month_match = re.search(r"\b([a-z]{3})", point, re.I)
+        slash_month = re.search(r"\b(0?[1-9]|1[0-2])\s*/", point)
+        month = month_numbers.get(month_match.group(1).lower(), 0) if month_match else 0
+        if slash_month:
+            month = int(slash_month.group(1))
+        return int(year_match.group(0)), month
+
+    start_text, _, end_text = dates.partition(" - ")
+    start = point_key(start_text)
+    end = point_key(end_text) if end_text else start
+    if start is None or end is None:
+        return None
+    return end[0], end[1], start[0], start[1]
+
+
+def starts_with_resume_action_verb(text: str) -> bool:
+    match = re.match(r"([A-Z][a-z]+(?:-[a-z]+)?)\b(?!\s*:)", text)
+    if not match:
+        return False
+    word = match.group(1).lower()
+    base_word = word.split("-")[-1]
+    return (
+        word in RESUME_IRREGULAR_ACTION_VERBS
+        or base_word in RESUME_IRREGULAR_ACTION_VERBS
+        or bool(re.fullmatch(r"[a-z]{2,}(?:ed|ing)", base_word))
+    )
+
+
+def looks_like_resume_title_line(text: str) -> bool:
+    """Titles, names, and tech stacks capitalise most words; bullet prose does not."""
+
+    words = [word for word in re.findall(r"[A-Za-z][\w.+#/'-]*", text)]
+    if not words or len(words) > 14:
+        return False
+    content_words = [word for word in words[1:] if word.lower() not in RESUME_TITLE_CASE_STOPWORDS]
+    if not content_words:
+        return True
+    capitalised = sum(1 for word in content_words if word[:1].isupper())
+    return capitalised / len(content_words) >= 0.6
+
+
+def should_join_wrapped_resume_line(previous: str, current: str) -> bool:
+    if not previous or not current:
+        return False
+    if RESUME_DATE_RANGE_PATTERN.search(previous):
+        return False
+    if current[:1].islower():
+        return True
+    if re.search(r"[.!?]$", previous) or RESUME_DATE_RANGE_PATTERN.search(current):
+        return False
+    # Only bullet prose wraps onto a following line; titles and stacks do not.
+    if not is_resume_bullet_text(previous, False):
+        return False
+    if re.search(r"(?:[,;&/]|\b(?:and|or|of|for|to|with|using|by|in|the|a|an|via|including))$", previous, re.I):
+        # `...using PHP,` + `HTML, JavaScript, and Apache HTTP server.`
+        return True
+    if starts_with_resume_action_verb(current):
+        return False
+    if looks_like_resume_title_line(current) and len(current.split()) <= 8:
+        return False
+    return True
+
+
+def build_resume_section_logical_lines(lines: list[str]) -> list[dict[str, Any]]:
+    """Merge PDF line wraps back into whole bullets and header lines."""
+
+    logical_lines: list[dict[str, Any]] = []
+    blank_before = False
+    skipping_tip = False
+    split_lines = [
+        piece
+        for raw_line in lines
+        for piece in RESUME_INLINE_BULLET_MARKER_PATTERN.sub("\n- ", raw_line).split("\n")
+    ]
+    for raw_line in split_lines:
+        stripped = normalize_text(raw_line)
+        if not stripped:
+            blank_before = True
+            continue
+        marker_match = RESUME_BULLET_MARKER_PATTERN.match(stripped)
+        text = stripped[marker_match.end():] if marker_match else stripped
+        if not text or RESUME_TEMPLATE_TIP_PATTERN.match(text) or (skipping_tip and text[:1].islower()):
+            # Template guidance such as `Tip to jobseeker: ...` (and its wrapped
+            # `e.g. ...` lines) is not resume content.
+            skipping_tip = bool(text)
+            blank_before = True
+            continue
+        skipping_tip = False
+        previous = logical_lines[-1] if logical_lines else None
+        if (
+            previous is not None
+            and not marker_match
+            and not blank_before
+            and should_join_wrapped_resume_line(previous["text"], text)
+        ):
+            separator = "" if previous["text"].endswith("-") and text[:1].islower() else " "
+            previous["text"] = previous["text"] + separator + text
+        else:
+            logical_lines.append({"text": text, "marker": bool(marker_match)})
+        blank_before = False
+    return logical_lines
+
+
+def is_resume_bullet_text(text: str, has_marker: bool) -> bool:
+    if has_marker:
+        return True
+    word_count = len(text.split())
+    if starts_with_resume_action_verb(text) and word_count >= 7:
+        # Titles such as `Automated Attendance System` are short; a long line
+        # that opens with an action verb is a bullet even if it is capitalised.
+        return True
+    if looks_like_resume_title_line(text) and not text.endswith("."):
+        return False
+    if starts_with_resume_action_verb(text) and (word_count >= 5 or text.endswith(".")):
+        return True
+    return word_count >= 8 and not RESUME_DATE_RANGE_PATTERN.search(text)
+
+
+def group_resume_section_entries(lines: list[str]) -> list[dict[str, list[str]]]:
+    """Group a section into entries made of header lines followed by bullets."""
+
+    entries: list[dict[str, list[str]]] = []
+    current: dict[str, list[str]] | None = None
+    for line in build_resume_section_logical_lines(lines):
+        text = line["text"]
+        if is_resume_bullet_text(text, line["marker"]):
+            if current is None:
+                current = {"header": [], "bullets": [], "notes": []}
+                entries.append(current)
+            if (
+                current["header"]
+                and not current["bullets"]
+                and not line["marker"]
+                and not starts_with_resume_action_verb(text)
+                and not text.endswith(".")
+            ):
+                # A company description between the employer and job title lines,
+                # such as `Augmented reality startup with 50+ employees`.
+                current["notes"].append(text)
+            else:
+                current["bullets"].append(text)
+            continue
+        header_has_dates = current is not None and any(
+            RESUME_DATE_RANGE_PATTERN.search(header_line) for header_line in current["header"]
+        )
+        if current is None or current["bullets"] or (header_has_dates and RESUME_DATE_RANGE_PATTERN.search(text)):
+            current = {"header": [], "bullets": [], "notes": []}
+            entries.append(current)
+        current["header"].append(text)
+    for entry in entries:
+        entry["bullets"] = entry.pop("notes") + entry["bullets"]
+    return entries
+
+
+def split_resume_header_dates(header_lines: list[str]) -> tuple[list[str], str]:
+    """Pull the first date range out of header lines and split the text around it."""
+
+    pieces: list[str] = []
+    dates = ""
+    has_full_date = any(
+        RESUME_DATE_RANGE_PATTERN.search(line) or RESUME_SINGLE_DATE_PATTERN.search(line)
+        for line in header_lines
+    )
+    for line in header_lines:
+        match = None if dates else (
+            RESUME_DATE_RANGE_PATTERN.search(line)
+            or RESUME_SINGLE_DATE_PATTERN.search(line)
+            or (None if has_full_date else RESUME_TRAILING_YEAR_PATTERN.search(line))
+        )
+        if match:
+            dates = format_resume_date_text(match.group(0))
+            parts = [line[: match.start()], line[match.end():]]
+        else:
+            parts = [line]
+        for part in parts:
+            cleaned = strip_unbalanced_brackets(normalize_text(part).strip(" |,;:-"))
+            if cleaned:
+                pieces.append(cleaned)
+    return pieces, dates
+
+
+def strip_unbalanced_brackets(value: str) -> str:
+    """Drop a bracket left dangling after a date such as `(Jan 2024 - Mar 2024)` is removed."""
+
+    text = value
+    while text.endswith(")") and text.count(")") > text.count("("):
+        text = text[:-1].rstrip(" |,;:-")
+    while text.endswith("(") or (text.startswith("(") and text.count("(") > text.count(")")):
+        text = (text[:-1] if text.endswith("(") else text[1:]).strip(" |,;:-")
+    return text
+
+
+def resume_section_has_contact_or_heading_leaks(lines: list[str]) -> bool:
+    for line in lines:
+        if re.search(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", line):
+            return True
+        if RESUME_DATE_RANGE_PATTERN.search(line):
+            continue
+        for phone_match in re.finditer(r"\+?\d[\d\s().-]{8,}\d", line):
+            if len(re.sub(r"\D", "", phone_match.group(0))) >= 9:
+                return True
+    return False
+
+
+def parse_structured_experience_entries(lines: list[str], document_words: set[str]) -> list[dict[str, Any]]:
+    if resume_section_has_contact_or_heading_leaks(lines):
+        return []
+    raw_entries = group_resume_section_entries(lines)
+    if not raw_entries or not any(entry["bullets"] for entry in raw_entries):
+        return []
+
+    def header_has_any_date(header_lines: list[str]) -> bool:
+        return any(
+            RESUME_DATE_RANGE_PATTERN.search(line) or RESUME_SINGLE_DATE_PATTERN.search(line)
+            for line in header_lines
+        )
+
+    # `Employer 2015 - Present` / one company-description line / `Job Title`
+    # arrives as two entries; fold the dateless job title back into its employer.
+    folded_entries: list[dict[str, list[str]]] = []
+    for raw_entry in raw_entries:
+        previous = folded_entries[-1] if folded_entries else None
+        if (
+            previous is not None
+            and len(previous["bullets"]) <= 1
+            and header_has_any_date(previous["header"])
+            and not any(RESUME_ROLE_TITLE_PATTERN.search(line) for line in previous["header"])
+            and raw_entry["header"]
+            and not header_has_any_date(raw_entry["header"])
+            and any(RESUME_ROLE_TITLE_PATTERN.search(line) for line in raw_entry["header"])
+        ):
+            previous["header"].extend(raw_entry["header"])
+            previous["bullets"].extend(raw_entry["bullets"])
+            continue
+        folded_entries.append(raw_entry)
+
+    entries: list[dict[str, Any]] = []
+    for raw_entry in folded_entries:
+        header = raw_entry["header"]
+        if not header or len(header) > 4:
+            return []
+        if any(EDUCATION_CREDENTIAL_PATTERN.search(line) for line in header):
+            return []
+        pieces, dates = split_resume_header_dates(header)
+        if not pieces:
+            return []
+        role_pieces = sorted(
+            (
+                piece
+                for piece in pieces
+                if RESUME_ROLE_TITLE_PATTERN.search(piece)
+                and not RESUME_ORGANIZATION_PATTERN.search(piece)
+                and len(piece.split()) <= 8
+            ),
+            # `SILVERBRAND PRINTING (INTERN)` is an employer; prefer `Graphic Designer`.
+            key=lambda piece: (piece.isupper(), "(" in piece),
+        )
+        title = role_pieces[0] if role_pieces else pieces[0]
+        organization = ", ".join(piece for piece in pieces if piece != title)
+        bullets = [
+            polish_structured_resume_text(bullet, document_words)
+            for bullet in raw_entry["bullets"]
+        ]
+        entries.append(
+            {
+                "title": polish_structured_resume_text(title, document_words, sentence=False),
+                "organization": polish_structured_resume_text(organization, document_words, sentence=False),
+                "dates": dates,
+                "bullets": [bullet for bullet in bullets if bullet],
+            }
+        )
+
+    sort_keys = [resume_date_sort_key(entry["dates"]) for entry in entries]
+    if all(key is not None for key in sort_keys):
+        entries = [entry for _, entry in sorted(zip(sort_keys, entries), key=lambda pair: pair[0], reverse=True)]
+    return entries
+
+
+def looks_like_technology_list(text: str) -> bool:
+    if text.endswith(".") or len(text.split()) > 14:
+        return False
+    items = [item.strip() for item in re.split(r"[,|/]", text) if item.strip()]
+    return len(items) >= 2 and all(len(item.split()) <= 3 for item in items)
+
+
+def parse_structured_project_entries(lines: list[str], document_words: set[str]) -> list[dict[str, Any]]:
+    if resume_section_has_contact_or_heading_leaks(lines):
+        return []
+    raw_entries = group_resume_section_entries(lines)
+    if not raw_entries:
+        return []
+
+    technology_label = re.compile(r"^(?:technologies|technology|tech stack|tech|tools|stack|built with)\s*:\s*(.+)$", re.I)
+    entries: list[dict[str, Any]] = []
+    for raw_entry in raw_entries:
+        header = raw_entry["header"]
+        if not header or len(header) > 4:
+            return []
+        if any(EDUCATION_CREDENTIAL_PATTERN.search(line) for line in header):
+            return []
+        pieces, dates = split_resume_header_dates(header[:1])
+        title_line = pieces[0] if pieces else header[0]
+        title, separator, technologies = title_line.partition(" | ")
+        if len(title.split()) > 16:
+            return []
+        if not separator:
+            technologies = ""
+        descriptions: list[str] = []
+        for line in header[1:] + raw_entry["bullets"]:
+            label_match = technology_label.match(line)
+            if label_match and not technologies:
+                technologies = label_match.group(1)
+            elif line in header[1:] and not technologies and looks_like_technology_list(line):
+                technologies = line
+            elif line in header[1:] and not dates and RESUME_DATE_RANGE_PATTERN.fullmatch(line.strip()):
+                dates = format_resume_date_text(line)
+            else:
+                descriptions.append(line)
+        bullets = [polish_structured_resume_text(line, document_words) for line in descriptions]
+        entries.append(
+            {
+                "title": polish_structured_resume_text(title, document_words, sentence=False),
+                "technologies": polish_structured_resume_text(technologies, document_words, sentence=False),
+                "dates": dates,
+                "bullets": [bullet for bullet in bullets if bullet],
+            }
+        )
+    return entries
+
+
+def split_education_line_parts(text: str) -> tuple[str, str, list[str]]:
+    """Split one education line into credential text, institution text, and leftover pieces."""
+
+    segments = [
+        normalize_text(segment).strip(" |,;:-")
+        for segment in re.split(r"\s+[|\-]\s+|,\s*|;\s*", text)
+    ]
+    subject_pattern = re.compile(
+        r"\b(?:arts|business|computer|computing|data|design|engineering|hons|honours|information|"
+        r"management|mathematics|network|science|security|software|studies|systems|technology)\b",
+        re.I,
+    )
+    credential_parts: list[str] = []
+    institution_parts: list[str] = []
+    leftovers: list[str] = []
+    last_bucket: list[str] | None = None
+    for segment in segments:
+        if not segment:
+            continue
+        if EDUCATION_CREDENTIAL_PATTERN.search(segment):
+            last_bucket = credential_parts
+        elif EDUCATION_INSTITUTION_PATTERN.search(segment):
+            last_bucket = institution_parts
+        elif last_bucket is credential_parts and subject_pattern.search(segment):
+            # `Bachelor of Science, Computer Science` continues the credential.
+            pass
+        elif last_bucket is not institution_parts:
+            # Text after a credential is usually a location such as `Cheney, WA`.
+            leftovers.append(segment)
+            continue
+        last_bucket.append(segment)
+    return ", ".join(credential_parts), ", ".join(institution_parts), leftovers
+
+
+def parse_structured_education_entries(lines: list[str], document_words: set[str]) -> list[dict[str, Any]]:
+    if resume_section_has_contact_or_heading_leaks(lines):
+        return []
+
+    entries: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    pending = {"dates": "", "grade": ""}
+
+    def start_entry() -> dict[str, Any]:
+        entry = {"credential": "", "institution": "", "dates": pending["dates"], "grade": pending["grade"], "details": []}
+        pending.update(dates="", grade="")
+        entries.append(entry)
+        return entry
+
+    for logical_line in build_resume_section_logical_lines(lines):
+        text = logical_line["text"]
+        grade = ""
+        grade_match = EDUCATION_GRADE_PATTERN.search(text)
+        if grade_match:
+            # `CGPA: 3. 47` is a PDF spacing artefact for 3.47.
+            grade = f"{grade_match.group(1).upper()}: {grade_match.group(2).replace(' ', '')}"
+            if grade_match.group(3):
+                grade += f" / {grade_match.group(3).replace(' ', '')}"
+            text = normalize_text(text[: grade_match.start()] + " " + text[grade_match.end():])
+        date_match = (
+            RESUME_DATE_RANGE_PATTERN.search(text)
+            or RESUME_SINGLE_DATE_PATTERN.search(text)
+            or RESUME_TRAILING_YEAR_PATTERN.search(text)
+        )
+        dates = format_resume_date_text(date_match.group(0)) if date_match else ""
+        if date_match:
+            text = normalize_text(text[: date_match.start()] + " | " + text[date_match.end():]).strip(" |,;:-")
+
+        if (
+            current is not None
+            and starts_with_resume_action_verb(text)
+            and len(text.split()) >= 5
+            and (EDUCATION_DETAIL_PATTERN.search(text) or EDUCATION_INSTITUTION_PATTERN.search(text))
+        ):
+            # `Completed one-year study abroad with Singapore University`.
+            if len(current["details"]) < 2:
+                current["details"].append(polish_structured_resume_text(text, document_words))
+            continue
+        credential, institution, leftovers = split_education_line_parts(text)
+        if not credential and not institution:
+            if EDUCATION_DETAIL_PATTERN.search(text):
+                if current is None:
+                    return []
+                if len(current["details"]) < 2:
+                    current["details"].append(polish_structured_resume_text(text, document_words))
+                continue
+            if starts_with_resume_action_verb(text) and len(text.split()) >= 6:
+                return []
+            location = ", ".join(leftovers)
+            if current is not None and location and len(location.split()) <= 4 and not re.search(r"\d", location):
+                if current["institution"]:
+                    # A location line such as `Sibu, Sarawak`.
+                    current["institution"] += ", " + location
+                elif current["credential"]:
+                    # The wrapped end of a long qualification name.
+                    current["credential"] += " " + location
+                else:
+                    return []
+            elif location:
+                return []
+            target = current if current is not None and not (dates and current["dates"]) else pending
+            if dates and not target["dates"]:
+                target["dates"] = dates
+            if grade and not target["grade"]:
+                target["grade"] = grade
+            continue
+
+        if (
+            current is None
+            or (credential and current["credential"])
+            or (institution and current["institution"])
+            or (dates and current["dates"] and current["credential"] and current["institution"])
+        ):
+            current = start_entry()
+        if credential:
+            current["credential"] = credential
+        if institution:
+            current["institution"] = institution
+        location = ", ".join(piece for piece in leftovers if len(piece.split()) <= 4 and not re.search(r"\d", piece))
+        if location and current["institution"]:
+            current["institution"] += ", " + location
+        if dates and not current["dates"]:
+            current["dates"] = dates
+        if grade and not current["grade"]:
+            current["grade"] = grade
+
+    if not entries or not any(entry["credential"] for entry in entries):
+        return []
+    clean_entries: list[dict[str, Any]] = []
+    for entry in entries:
+        if not entry["credential"] and not entry["institution"]:
+            return []
+        clean_entries.append(
+            {
+                "credential": polish_structured_resume_text(entry["credential"], document_words, sentence=False),
+                "institution": polish_structured_resume_text(entry["institution"], document_words, sentence=False),
+                "dates": entry["dates"],
+                "grade": entry["grade"],
+                "details": entry["details"],
+            }
+        )
+    sort_keys = [resume_date_sort_key(entry["dates"]) for entry in clean_entries]
+    if all(key is not None for key in sort_keys):
+        clean_entries = [
+            entry
+            for _, entry in sorted(zip(sort_keys, clean_entries), key=lambda pair: (pair[0][2], pair[0][0]), reverse=True)
+        ]
+    return clean_entries
+
+
+def parse_structured_certification_lines(lines: list[str], document_words: set[str], limit: int = 5) -> list[str]:
+    if resume_section_has_contact_or_heading_leaks(lines):
+        return []
+    items: list[str] = []
+    for logical_line in build_resume_section_logical_lines(lines):
+        text = polish_structured_resume_text(logical_line["text"], document_words, sentence=False).rstrip(" ,;:")
+        if not text:
+            continue
+        if len(text.split()) > 25:
+            # Long prose here usually means another column leaked into the section.
+            return []
+        items.append(text)
+    return unique_clean_values(items, limit)
+
+
+def parse_structured_resume_sections(resume_text: str) -> dict[str, Any]:
+    """Parse Experience, Projects, Education, and Certifications from the resume's own headings."""
+
+    sections = split_resume_into_sections(resume_text)
+    document_words = {word.lower() for word in re.findall(r"[A-Za-z]{4,}", str(resume_text or ""))}
+    experience = parse_structured_experience_entries(sections.get("experience", []), document_words)
+    projects = parse_structured_project_entries(sections.get("projects", []), document_words)
+    education = parse_structured_education_entries(sections.get("education", []), document_words)
+    certifications = (
+        parse_structured_certification_lines(sections.get("certifications", []), document_words)
+        if experience or projects or education
+        else []
+    )
+    parsed_names = {
+        name
+        for name, value in (
+            ("experience", experience),
+            ("projects", projects),
+            ("education", education),
+            ("certifications", certifications),
+        )
+        if value
+    }
+    # Text that the structured parser did not claim stays available to the
+    # sentence-scoring fallbacks, so claimed bullets are never reused elsewhere.
+    # Once the layout has proved reliable, summary and skill lines are kept out
+    # too: they describe the candidate but are not job or project evidence.
+    excluded_names = set(parsed_names)
+    if parsed_names:
+        excluded_names.update({"summary", "skills"})
+
+    def join_sections(skipped: set[str]) -> str:
+        return "\n".join(
+            line
+            for name, section_lines in sections.items()
+            if name not in skipped
+            for line in section_lines
+        )
+
+    return {
+        "experience": experience,
+        "projects": projects,
+        "education": education,
+        "certifications": certifications,
+        # Evidence for the sentence-scoring fallbacks (experience/project bullets).
+        "remaining_text": join_sections(excluded_names),
+        # Everything not claimed by a parsed section, for certification lookups.
+        "unclaimed_text": join_sections(parsed_names),
+    }
+
+
+def format_structured_education_line(entry: dict[str, Any]) -> str:
+    line = str(entry.get("credential") or "")
+    if entry.get("institution"):
+        line = f"{line} - {entry['institution']}" if line else str(entry["institution"])
+    if entry.get("dates"):
+        line += f" ({entry['dates']})"
+    return clean_resume_sentence(line)
+
+
+def format_structured_project_line(entry: dict[str, Any]) -> str:
+    title = str(entry.get("title") or "")
+    bullets = list(entry.get("bullets") or [])
+    return f"{title} - {bullets[0]}" if bullets else clean_resume_sentence(title)
+
+
 def is_generated_placeholder(value: str) -> bool:
     return normalize_text(value).startswith("[Add ")
 
@@ -6740,6 +7648,7 @@ def format_resume_keyword(value: str) -> str:
         "spring boot": "Spring Boot",
         "supabase": "Supabase",
         "tailwind": "Tailwind CSS",
+        "tailwind css": "Tailwind CSS",
         "test": "Software Testing",
         "testing": "Software Testing",
         "troubleshoot": "Troubleshooting",
@@ -6863,14 +7772,63 @@ def split_generated_education_item(value: str) -> tuple[str, str, str]:
     return credential.strip(), institution.strip(), dates
 
 
+def get_generated_resume_contact_rows(candidate: dict[str, Any]) -> list[str]:
+    """Email and phone on one row, profile links on the next, so a link never splits."""
+
+    primary_items = unique_clean_values([candidate.get("email"), candidate.get("phone")], 2)
+    link_items = unique_clean_values(list(candidate.get("link_labels") or candidate.get("links") or []), 4)
+    return [" | ".join(items) for items in (primary_items, link_items) if items]
+
+
+def get_generated_resume_entry_blocks(sections: dict[str, Any], section_key: str) -> list[dict[str, Any]]:
+    """Return grouped entries as title, detail parts, and bullets for every renderer."""
+
+    if section_key == "experience_bullets":
+        return [
+            {
+                "title": str(entry.get("title") or ""),
+                "details": [str(value) for value in (entry.get("organization"), entry.get("dates")) if value],
+                "bullets": [str(bullet) for bullet in entry.get("bullets") or [] if bullet],
+            }
+            for entry in sections.get("experience_entries") or []
+            if isinstance(entry, dict)
+        ]
+    if section_key == "projects":
+        return [
+            {
+                "title": str(entry.get("title") or ""),
+                "details": [str(value) for value in (entry.get("technologies"), entry.get("dates")) if value],
+                "bullets": [str(bullet) for bullet in entry.get("bullets") or [] if bullet],
+            }
+            for entry in sections.get("project_entries") or []
+            if isinstance(entry, dict)
+        ]
+    if section_key == "education":
+        return [
+            {
+                "title": str(entry.get("credential") or entry.get("institution") or ""),
+                "details": [
+                    str(value)
+                    for value in (
+                        entry.get("institution") if entry.get("credential") else "",
+                        entry.get("dates"),
+                        entry.get("grade"),
+                    )
+                    if value
+                ],
+                "bullets": [str(detail) for detail in entry.get("details") or [] if detail],
+            }
+            for entry in sections.get("education_entries") or []
+            if isinstance(entry, dict)
+        ]
+    return []
+
+
 def build_generated_resume_plain_text(draft: dict[str, Any]) -> str:
     candidate = draft["candidate"]
     sections = draft["sections"]
     template = draft.get("template") or {}
-    contact_items = unique_clean_values(
-        [candidate.get("email"), candidate.get("phone")] + list(candidate.get("link_labels") or candidate.get("links") or []),
-        6,
-    )
+    contact_rows = get_generated_resume_contact_rows(candidate)
     lines: list[str] = []
     if draft.get("is_sample_resume") or draft.get("sample_only"):
         sample_warning = normalize_text(str((draft.get("ats_notes") or [""])[0]))
@@ -6885,7 +7843,7 @@ def build_generated_resume_plain_text(draft: dict[str, Any]) -> str:
     lines.extend([
         (candidate.get("name") or "Candidate Name").upper(),
         template.get("headline") or draft.get("target_role") or "Target Role",
-        " | ".join(contact_items),
+        *contact_rows,
         "",
         "PROFESSIONAL SUMMARY",
         sections["professional_summary"],
@@ -6903,11 +7861,22 @@ def build_generated_resume_plain_text(draft: dict[str, Any]) -> str:
         ("education", str(template.get("education_heading") or "Education")),
     ]
     for section_key, section_heading in section_order:
+        entry_blocks = get_generated_resume_entry_blocks(sections, section_key)
         items = real_resume_items(list(sections.get(section_key) or []))
-        if not items:
+        if not items and not entry_blocks:
             continue
         lines.extend(["", section_heading.upper()])
-        if section_key == "education":
+        if entry_blocks and section_key == "education":
+            for block in entry_blocks:
+                lines.append(f"- {block['title']}")
+                if block["details"]:
+                    lines.append("  " + " | ".join(block["details"]))
+                lines.extend(f"  {bullet}" for bullet in block["bullets"])
+        elif entry_blocks:
+            for block in entry_blocks:
+                lines.append(" | ".join([block["title"], *block["details"]]))
+                lines.extend(f"- {bullet}" for bullet in block["bullets"])
+        elif section_key == "education":
             for item in items:
                 credential, institution, dates = split_generated_education_item(str(item))
                 lines.append(f"- {credential}")
@@ -6923,15 +7892,39 @@ def build_generated_resume_html(draft: dict[str, Any]) -> str:
     candidate = draft["candidate"]
     sections = draft["sections"]
     template = draft.get("template") or {}
-    contact_items = unique_clean_values(
-        [candidate.get("email"), candidate.get("phone")] + list(candidate.get("link_labels") or candidate.get("links") or []),
-        6,
+    contact_html = "".join(
+        f"<p class=\"contact\">{html_escape(row)}</p>"
+        for row in get_generated_resume_contact_rows(candidate)
     )
 
     def section_html(section_key: str, heading: str) -> str:
+        entry_blocks = get_generated_resume_entry_blocks(sections, section_key)
         items = real_resume_items(list(sections.get(section_key) or []))
-        if not items:
+        if not items and not entry_blocks:
             return ""
+        if entry_blocks and section_key == "education":
+            rendered_items = ""
+            for block in entry_blocks:
+                detail = " | ".join(block["details"])
+                detail_html = f"<span>{html_escape(detail)}</span>" if detail else ""
+                extra_html = "".join(f"<span>{html_escape(bullet)}</span>" for bullet in block["bullets"])
+                rendered_items += (
+                    "<li class=\"education-item\">"
+                    f"<strong>{html_escape(block['title'])}</strong>{detail_html}{extra_html}</li>"
+                )
+            return f"<h2>{html_escape(heading)}</h2><ul>{rendered_items}</ul>"
+        if entry_blocks:
+            rendered_entries = ""
+            for block in entry_blocks:
+                detail_html = "".join(f" | {html_escape(detail)}" for detail in block["details"])
+                bullet_html = "".join(f"<li>{html_escape(bullet)}</li>" for bullet in block["bullets"])
+                rendered_entries += (
+                    "<div class=\"entry\">"
+                    f"<p class=\"entry-head\"><strong>{html_escape(block['title'])}</strong>{detail_html}</p>"
+                    f"{f'<ul>{bullet_html}</ul>' if bullet_html else ''}"
+                    "</div>"
+                )
+            return f"<h2>{html_escape(heading)}</h2>{rendered_entries}"
         if section_key == "education":
             rendered_items = ""
             for item in items:
@@ -6980,6 +7973,7 @@ def build_generated_resume_html(draft: dict[str, Any]) -> str:
         ".skill-row strong{color:#111}.skill-row span{color:#111}"
         "ul{margin:0 0 0 18px;padding:0;list-style-position:outside}li{margin:4px 0;font-size:10.5pt;break-inside:avoid}"
         ".education-item strong,.education-item span{display:block}.education-item span{margin-top:1px}"
+        ".entry{margin:0 0 8px;break-inside:avoid}.entry-head{margin:0 0 2px;font-size:10.5pt}.entry ul{margin-top:0}"
         ".summary{font-size:10.8pt;color:#111}"
         ".example-banner{border:2px solid #9b1c1c;background:#fff2f2;color:#7f1d1d;padding:9px 11px;margin:0 0 14px;text-align:center}"
         ".example-banner strong,.example-banner span{display:block}.example-banner strong{font-size:12pt;letter-spacing:.04em}.example-banner span{font-size:9.5pt;margin-top:3px}"
@@ -6989,7 +7983,7 @@ def build_generated_resume_html(draft: dict[str, Any]) -> str:
         "<header class=\"header\">"
         f"<h1>{html_escape(candidate.get('name') or 'Candidate Name')}</h1>"
         f"<p class=\"role\">{html_escape(template.get('headline') or draft.get('target_role') or 'Target Role')}</p>"
-        f"<p class=\"contact\">{html_escape(' | '.join(contact_items))}</p>"
+        f"{contact_html}"
         "</header>"
         "<h2>Professional Summary</h2>"
         f"<p class=\"summary\">{html_escape(sections['professional_summary'])}</p>"
@@ -7024,10 +8018,7 @@ def build_generated_resume_pdf_buffer(draft: dict[str, Any]) -> BytesIO:
     candidate = draft.get("candidate") or {}
     sections = draft.get("sections") or {}
     template = draft.get("template") or {}
-    contact_items = unique_clean_values(
-        [candidate.get("email"), candidate.get("phone")] + list(candidate.get("link_labels") or candidate.get("links") or []),
-        6,
-    )
+    contact_rows = get_generated_resume_contact_rows(candidate)
 
     buffer = BytesIO()
     document = SimpleDocTemplate(
@@ -7068,7 +8059,7 @@ def build_generated_resume_pdf_buffer(draft: dict[str, Any]) -> BytesIO:
             fontSize=9,
             leading=11,
             textColor=colors.black,
-            spaceAfter=6,
+            spaceAfter=1.5,
         ),
         "heading": ParagraphStyle(
             "ResumeHeading",
@@ -7112,6 +8103,15 @@ def build_generated_resume_pdf_buffer(draft: dict[str, Any]) -> BytesIO:
             textColor=colors.black,
             spaceAfter=2,
         ),
+        "entry_head": ParagraphStyle(
+            "ResumeEntryHead",
+            parent=base_styles["Normal"],
+            fontSize=9.7,
+            leading=12,
+            textColor=colors.black,
+            spaceBefore=3,
+            spaceAfter=2,
+        ),
         "example_banner": ParagraphStyle(
             "ExampleOnlyBanner",
             parent=base_styles["Normal"],
@@ -7148,8 +8148,8 @@ def build_generated_resume_pdf_buffer(draft: dict[str, Any]) -> BytesIO:
     story.extend([
         Paragraph(html_escape(str(candidate.get("name") or "Candidate Name").upper()), styles["name"]),
         Paragraph(html_escape(str(template.get("headline") or draft.get("target_role") or "Target Role")), styles["role"]),
-        Paragraph(html_escape(" | ".join(contact_items)), styles["contact"]),
-        HRFlowable(width="100%", thickness=0.8, color=colors.black, spaceAfter=7),
+        *[Paragraph(html_escape(row), styles["contact"]) for row in contact_rows],
+        HRFlowable(width="100%", thickness=0.8, color=colors.black, spaceBefore=4.5, spaceAfter=7),
     ])
 
     story.extend(heading("Professional Summary"))
@@ -7181,10 +8181,28 @@ def build_generated_resume_pdf_buffer(draft: dict[str, Any]) -> BytesIO:
         ("education", str(template.get("education_heading") or "Education")),
     ]
     for section_key, section_heading in section_order:
+        entry_blocks = get_generated_resume_entry_blocks(sections, section_key)
         items = real_resume_items(list(sections.get(section_key) or []))
-        if not items:
+        if not items and not entry_blocks:
             continue
         story.extend(heading(section_heading))
+        if entry_blocks and section_key == "education":
+            for block in entry_blocks:
+                content = "- <b>" + html_escape(block["title"]) + "</b>"
+                if block["details"]:
+                    content += "<br/><font size=\"8.8\">" + html_escape(" | ".join(block["details"])) + "</font>"
+                for bullet in block["bullets"]:
+                    content += "<br/><font size=\"8.8\">" + html_escape(bullet) + "</font>"
+                story.append(Paragraph(content, styles["bullet"]))
+            continue
+        if entry_blocks:
+            for block in entry_blocks:
+                head = "<b>" + html_escape(block["title"]) + "</b>"
+                head += "".join(" | " + html_escape(detail) for detail in block["details"])
+                story.append(Paragraph(head, styles["entry_head"]))
+                for bullet in block["bullets"]:
+                    story.append(Paragraph("- " + html_escape(bullet), styles["bullet"]))
+            continue
         for item in items:
             if section_key == "education":
                 credential, institution, dates = split_generated_education_item(str(item))
@@ -8368,26 +9386,51 @@ def build_generated_resume_payload(
     current_contact_name = normalize_text(str(contact.get("name") or ""))
     if filename_name and (not current_contact_name or current_contact_name == "Candidate Name"):
         contact["name"] = filename_name
-    education_lines = extract_education_lines(resume_source, list(resume_summary.get("education_markers") or []))
+    structured_sections = parse_structured_resume_sections(resume_source)
+    education_entries = list(structured_sections["education"])
+    experience_entries = list(structured_sections["experience"])
+    project_entries = list(structured_sections["projects"])[:6]
+    # Sentence scoring only sees text the section parser did not claim.
+    evidence_source = structured_sections["remaining_text"] if (
+        education_entries or experience_entries or project_entries
+    ) else resume_source
+
+    if education_entries:
+        education_lines = [format_structured_education_line(entry) for entry in education_entries]
+    else:
+        education_lines = extract_education_lines(resume_source, list(resume_summary.get("education_markers") or []))
     evidence_bullets = extract_resume_evidence_sentences(
-        resume_source,
+        evidence_source,
         skills + matched_signals + important_keywords,
         24,
     )
     experience_bullets, fallback_project_bullets = split_project_and_experience_bullets(evidence_bullets)
-    project_bullets = build_project_entries(
-        resume_source,
-        evidence_bullets or fallback_project_bullets,
-        6,
-    )
-    has_professional_experience = has_explicit_experience_section(resume_source)
-    if not has_professional_experience:
+    if project_entries:
+        project_bullets = [format_structured_project_line(entry) for entry in project_entries]
+    else:
+        project_bullets = build_project_entries(
+            evidence_source,
+            evidence_bullets or fallback_project_bullets,
+            6,
+        )
+    has_professional_experience = bool(experience_entries) or has_explicit_experience_section(resume_source)
+    if experience_entries:
+        experience_bullets = [bullet for entry in experience_entries for bullet in entry["bullets"]]
+    elif not has_professional_experience:
         experience_bullets = []
-    certification_lines = extract_certification_lines(resume_source)
+    certification_lines = list(structured_sections["certifications"]) or extract_certification_lines(
+        structured_sections["unclaimed_text"] if evidence_source is not resume_source else resume_source
+    )
     achievement_lines = extract_achievement_lines(resume_source, evidence_bullets)
-    project_keys = {normalize_match_text(project) for project in project_bullets}
+    claimed_keys = {normalize_match_text(project) for project in project_bullets}
+    claimed_keys.update(normalize_match_text(bullet) for bullet in experience_bullets)
+    claimed_keys.update(
+        normalize_match_text(bullet)
+        for entry in project_entries + education_entries
+        for bullet in entry.get("bullets") or entry.get("details") or []
+    )
     achievement_lines = unique_clean_values(
-        [achievement for achievement in achievement_lines if normalize_match_text(achievement) not in project_keys],
+        [achievement for achievement in achievement_lines if normalize_match_text(achievement) not in claimed_keys],
         3,
     )
 
@@ -8418,12 +9461,17 @@ def build_generated_resume_payload(
         ),
         "technical_skills": display_skills,
         "skill_groups": categorize_resume_skills(display_skills),
-        "experience_bullets": experience_bullets[:6],
+        "experience_bullets": experience_bullets if experience_entries else experience_bullets[:6],
         "projects": project_bullets[:6],
-        "certifications": certification_lines[:3],
+        "certifications": certification_lines[:5] if structured_sections["certifications"] else certification_lines[:3],
         "achievements": achievement_lines[:3],
         "education": education_lines,
         "keyword_targets": display_missing_keywords[:6],
+        # Grouped entries keep each bullet under its own job, project, or
+        # qualification. The renderers prefer them over the flat lists above.
+        "experience_entries": experience_entries,
+        "project_entries": project_entries,
+        "education_entries": education_entries,
     }
     completeness = build_section_completeness(sections)
     ats_notes = [
