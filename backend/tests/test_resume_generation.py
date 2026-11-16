@@ -73,6 +73,66 @@ h t t p s : / / s a m p l e - p o r t f o l i o . v e r c e l . a p p /
 """
 
 
+# A single-column resume as pypdf extracts it: `` bullet glyphs, wrapped
+# bullet lines, and PDF word breaks such as `tech nologies` and `T F-IDF`.
+SECTIONED_RESUME_TEXT = """
+JORDAN LEE
+ +60-1234567890
+ jordan.lee@example.com
+ LinkedIn: https://www.linkedin.com/in/jordan-lee-example/ | GitHub: https://github.com/jordan-lee-example
+
+PROFESSIONAL SUMMARY
+
+Computer Science undergraduate with hands -on experience in full-stack web development and IT support.
+Experienced in developing responsive web applications using HTML, CSS, JavaScript, Python, Flask, and
+database tech nologies. Familiar with REST APIs, Git, and software development practices.
+
+PROFESSIONAL EXPERIENCE
+Northwind Labs, Kuching, Sarawak Jan 2023 - June 2023
+Full-Stack Developer Intern
+
+ Developed a web application for the TVET 2023 program, digitizing traditional manual event scheduling and
+information dissemination.
+
+ Tested the TVET 2023 web application and provided user guidance to ensure smooth and effective system
+adoption.
+
+Contoso Computers, Sarikei, Sarawak July 2023 - Dec 2023
+IT Technician
+
+ Troubleshot and resolved hardware, software, and IT infrastructure issues for customers and business
+clients.
+
+ Supported IT product sales to government agencies, primary and secondary schools, and private
+companies by providing technical advice on laptops, PCs, printers, and other IT accessories.
+
+EDUCATION
+Example Polytechnic, Mukah, Sarawak June 2020 - June 2023
+Diploma in Information and Communications Technology CGPA: 3.92 / 4.00
+Example University of Technology, Sibu, Sarawak Feb 2024 -Present
+Bachelor of Computer Science (Hons) CGPA: 3.30 / 4.00
+
+PROJECTS
+ATS-Based Resume Evaluation System with Educational Feedback (FYP)
+Python, Flask, T F-IDF, Supabase
+
+ Designing an educational feedback module that provides recommendations on resume structure, skills, and
+project descriptions, with a downloadable feedback report to support resume improvement.
+Mobile Price Checker Application
+Java, MySQL, Android Studio
+
+ Developed an Android -based price checker using Java, MySQL, and Android Studio to scan product
+information and retrieve prices from a centralized database.
+
+ Deployed the solution in the school cooperative as an alternative to dedicated phy sical price -checking
+machines.
+
+SKILLS
+ Frontend: HTML, CSS, JavaScript, Bootstrap, Tailwind CSS
+ Backend: Python, Flask, Java, Node.js
+"""
+
+
 class ResumeGenerationTests(unittest.TestCase):
     def setUp(self):
         self.saved_testing = app_module.app.config.get("TESTING")
@@ -297,6 +357,130 @@ class ResumeGenerationTests(unittest.TestCase):
             self.assertTrue(title)
             if separator:
                 self.assertNotIn(title, description)
+
+    def build_sectioned_draft(self, contact_links=None):
+        analysis = {
+            "matching_percentage": 60,
+            "uploaded_resume_name": "Jordan_Lee_Resume.pdf",
+            "target_role": "Full Stack Developer",
+            "top_role_matches": [{"role": "Full Stack Developer", "score": 60}],
+            "resume_summary": {
+                "skills": ["css", "flask", "html", "javascript", "mysql", "python", "supabase", "tailwind css"],
+                "education_markers": ["bachelor", "diploma", "university"],
+                "experience_markers": ["developed", "tested"],
+            },
+            "role_recommendation": {"recommended_role": "Full Stack Developer", "matched_resume_signals": ["backend"]},
+            "job_description_analysis": {"matched_keywords": [], "missing_keywords": []},
+        }
+        return app_module.build_generated_resume_payload(
+            analysis,
+            SECTIONED_RESUME_TEXT,
+            "Full Stack Developer",
+            "",
+            contact_links,
+        )
+
+    def test_sectioned_resume_keeps_each_bullet_under_its_own_job(self):
+        draft = self.build_sectioned_draft()
+        entries = draft["sections"]["experience_entries"]
+
+        self.assertEqual([entry["title"] for entry in entries], ["IT Technician", "Full-Stack Developer Intern"])
+        technician, intern = entries
+        self.assertEqual(technician["organization"], "Contoso Computers, Sarikei, Sarawak")
+        self.assertEqual(technician["dates"], "July 2023 - Dec 2023")
+        self.assertTrue(any(bullet.startswith("Supported IT product sales") for bullet in technician["bullets"]))
+        self.assertIn(
+            "Tested the TVET 2023 web application and provided user guidance to ensure smooth and effective system adoption.",
+            intern["bullets"],
+        )
+        # Summary sentences are not experience, and job bullets are not education.
+        experience_text = " ".join(draft["sections"]["experience_bullets"])
+        self.assertNotIn("Experienced in developing responsive", experience_text)
+        self.assertNotIn("software development practices", experience_text)
+        self.assertNotIn("Supported IT product sales", " ".join(draft["sections"]["education"]))
+        self.assertIn("IT Technician | Contoso Computers, Sarikei, Sarawak | July 2023 - Dec 2023", draft["plain_text"])
+
+    def test_sectioned_resume_education_keeps_institution_dates_and_cgpa(self):
+        draft = self.build_sectioned_draft()
+        education = draft["sections"]["education_entries"]
+
+        self.assertEqual(
+            [entry["credential"] for entry in education],
+            ["Bachelor of Computer Science (Hons)", "Diploma in Information and Communications Technology"],
+        )
+        bachelor, diploma = education
+        self.assertEqual(bachelor["institution"], "Example University of Technology, Sibu, Sarawak")
+        self.assertEqual(bachelor["dates"], "Feb 2024 - Present")
+        self.assertEqual(bachelor["grade"], "CGPA: 3.30 / 4.00")
+        self.assertEqual(diploma["institution"], "Example Polytechnic, Mukah, Sarawak")
+        self.assertEqual(diploma["grade"], "CGPA: 3.92 / 4.00")
+        self.assertIn(
+            "Example University of Technology, Sibu, Sarawak | Feb 2024 - Present | CGPA: 3.30 / 4.00",
+            draft["html"],
+        )
+
+    def test_sectioned_resume_projects_keep_titles_stacks_and_repair_pdf_word_breaks(self):
+        draft = self.build_sectioned_draft()
+        projects = draft["sections"]["project_entries"]
+
+        self.assertEqual(
+            [project["title"] for project in projects],
+            ["ATS-Based Resume Evaluation System with Educational Feedback (FYP)", "Mobile Price Checker Application"],
+        )
+        self.assertEqual(projects[0]["technologies"], "Python, Flask, TF-IDF, Supabase")
+        self.assertIn("2 documented projects", draft["sections"]["professional_summary"])
+        price_checker_text = " ".join(projects[1]["bullets"])
+        self.assertIn("Android-based price checker", price_checker_text)
+        self.assertIn("dedicated physical price-checking machines.", price_checker_text)
+        # Job bullets never become project titles.
+        self.assertFalse(any(project["title"].startswith("Tested the TVET") for project in projects))
+
+    def test_contact_links_split_glued_profiles_and_render_on_their_own_row(self):
+        draft = self.build_sectioned_draft(
+            ["https://linkedin.com/in/jordan-lee-example", "https://github.com/jordan-lee-example/"]
+        )
+
+        self.assertEqual(
+            draft["candidate"]["link_labels"],
+            ["LinkedIn: linkedin.com/in/jordan-lee-example", "GitHub: github.com/jordan-lee-example"],
+        )
+        self.assertIn(
+            "jordan.lee@example.com | +60-1234567890\n"
+            "LinkedIn: linkedin.com/in/jordan-lee-example | GitHub: github.com/jordan-lee-example\n",
+            draft["plain_text"],
+        )
+
+    def test_unstructured_layout_falls_back_to_sentence_extraction(self):
+        draft = self.build_draft()
+
+        # The scrambled two-column fixture must not be forced through the section parser.
+        self.assertEqual(draft["sections"]["experience_entries"], [])
+        self.assertEqual(draft["sections"]["project_entries"], [])
+        self.assertEqual(draft["sections"]["education_entries"], [])
+
+    def test_ocr_bullet_glyphs_start_new_bullets(self):
+        entries = app_module.parse_structured_experience_entries(
+            [
+                "Data Annotator Jan 2026 - Present",
+                "Example Data Sdn. Bhd",
+                "e Annotate, classify, and validate text and image datasets to support model",
+                "training, ensuring high-quality data outputs.",
+                "e Review and categorize content against project guidelines « Collaborate with project teams to resolve annotation issues.",
+            ],
+            set(),
+        )
+
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["title"], "Data Annotator")
+        self.assertEqual(entries[0]["organization"], "Example Data Sdn. Bhd")
+        self.assertEqual(
+            entries[0]["bullets"],
+            [
+                "Annotate, classify, and validate text and image datasets to support model training, ensuring high-quality data outputs.",
+                "Review and categorize content against project guidelines.",
+                "Collaborate with project teams to resolve annotation issues.",
+            ],
+        )
 
     def test_selected_non_it_resume_returns_labelled_sample_for_selected_role(self):
         unrelated_source = """
