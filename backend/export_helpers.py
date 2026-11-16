@@ -48,7 +48,7 @@ def normalize_provider_resume_link(value: str, provider_domain: str) -> str:
 def get_link_label(link: str) -> str:
     normalized = normalize_text(link)
     lowered = normalized.lower()
-    without_scheme = re.sub(r"^https?://", "", normalized, flags=re.I).rstrip("/")
+    without_scheme = re.sub(r"^https?://(?:www\.)?", "", normalized, flags=re.I).rstrip("/")
     if "linkedin.com" in lowered:
         return "LinkedIn: " + without_scheme
     if "github.com" in lowered:
