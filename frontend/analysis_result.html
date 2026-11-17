@@ -200,6 +200,41 @@
         .report-quick-list span { color: var(--studio-teal-dark); font-size: .75rem; font-weight: 800; letter-spacing: .12em; }
         .report-quick-list h3 { margin-top: .55rem; color: var(--studio-ink); font-size: .95rem; font-weight: 800; }
         .report-quick-list p { margin-top: .4rem; color: var(--studio-muted); font-size: .84rem; line-height: 1.55; }
+        /* Adaptive feedback: progress since the last check for the same role. */
+        .report-progress { margin: clamp(1.25rem,3vw,2rem) 0 0; padding: clamp(1.3rem,3vw,2rem); border: 1px solid #cfe5fa; border-radius: 22px; background: linear-gradient(180deg,#f4f9ff,#fff 70%); }
+        .report-progress-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .4rem 1rem; }
+        .report-progress h2 { margin-top: .35rem; font-size: 1.35rem; font-weight: 800; letter-spacing: -.025em; }
+        .report-progress-meta { display: flex; flex-wrap: wrap; gap: .2rem .85rem; color: var(--studio-muted); font-size: .82rem; }
+        .report-progress-score { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem .9rem; margin-top: 1rem; }
+        .report-progress-score .progress-from { color: var(--studio-muted); font-size: 1.2rem; font-weight: 700; }
+        .report-progress-score .progress-to { color: var(--studio-ink); font-family: Manrope,sans-serif; font-size: 2rem; font-weight: 800; letter-spacing: -.04em; }
+        .progress-delta { display: inline-flex; align-items: center; padding: .3rem .75rem; border-radius: 999px; font-size: .8rem; font-weight: 800; }
+        .progress-delta[data-trend="improved"] { background: #dcf5ea; color: #0b6b43; }
+        .progress-delta[data-trend="declined"] { background: #fde5e5; color: #a1262b; }
+        .progress-delta[data-trend="unchanged"] { background: #eef2f6; color: #44556a; }
+        .report-progress-summary { max-width: 62rem; margin-top: .7rem; color: var(--studio-muted); font-size: .9rem; line-height: 1.6; }
+        .report-progress-components { display: flex; flex-wrap: wrap; gap: .35rem 1rem; margin-top: .85rem; color: var(--studio-muted); font-size: .8rem; }
+        .report-progress-components strong { color: var(--studio-ink); }
+        .report-progress-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .75rem; margin-top: 1.1rem; }
+        .report-progress-grid article { min-width: 0; padding: .9rem 1rem; border: 1px solid #dbe8f4; border-radius: 14px; background: #fff; }
+        .report-progress-grid h3 { color: var(--studio-muted); font-size: .74rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+        .progress-chips { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .55rem; }
+        .progress-chip { padding: .2rem .6rem; border-radius: 999px; background: #eef4fa; color: #20384f; font-size: .75rem; font-weight: 700; overflow-wrap: anywhere; }
+        .progress-chip[data-tone="good"] { background: #dcf5ea; color: #0b6b43; }
+        .progress-chip[data-tone="warn"] { background: #fff1d6; color: #7a4b00; }
+        .progress-chip[data-tone="bad"] { background: #fde5e5; color: #a1262b; }
+        .progress-empty { margin-top: .5rem; color: var(--studio-muted); font-size: .8rem; }
+        .action-progress-note { display: inline-flex; width: max-content; max-width: 100%; margin-top: .5rem; padding: .15rem .6rem; border-radius: 999px; background: #fff1d6; color: #7a4b00; font-size: .72rem; font-style: normal; font-weight: 800; }
+        /* Semantic matching: requirements proven by related skills. */
+        .related-skill-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .6rem; margin-top: 1rem; }
+        .related-skill-list li { min-width: 0; padding: .8rem 1rem; border: 1px solid var(--studio-border); border-radius: 12px; background: #f8fbff; font-size: .86rem; line-height: 1.5; }
+        .related-skill-list strong { color: var(--studio-ink); }
+        .related-skill-list .related-skill-proof { color: var(--studio-muted); }
+        .related-skill-list small { display: block; margin-top: .2rem; color: var(--studio-muted); font-size: .76rem; }
+        @media (max-width: 700px) {
+            .report-progress-grid, .related-skill-list { grid-template-columns: 1fr; }
+            .report-progress-score .progress-to { font-size: 1.7rem; }
+        }
         .report-tabs { display: flex; gap: .45rem; overflow-x: auto; margin: 1.3rem 0 2.5rem; padding: .35rem; border: 1px solid var(--studio-border); border-radius: 12px; background: white; scrollbar-width: thin; }
         .report-tabs a { flex: 0 0 auto; padding: .6rem .9rem; border-radius: 8px; color: var(--studio-muted); font-size: .86rem; font-weight: 700; white-space: nowrap; text-decoration: none; }
         .report-tabs a:focus-visible { background: #eaf4f6; color: var(--studio-teal-dark); }
@@ -334,6 +369,7 @@
         .report-quick-list span { grid-row: 1 / span 2; padding-top: .2rem; font-size: .7rem; }
         .report-quick-list h3 { margin: 0; font-size: 1rem; line-height: 1.45; }
         .report-quick-list p { margin-top: .25rem; font-size: .86rem; }
+        .report-quick-list .action-progress-note { grid-column: 2; }
         .report-tabs { position: sticky; top: 4.65rem; z-index: 30; margin-bottom: 3.75rem; box-shadow: none; }
         .report-tabs a { transition: background-color .18s ease, color .18s ease; }
         .report-section { margin-bottom: 4rem; }
@@ -471,6 +507,7 @@
             .report-quick a { padding: .25rem 0; }
             .report-quick-list article { grid-template-columns: minmax(0,1fr); gap: .3rem; padding: .95rem; }
             .report-quick-list span { grid-row: auto; padding-top: 0; }
+            .report-quick-list .action-progress-note { grid-column: auto; }
             .report-quick-list h3 { font-size: .96rem; }
             .report-quick-list p { margin-top: 0; }
             .report-shell :is(h1,h2,h3,h4,p) { overflow-wrap: anywhere; }
@@ -563,6 +600,10 @@
 <div><p class="report-score-label">UTS CS Readiness Score</p><div class="report-score-number"><span id="overallScore">—</span><span>/100</span></div></div>
 <p class="report-score-note">Evidence match and ATS feedback. This is not a hiring probability.</p>
 </div>
+</section>
+<section class="report-progress" id="reportProgress" aria-labelledby="reportProgressTitle" hidden>
+<div class="report-progress-head"><div><span class="report-eyebrow">Since your last check</span><h2 id="reportProgressTitle">Your progress</h2></div><p class="report-progress-meta" id="reportProgressMeta"></p></div>
+<div id="reportProgressBody" aria-live="polite"></div>
 </section>
 <section class="report-quick" aria-labelledby="quickActionsTitle">
 <div class="report-quick-head"><div><span class="report-eyebrow">Start here</span><h2 id="quickActionsTitle">Your next three edits</h2></div><a href="#improve">Read the full improvement plan</a></div>
@@ -686,6 +727,12 @@
 Top role matches will appear after analysis.
 </div>
 </div>
+</div>
+<div class="mt-6 border-t border-outline-variant/60 pt-5" id="relatedSkillPanel" hidden>
+<p class="text-xs uppercase tracking-widest text-on-surface-variant mb-1">Related-skill evidence</p>
+<h3 class="text-xl font-bold text-primary">Skills proven by the tools you named</h3>
+<p class="text-sm text-on-surface-variant mt-2 leading-relaxed">These requirements count as met because your resume names a tool that proves them. ATS keyword filters still look for the exact words, so write them too.</p>
+<ul class="related-skill-list" id="relatedSkillList"></ul>
 </div>
 </div>
 </section>
@@ -2304,12 +2351,120 @@ Download PDF
                         '<span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-on-primary font-extrabold">' + escapeHtml(priority) + '</span>' +
                     '</div>' +
                     '<p class="mt-4 text-[11px] uppercase tracking-widest text-on-surface-variant font-bold">' + escapeHtml(category) + '</p>' +
+                    (item.adaptive && item.progress_note ? '<em class="action-progress-note">' + escapeHtml(item.progress_note) + '</em>' : "") +
                     '<h3 class="mt-2 text-lg font-extrabold text-primary leading-tight">' + escapeHtml(item.title || "Recommendation action") + '</h3>' +
                     '<p class="mt-3 text-sm text-on-surface-variant leading-relaxed">' + escapeHtml(item.detail || "Review this part of the resume.") + '</p>' +
                     '<p class="mt-3 text-sm font-semibold text-primary leading-relaxed">' + escapeHtml(item.action || "Apply this improvement before exporting the resume.") + '</p>' +
                     keywordMarkup +
                 '</article>'
             );
+        }).join("");
+    }
+
+    function formatProgressPoints(value) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return "—";
+        const rounded = Math.round(numeric * 10) / 10;
+        return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+    }
+
+    function formatProgressDate(value) {
+        const date = value ? new Date(value) : null;
+        if (!date || Number.isNaN(date.getTime())) return "";
+        return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    }
+
+    function buildProgressChips(items, tone, emptyText) {
+        const values = Array.isArray(items) ? items.filter(Boolean).slice(0, 8) : [];
+        if (!values.length) {
+            return '<p class="progress-empty">' + escapeHtml(emptyText) + '</p>';
+        }
+        return '<div class="progress-chips">' + values.map((value) => (
+            '<span class="progress-chip" data-tone="' + tone + '">' + escapeHtml(value) + '</span>'
+        )).join("") + '</div>';
+    }
+
+    // Adaptive feedback: show what changed since the user's last check for the same role.
+    function renderProgress(progress) {
+        const section = document.getElementById("reportProgress");
+        const body = document.getElementById("reportProgressBody");
+        const meta = document.getElementById("reportProgressMeta");
+        if (!section || !body || !meta) return;
+        // Reports saved before this feature have no progress data.
+        if (!progress || typeof progress !== "object") {
+            section.hidden = true;
+            return;
+        }
+        section.hidden = false;
+        const role = String(progress.target_role || "").trim();
+        if (!progress.available) {
+            meta.innerHTML = role ? '<span>' + escapeHtml("First check for " + role) + '</span>' : "";
+            body.innerHTML = '<p class="report-progress-summary">' + escapeHtml("Edit your resume, then check it again with the same role. This card will show what improved and what is still missing.") + '</p>';
+            return;
+        }
+
+        const checkedOn = formatProgressDate(progress.previous_checked_at);
+        meta.innerHTML =
+            '<span>' + escapeHtml("Check " + (Number(progress.check_number) || 2) + " for " + (role || "this role")) + '</span>' +
+            (checkedOn ? '<span>' + escapeHtml("Compared with your check on " + checkedOn) + '</span>' : "");
+
+        const change = Number(progress.score_change) || 0;
+        const trend = ["improved", "declined", "unchanged"].includes(progress.trend) ? progress.trend : "unchanged";
+        const deltaText = trend === "unchanged"
+            ? "About the same"
+            : (change > 0 ? "+" : "-") + formatProgressPoints(Math.abs(change)) + " points";
+        const components = Array.isArray(progress.components)
+            ? progress.components.filter((item) => item && Number(item.change))
+            : [];
+        const componentMarkup = components.length
+            ? '<p class="report-progress-components">' + components.map((item) => (
+                '<span><span>' + escapeHtml(item.label || item.key || "") + '</span> <strong>' +
+                escapeHtml((Number(item.change) > 0 ? "+" : "") + Number(item.change)) + '</strong></span>'
+            )).join("") + '</p>'
+            : "";
+        const atsFixed = Array.isArray(progress.ats_issues_fixed) ? progress.ats_issues_fixed : [];
+        const atsOpen = (Array.isArray(progress.ats_issues_still_open) ? progress.ats_issues_still_open : [])
+            .concat(Array.isArray(progress.ats_issues_new) ? progress.ats_issues_new : []);
+        const lost = Array.isArray(progress.keywords_no_longer_found) ? progress.keywords_no_longer_found.filter(Boolean) : [];
+
+        body.innerHTML =
+            '<div class="report-progress-score">' +
+                '<span class="progress-from">' + escapeHtml(formatProgressPoints(progress.previous_score)) + '</span>' +
+                '<span aria-hidden="true">&rarr;</span>' +
+                '<span class="progress-to">' + escapeHtml(formatProgressPoints(progress.current_score)) + '</span>' +
+                '<span class="progress-delta" data-trend="' + trend + '">' + escapeHtml(deltaText) + '</span>' +
+            '</div>' +
+            '<p class="report-progress-summary">' + escapeHtml(progress.summary || "") + '</p>' +
+            componentMarkup +
+            '<div class="report-progress-grid">' +
+                '<article><h3>Now shown in your resume</h3>' + buildProgressChips(progress.keywords_now_matched, "good", "None yet") + '</article>' +
+                '<article><h3>Still missing</h3>' + buildProgressChips(progress.keywords_still_missing, "warn", "None") + '</article>' +
+                (lost.length
+                    ? '<article><h3>No longer found</h3>' + buildProgressChips(lost, "bad", "None") + '</article>'
+                    : '<article><h3>ATS issues fixed</h3>' + buildProgressChips(atsFixed, "good", "None") + '</article>') +
+            '</div>' +
+            (atsOpen.length
+                ? '<div class="report-progress-grid"><article><h3>ATS issues still open</h3>' + buildProgressChips(atsOpen, "warn", "None") + '</article>' +
+                    (lost.length ? '<article><h3>ATS issues fixed</h3>' + buildProgressChips(atsFixed, "good", "None") + '</article>' : "") +
+                  '</div>'
+                : "");
+    }
+
+    // Semantic matching: requirements proven by the specific tools the resume names.
+    function renderRelatedSkills(semanticMatches) {
+        const panel = document.getElementById("relatedSkillPanel");
+        const list = document.getElementById("relatedSkillList");
+        if (!panel || !list) return;
+        const matches = Array.isArray(semanticMatches)
+            ? semanticMatches.filter((item) => item && item.concept && Array.isArray(item.evidence) && item.evidence.length).slice(0, 8)
+            : [];
+        panel.hidden = !matches.length;
+        list.innerHTML = matches.map((item) => {
+            const requirement = Array.isArray(item.requirements) && item.requirements.length ? String(item.requirements[0]) : "";
+            return '<li><strong>' + escapeHtml(item.concept) + '</strong> <span class="related-skill-proof">' + escapeHtml("proven by") + '</span> ' +
+                escapeHtml(item.evidence.slice(0, 3).join(", ")) +
+                (requirement ? '<small><span>' + escapeHtml("Job asks for:") + '</span> ' + escapeHtml(requirement) + '</small>' : "") +
+                '</li>';
         }).join("");
     }
 
@@ -2321,7 +2476,8 @@ Download PDF
             : [];
         const quickActions = actions.slice(0, 3).map((item) => ({
             title: String(item.title || "Review this finding"),
-            detail: String(item.action || item.detail || "")
+            detail: String(item.action || item.detail || ""),
+            note: item.adaptive ? String(item.progress_note || "") : ""
         }));
         const seen = new Set(quickActions.map((item) => item.detail.toLowerCase()));
         const addAction = (title, detail) => {
@@ -2343,7 +2499,9 @@ Download PDF
         list.innerHTML = quickActions.map((item, index) => (
             '<article><span>' + String(index + 1).padStart(2, "0") + ' / EDIT</span>' +
             '<h3>' + escapeHtml(item.title) + '</h3>' +
-            '<p>' + escapeHtml(item.detail) + '</p></article>'
+            '<p>' + escapeHtml(item.detail) + '</p>' +
+            (item.note ? '<em class="action-progress-note">' + escapeHtml(item.note) + '</em>' : "") +
+            '</article>'
         )).join("");
         const heading = document.getElementById("quickActionsTitle");
         if (heading) heading.textContent = quickActions.length === 1 ? "Your next edit" : "Your next " + quickActions.length + " edits";
@@ -2888,6 +3046,31 @@ Download PDF
         return escapeHtml(cleanItems.length ? cleanItems.join(", ") : fallbackText);
     }
 
+    function buildReportProgressSection(progress) {
+        if (!progress || !progress.available) return "";
+        const change = Number(progress.score_change) || 0;
+        const rows = [
+            ["Readiness score", formatProgressPoints(progress.previous_score) + " to " + formatProgressPoints(progress.current_score) +
+                " (" + (change > 0 ? "+" : "") + formatProgressPoints(change) + " points)"],
+            ["Now shown", reportList(progress.keywords_now_matched, "None")],
+            ["Still missing", reportList(progress.keywords_still_missing, "None")],
+            ["No longer found", reportList(progress.keywords_no_longer_found, "None")],
+            ["ATS issues fixed", reportList(progress.ats_issues_fixed, "None")],
+            ["ATS issues still open", reportList(progress.ats_issues_still_open, "None")]
+        ];
+        return "<section><h2 class=\"section-title\">Progress since your last check<\/h2><table>" +
+            rows.map((row) => "<tr><th>" + escapeHtml(row[0]) + "<\/th><td>" + (row[0] === "Readiness score" ? escapeHtml(row[1]) : row[1]) + "<\/td><\/tr>").join("") +
+            "<\/table><div class=\"note\">" + escapeHtml(progress.summary || "") + "<\/div><\/section>";
+    }
+
+    function buildReportRelatedSkillsSection(semanticMatches) {
+        const matches = Array.isArray(semanticMatches) ? semanticMatches.filter((item) => item && item.concept).slice(0, 8) : [];
+        if (!matches.length) return "";
+        return "<section><h2 class=\"section-title\">Skills proven by related tools<\/h2><ul>" +
+            matches.map((item) => "<li><strong>" + escapeHtml(item.concept) + "<\/strong>: " + reportList(item.evidence, "") + "<\/li>").join("") +
+            "<\/ul><p class=\"note detail-note\">These requirements count as met because your resume names a tool that proves them. Write the exact terms too, because ATS keyword filters match words literally.<\/p><\/section>";
+    }
+
     function buildReportTableRows(rows) {
         return rows.map((row) => (
             "<tr><th>" + escapeHtml(row[0]) + "<\/th><td>" + escapeHtml(row[1]) + "<\/td><\/tr>"
@@ -3132,11 +3315,13 @@ Download PDF
             "<section><h2 class=\"section-title\">At a glance<\/h2><table>" + summaryRows + "<\/table><\/section>" +
             "<section><h2 class=\"section-title\">What your score means<\/h2><h3>" + escapeHtml((report.scoreExplanation && report.scoreExplanation.label) || "Score meaning") + "<\/h3><div class=\"note\">" + escapeHtml((report.scoreExplanation && report.scoreExplanation.text) || "The final readiness score combines role match, resume evidence, and ATS format quality.") + "<\/div><\/section>" +
             "<section><h2 class=\"section-title\">Role fit<\/h2><div class=\"note\">" + escapeHtml(report.roleReason || "Selected role and recommendation are aligned.") + "<\/div><\/section>" +
+            buildReportProgressSection(report.progress) +
             "<section><h2 class=\"section-title\">Priority improvement plan<\/h2><ul>" + buildRecommendationActionRows(report.recommendationPlan, report.structuredFeedback) + "<\/ul><\/section>" +
             "<section><h2 class=\"section-title\">Top 3 role matches<\/h2><div class=\"note\">Evidence-match scores compare resume text with database requirements; they are not hiring probabilities or validated model accuracy.<\/div><div class=\"table-scroll\"><table><thead><tr><th>Rank<\/th><th>Database role<\/th><th>Evidence score<\/th><th>Status<\/th><th>Evidence<\/th><\/tr><\/thead><tbody>" + buildTopRoleRows(report.topRoleMatches) + "<\/tbody><\/table><\/div><\/section>" +
             "<section><h2 class=\"section-title\">Score components<\/h2><table>" + componentRows + "<\/table><p class=\"note detail-note\">" + escapeHtml(scoreExplanation.method || "Formula details were not available.") + "<\/p><\/section>" +
             "<section><h2 class=\"section-title\">ATS quality checks<\/h2><div class=\"table-scroll\"><table class=\"quality\"><thead><tr><th>Criteria<\/th><th>Status<\/th><th>Finding<\/th><th>Suggested fix<\/th><\/tr><\/thead><tbody>" + buildQualityRows(report.qualityCriteria) + "<\/tbody><\/table><\/div>" + buildReportVisualResumePreview(report.resumeVisualPreview, report.resumeExcerpt, report.resumePreviewIsExcerpt) + "<\/section>" +
             "<section><h2 class=\"section-title\">Resume evidence<\/h2><table>" + evidenceRows + "<\/table><h3 style=\"margin-top:22px\">Matched signals<\/h3><div class=\"chips\">" + reportList(report.matchedSignals, "No matched signals").split(", ").map((item) => "<span class=\"chip\">" + item + "<\/span>").join("") + "<\/div><h3 style=\"margin-top:22px\">Missing keywords<\/h3>" + (Array.isArray(report.missingKeywords) && report.missingKeywords.some(Boolean) ? "<p>Rewrite project bullets to include these naturally, only where you have real evidence.<\/p>" : "") + "<div class=\"chips\">" + reportList(report.missingKeywords, "No missing keywords").split(", ").map((item) => "<span class=\"chip missing\">" + item + "<\/span>").join("") + "<\/div><p class=\"note detail-note\">Similar terms such as developer/development and test/testing are normalized before scoring.<\/p><\/section>" +
+            buildReportRelatedSkillsSection(report.semanticMatches) +
             "<section><h2 class=\"section-title\">Next actions<\/h2><ul>" + buildFeedbackRows(report.structuredFeedback, report.feedback || "No feedback available.") + "<\/ul><\/section>" +
             "<footer>Preview generated locally by UTS CS Career Navigator. Use Download PDF report on the results page to save a copy.<\/footer>" +
             "<\/div><\/body><\/html>";
@@ -4004,6 +4189,8 @@ Download PDF
             structuredFeedback
         });
         renderQuickActions(recommendationModule, missingKeywords, qualityCriteria);
+        renderProgress(result.progress);
+        renderRelatedSkills(jobAnalysis.semantic_matches);
         renderFeedbackList("structuredFeedbackList", structuredFeedback, feedback);
 
         if (!sampleRequested && generateResumeBtn && generateResumeBtn.dataset.bound !== "true") {
@@ -4041,6 +4228,8 @@ Download PDF
             topRoleMatches,
             matchedSignals,
             missingKeywords,
+            semanticMatches: Array.isArray(jobAnalysis.semantic_matches) ? jobAnalysis.semantic_matches : [],
+            progress: result.progress && typeof result.progress === "object" ? result.progress : null,
             structuredFeedback,
             feedback,
             resumeExcerpt: resumePreviewText,
