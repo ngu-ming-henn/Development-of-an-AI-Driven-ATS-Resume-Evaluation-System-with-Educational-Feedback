@@ -444,6 +444,13 @@
         .generated-resume-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
         .generated-resume-actions .report-action { min-height: 2.65rem; padding: .55rem .85rem; font-size: .8rem; }
         .generated-resume-frame { width: 100%; height: min(74vh, 740px); min-height: 410px; border: 1px solid var(--studio-border); border-radius: 12px; background: #fff; }
+        .role-examples { margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid var(--studio-border); }
+        .role-examples-note { margin: .6rem 0 0; padding: .75rem .9rem; border-radius: 12px; background: #fff7e6; color: #6b4300; font-size: .88rem; line-height: 1.55; }
+        .role-example-tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+        .role-example-tab { display: inline-flex; align-items: center; gap: .45rem; min-height: 36px; padding: .35rem .9rem; border: 1px solid var(--studio-border); border-radius: 999px; background: #fff; color: #17323f; font-size: .8rem; font-weight: 700; cursor: pointer; }
+        .role-example-tab span { color: #6b7c86; font-weight: 600; }
+        .role-example-tab[aria-selected="true"] { border-color: #176b89; background: #176b89; color: #fff; }
+        .role-example-tab[aria-selected="true"] span { color: #d8eef6; }
         .report-reveal { opacity: 0; filter: blur(8px); transform: translate3d(var(--reveal-x,0),22px,0); transition: opacity .75s ease, filter .75s ease, transform .75s cubic-bezier(.2,.8,.2,1); }
         .report-reveal.is-visible { opacity: 1; filter: blur(0); transform: translate3d(0,0,0); }
         .report-reveal[data-reveal-side="left"] { --reveal-x: -24px; }
@@ -893,6 +900,13 @@ Download PDF
 <iframe class="generated-resume-frame" id="generatedResumePreview" title="Generated ATS resume preview"></iframe>
 <p class="mt-5 text-xs uppercase tracking-[0.16em] font-bold text-secondary">Improvement advice shown here only, not included in the PDF download</p>
 <ul class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-on-surface-variant" id="generatedResumeNotesList"></ul>
+<section class="role-examples hidden" id="roleExamplesPanel" aria-labelledby="roleExamplesTitle">
+<p class="text-xs uppercase tracking-widest font-bold text-secondary mb-2">Learning examples</p>
+<h3 class="text-xl font-extrabold text-primary tracking-tight" id="roleExamplesTitle">Example resumes for your recommended roles</h3>
+<p class="role-examples-note" id="roleExamplesNote"></p>
+<div class="role-example-tabs" id="roleExampleTabs" role="tablist" aria-label="Example resumes"></div>
+<iframe class="generated-resume-frame" id="roleExampleFrame" title="Fictional example resume for a recommended role"></iframe>
+</section>
 </div>
 </section>
 </div>
@@ -3570,6 +3584,47 @@ Download PDF
                 )).join("")
                 : '<li class="text-on-surface-variant">No extra ATS notes returned.</li>';
         }
+        renderRoleExamples(isExample ? null : draft.role_examples);
+    }
+
+    // When the selected role and the Top 3 roles all score below 40, the draft carries fictional
+    // example resumes for those roles; one tab per example.
+    function renderRoleExamples(guide) {
+        const panel = document.getElementById("roleExamplesPanel");
+        const note = document.getElementById("roleExamplesNote");
+        const tabs = document.getElementById("roleExampleTabs");
+        const frame = document.getElementById("roleExampleFrame");
+        if (!panel || !tabs || !frame) return;
+        const examples = guide && Array.isArray(guide.examples)
+            ? guide.examples.filter((example) => example && example.html)
+            : [];
+        if (!examples.length) {
+            panel.classList.add("hidden");
+            tabs.innerHTML = "";
+            frame.srcdoc = "";
+            return;
+        }
+        if (note) note.textContent = String(guide.note || "");
+        tabs.innerHTML = examples.map((example, index) => {
+            const roles = Array.isArray(example.roles) && example.roles.length ? example.roles : [example.role || "Example"];
+            const score = Number(example.score);
+            return '<button class="role-example-tab" type="button" role="tab" data-example-index="' + index + '" aria-selected="false">' +
+                escapeHtml(roles.join(" / ")) +
+                (Number.isFinite(score) ? '<span>' + escapeHtml(Math.round(score) + "%") + '</span>' : "") +
+                '</button>';
+        }).join("");
+        const showExample = (index) => {
+            frame.srcdoc = examples[index].html;
+            tabs.querySelectorAll("[data-example-index]").forEach((button) => {
+                button.setAttribute("aria-selected", Number(button.dataset.exampleIndex) === index ? "true" : "false");
+            });
+        };
+        tabs.onclick = (event) => {
+            const button = event.target.closest("[data-example-index]");
+            if (button) showExample(Number(button.dataset.exampleIndex));
+        };
+        showExample(0);
+        panel.classList.remove("hidden");
     }
 
     async function saveGeneratedResumeDownloadHistory(fileName, analysisId) {

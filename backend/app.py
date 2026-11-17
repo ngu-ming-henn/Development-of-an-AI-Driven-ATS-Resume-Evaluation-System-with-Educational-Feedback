@@ -59,6 +59,7 @@ from app_config import (
     APP_TITLE,
     CORS_ALLOWED_ORIGINS,
     CS_SAMPLE_ONLY_TOP_MATCH_THRESHOLD,
+    LOW_MATCH_EXAMPLE_THRESHOLD,
     EMAIL_PIN_ATTEMPT_LIMIT_PER_IP,
     EMAIL_PIN_COOLDOWN_ESCALATE_AFTER,
     EMAIL_PIN_ESCALATED_COOLDOWN_SECONDS,
@@ -7563,8 +7564,33 @@ def looks_like_technology_list(text: str) -> bool:
     return len(items) >= 2 and all(len(item.split()) <= 3 for item in items)
 
 
+# Skill-group labels from a Tech Stack block (`Frontend:`, `AI/Tools:`). Labels that projects use for
+# their own stack (`Tools:`, `Technologies:`) are deliberately not listed here.
+SKILL_GROUP_LINE_PATTERN = re.compile(
+    r"^(?:front[\s-]?end|back[\s-]?end|full[\s-]?stack|mobile|cloud|devops|databases?|"
+    r"(?:programming\s+)?languages?|frameworks?(?:\s*(?:and|&|/)\s*librar(?:y|ies))?|librar(?:y|ies)|"
+    r"ai\s*/\s*tools?|others?|soft\s+skills|hard\s+skills|technical\s+skills|skills|"
+    r"operating\s+systems?|platforms?|version\s+control)\s*:\s*(.*)$",
+    re.I,
+)
+
+
+def count_skill_group_lines(lines: list[str]) -> int:
+    count = 0
+    for line in lines:
+        match = SKILL_GROUP_LINE_PATTERN.match(normalize_text(line))
+        if match and (not match.group(1) or looks_like_technology_list(match.group(1))):
+            count += 1
+    return count
+
+
 def parse_structured_project_entries(lines: list[str], document_words: set[str]) -> list[dict[str, Any]]:
     if resume_section_has_contact_or_heading_leaks(lines):
+        return []
+    # In two-column PDFs a Tech Stack sidebar can land under the Projects heading. Its
+    # `Frontend:` / `Backend:` lines are not projects, and accepting them would hide the
+    # real projects, so leave the section to the sentence-based fallback.
+    if count_skill_group_lines(lines) >= 2:
         return []
     raw_entries = group_resume_section_entries(lines)
     if not raw_entries:
@@ -9642,7 +9668,7 @@ def build_sample_resume_role_profile(target_role: str) -> dict[str, Any]:
         certification = "Google UX Design Professional Certificate (2025)"
         education_focus = "User Experience Design"
         achievement = "Raised prototype task completion from 68% to 91% through two evidence-led design iterations."
-    elif any(term in normalized_role for term in ("cyber", "security analyst", "security engineer", "information security", "soc analyst")):
+    elif any(term in normalized_role for term in ("cyber", "security", "forensic", "internet safety", "soc analyst")):
         family = "Cybersecurity"
         skills = ["Network Security", "Linux", "Python", "SIEM", "Wireshark", "OWASP", "Vulnerability Assessment", "Incident Response", "Identity and Access Management"]
         focus = "security monitoring, vulnerability assessment, incident documentation, and defensive controls"
@@ -9676,7 +9702,7 @@ def build_sample_resume_role_profile(target_role: str) -> dict[str, Any]:
         certification = "AWS Certified Cloud Practitioner (2025)"
         education_focus = "Cloud Computing"
         achievement = "Cut deployment lead time by 64% through automated quality gates and repeatable release steps."
-    elif any(term in normalized_role for term in ("network", "infrastructure engineer", "systems administrator", "system administrator")):
+    elif any(term in normalized_role for term in ("network", "infrastructure", "systems administrator", "system administrator")):
         family = "Network / Infrastructure"
         skills = ["TCP/IP", "Routing", "Switching", "VLAN", "DNS", "DHCP", "Linux", "Windows Server", "Wireshark", "Network Troubleshooting"]
         focus = "network configuration, infrastructure monitoring, fault isolation, and technical documentation"
@@ -9727,7 +9753,7 @@ def build_sample_resume_role_profile(target_role: str) -> dict[str, Any]:
         certification = "ISTQB Certified Tester Foundation Level (2025)"
         education_focus = "Software Quality Assurance"
         achievement = "Doubled repeatable regression coverage by converting recurring UI and API checks into automated tests."
-    elif any(term in normalized_role for term in ("help desk", "service desk", "it support", "support specialist", "computer technician", "desktop support")):
+    elif any(term in normalized_role for term in ("help desk", "service desk", "it support", "support specialist", "support engineer", "support technician", "user services", "computer technician", "desktop support")):
         family = "IT Support"
         skills = ["Windows", "Linux", "Microsoft 365", "Active Directory", "Hardware Troubleshooting", "Networking", "Ticketing Systems", "Remote Support", "Technical Documentation"]
         focus = "user support, systematic troubleshooting, ticket ownership, account administration, and clear documentation"
@@ -9761,7 +9787,7 @@ def build_sample_resume_role_profile(target_role: str) -> dict[str, Any]:
         certification = "Microsoft Certified: Power BI Data Analyst Associate (2025)"
         education_focus = "Data Science"
         achievement = "Reduced monthly reporting preparation time by 58% with a reproducible data-cleaning pipeline."
-    elif any(term in normalized_role for term in ("software", "developer", "programmer", "web", "frontend", "backend", "full stack", "mobile")):
+    elif any(term in normalized_role for term in ("software", "developer", "programmer", "programming", "java", "web", "frontend", "backend", "full stack", "mobile")):
         family = "Software Development"
         skills = ["Java", "Python", "HTML", "CSS", "JavaScript", "SQL", "Git", "REST API", "Software Testing", "Debugging", "System Design"]
         focus = "software development, database-backed applications, API integration, testing, and maintainable design"
@@ -9851,7 +9877,13 @@ def build_sample_resume_payload(
         "selected_role_review_required",
     }
     no_suitable_role_sample = reason_code == "auto_detected_no_suitable_role"
-    if selected_role_sample:
+    if reason_code == "low_match_learning_example":
+        reason_note = (
+            f"EXAMPLE ONLY: {role} scored {score_text}, below {generation_threshold:.0f}/100. This fictional "
+            "resume shows the kind of evidence a stronger resume for this role includes. Your own draft is shown separately."
+        )
+        sample_reason = f"{role} scored {score_text}, below the {generation_threshold:.0f}/100 learning-example threshold."
+    elif selected_role_sample:
         reason_note = (
             f"EXAMPLE ONLY: the selected {role} role scored {score_text}, below the applicable "
             f"{generation_threshold:.0f}/100 review threshold. The uploaded resume was not rewritten "
@@ -9950,6 +9982,89 @@ def build_sample_resume_payload(
     draft["plain_text"] = build_generated_resume_plain_text(draft)
     draft["html"] = build_generated_resume_html(draft)
     return draft
+
+
+LOW_MATCH_EXAMPLE_LIMIT = 3
+LOW_MATCH_NOTE_WITH_SELECTED = (
+    "Your selected role and the three recommended roles all scored below 40%, so example resumes for these "
+    "roles are shown below. Read them to see what stronger evidence looks like, and add only what is true for you."
+)
+LOW_MATCH_NOTE_RECOMMENDED = (
+    "The three recommended roles all scored below 40%, so example resumes for these roles are shown below. "
+    "Read them to see what stronger evidence looks like, and add only what is true for you."
+)
+
+
+def build_low_match_role_examples(analysis: dict[str, Any]) -> dict[str, Any] | None:
+    """Fictional example resumes for the selected role and the Top 3 roles when all of them score below 40.
+
+    Roles that share a sample family (for example three software roles) share one example.
+    """
+
+    role_recommendation = (
+        analysis.get("role_recommendation") if isinstance(analysis.get("role_recommendation"), dict) else {}
+    )
+    candidates: list[tuple[str, float]] = []
+    selected_label = normalize_text(
+        str(role_recommendation.get("selected_role") or analysis.get("selected_role") or "")
+    )
+    has_selected_role = is_explicit_resume_generation_role(selected_label)
+    if has_selected_role:
+        try:
+            candidates.append((selected_label, float(role_recommendation.get("selected_score"))))
+        except (TypeError, ValueError):
+            return None
+    raw_matches = analysis.get("top_role_matches") or role_recommendation.get("top_role_matches") or []
+    top_count = 0
+    for match in list(raw_matches)[:3] if isinstance(raw_matches, list) else []:
+        if not isinstance(match, dict):
+            continue
+        name = normalize_text(str(match.get("role") or match.get("database_role") or ""))
+        raw_score = match.get("score") if match.get("score") is not None else match.get("confidence_score")
+        try:
+            score = float(raw_score)
+        except (TypeError, ValueError):
+            continue
+        if name:
+            candidates.append((name, score))
+            top_count += 1
+    if not top_count or any(score >= LOW_MATCH_EXAMPLE_THRESHOLD for _, score in candidates):
+        return None
+
+    examples: list[dict[str, Any]] = []
+    by_family: dict[str, dict[str, Any]] = {}
+    for name, score in candidates:
+        family = build_sample_resume_role_profile(name)["family"]
+        if family in by_family:
+            if name.lower() not in {role.lower() for role in by_family[family]["roles"]}:
+                by_family[family]["roles"].append(name)
+            continue
+        if len(examples) >= LOW_MATCH_EXAMPLE_LIMIT:
+            continue
+        sample = build_sample_resume_payload(
+            analysis,
+            name,
+            score,
+            reason_code="low_match_learning_example",
+            evidence_score=score,
+            generation_threshold=LOW_MATCH_EXAMPLE_THRESHOLD,
+            selection_mode="low_match_learning_example",
+        )
+        example = {
+            "role": name,
+            "roles": [name],
+            "family": family,
+            "score": round(score, 1),
+            "html": sample["html"],
+            "plain_text": sample["plain_text"],
+        }
+        by_family[family] = example
+        examples.append(example)
+    return {
+        "threshold": LOW_MATCH_EXAMPLE_THRESHOLD,
+        "note": LOW_MATCH_NOTE_WITH_SELECTED if has_selected_role else LOW_MATCH_NOTE_RECOMMENDED,
+        "examples": examples,
+    }
 
 
 def build_generated_resume_payload(
@@ -10167,6 +10282,9 @@ def build_generated_resume_payload(
     }
     draft["plain_text"] = build_generated_resume_plain_text(draft)
     draft["html"] = build_generated_resume_html(draft)
+    role_examples = build_low_match_role_examples(safe_analysis)
+    if role_examples:
+        draft["role_examples"] = role_examples
     return draft
 
 

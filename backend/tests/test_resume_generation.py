@@ -435,6 +435,55 @@ class ResumeGenerationTests(unittest.TestCase):
         # Job bullets never become project titles.
         self.assertFalse(any(project["title"].startswith("Tested the TVET") for project in projects))
 
+    def test_tech_stack_sidebar_under_projects_heading_is_not_a_project(self):
+        # Two-column PDF: the sidebar's skill groups were extracted right below "Academic Projects",
+        # while the real project titles and bullets came out elsewhere in the text.
+        resume_text = "\n".join([
+            "Alex Example",
+            "alex.example@example.com | +60 12-345 6789",
+            "Library Booking System",
+            "Weather Alert Mobile App",
+            "Team Assignment | Team of 4",
+            "Developed a web system for students to book library rooms online",
+            "Built the backend API with Flask and stored bookings in MySQL",
+            "Academic Projects",
+            "Frontend:",
+            "React , HTML , CSS",
+            "Backend:",
+            "Flask , Python",
+            "Languages:",
+            "Python , JavaScript",
+            "Developed a mobile app that sends weather alerts to farmers",
+            "Integrated a public weather API for hourly forecasts",
+            "Education",
+            "Bachelor of Computer Science",
+            "University of Technology Sarawak",
+            "2023 - Present",
+        ])
+        sections = app_module.parse_structured_resume_sections(resume_text)
+        self.assertEqual(sections["projects"], [])
+
+        analysis = {
+            "matching_percentage": 50,
+            "target_role": "Software Developer",
+            "resume_summary": {"skills": ["flask", "mysql", "python", "react"], "education_markers": ["bachelor"],
+                               "experience_markers": ["built", "developed"]},
+            "job_description_analysis": {"matched_keywords": [], "missing_keywords": []},
+        }
+        draft = app_module.build_generated_resume_payload(analysis, resume_text, "Software Developer", "", None)
+        projects_text = draft["plain_text"].split("PROJECTS", 1)[1].split("EDUCATION", 1)[0]
+        self.assertNotIn("Frontend |", projects_text)
+        self.assertIn("library rooms", projects_text)
+
+    def test_project_with_its_own_tools_line_is_still_parsed(self):
+        lines = [
+            "Library Booking System",
+            "Tools: Flask, MySQL",
+            "Languages: Python, JavaScript",
+            "- Built a booking website used by 300 students each week",
+        ]
+        self.assertEqual(app_module.count_skill_group_lines(lines), 1)
+
     def test_contact_links_split_glued_profiles_and_render_on_their_own_row(self):
         draft = self.build_sectioned_draft(
             ["https://linkedin.com/in/jordan-lee-example", "https://github.com/jordan-lee-example/"]
