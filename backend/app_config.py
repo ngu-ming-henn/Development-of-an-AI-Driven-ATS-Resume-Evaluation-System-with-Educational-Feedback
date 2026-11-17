@@ -71,6 +71,9 @@ ACCURACY_TESTING_PENDING_FILE = os.getenv(
 
 RESUME_GENERATION_MAX_TEXT_LENGTH = 12000
 CS_SAMPLE_ONLY_TOP_MATCH_THRESHOLD = 20.0
+# Below this score for the selected role and all Top 3 roles, the generated draft also shows
+# fictional example resumes for those roles as a learning guide.
+LOW_MATCH_EXAMPLE_THRESHOLD = 40.0
 PDF_EXTENSIONS = {".pdf"}
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 SUPPORTED_RESUME_EXTENSIONS = PDF_EXTENSIONS | IMAGE_EXTENSIONS

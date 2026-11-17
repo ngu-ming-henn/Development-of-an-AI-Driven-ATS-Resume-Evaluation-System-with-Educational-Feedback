@@ -866,7 +866,11 @@
     "Skills proven by the tools you named": "Kemahiran yang dibuktikan oleh alat yang anda nyatakan",
     "These requirements count as met because your resume names a tool that proves them. ATS keyword filters still look for the exact words, so write them too.": "Keperluan ini dikira dipenuhi kerana resume anda menyebut alat yang membuktikannya. Penapis kata kunci ATS masih mencari perkataan yang tepat, jadi tulis juga perkataan itu.",
     "proven by": "dibuktikan oleh",
-    "Job asks for:": "Kerja memerlukan:"
+    "Job asks for:": "Kerja memerlukan:",
+    "Learning examples": "Contoh pembelajaran",
+    "Example resumes for your recommended roles": "Contoh resume untuk peranan yang disyorkan",
+    "Your selected role and the three recommended roles all scored below 40%, so example resumes for these roles are shown below. Read them to see what stronger evidence looks like, and add only what is true for you.": "Peranan pilihan anda dan tiga peranan yang disyorkan semuanya mendapat skor di bawah 40%, jadi contoh resume untuk peranan ini ditunjukkan di bawah. Baca contoh ini untuk melihat bukti yang lebih kukuh, dan tambah hanya perkara yang benar tentang anda.",
+    "The three recommended roles all scored below 40%, so example resumes for these roles are shown below. Read them to see what stronger evidence looks like, and add only what is true for you.": "Tiga peranan yang disyorkan semuanya mendapat skor di bawah 40%, jadi contoh resume untuk peranan ini ditunjukkan di bawah. Baca contoh ini untuk melihat bukti yang lebih kukuh, dan tambah hanya perkara yang benar tentang anda."
   };
   const dynamicTranslations = [
     [/^Resend in ([0-9:]+s?)$/, (match) => `Hantar semula dalam ${match[1]}`],

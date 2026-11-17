@@ -2724,6 +2724,53 @@
     });
   });
 
+  // Popular market roles change every 10 seconds so students see more roles. Every role here has a
+  // database alias (POPULAR_ROLE_ALIASES in the backend). Rotation pauses while a role is selected,
+  // while the pointer or keyboard focus is on the strip, while the tab is hidden, during an analysis,
+  // and for visitors who prefer reduced motion.
+  const POPULAR_ROLE_SETS = [
+    ["Data Analyst", "Data Scientist", "Machine Learning Engineer", "Software Engineer", "Research Scientist", "DevOps Engineer"],
+    ["Full Stack Developer", "Frontend Developer", "Backend Developer", "Cloud Engineer", "Cybersecurity Analyst", "Database Developer"],
+    ["Web Developer", "Software Developer", "Security Engineer", "SOC Analyst", "SQL Developer", "Application Developer"]
+  ];
+  const POPULAR_ROLE_ROTATE_MS = 10000;
+  const popularRoleStrip = document.getElementById("jobRoleButtons");
+  let popularRoleSetIndex = 0;
+  let popularRoleStripInUse = false;
+
+  function canRotatePopularRoles() {
+    if (!popularRoleStrip || jobRoleButtons.length !== POPULAR_ROLE_SETS[0].length) return false;
+    if (document.hidden || popularRoleStripInUse || isAnalyzing) return false;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+    return !Array.from(jobRoleButtons).some((button) => button.getAttribute("aria-pressed") === "true");
+  }
+
+  function showPopularRoleSet(index) {
+    const roles = POPULAR_ROLE_SETS[index];
+    jobRoleButtons.forEach((button, position) => {
+      button.dataset.role = roles[position];
+      button.textContent = roles[position];
+      // Restart the appear animation so the change is visible.
+      button.style.animation = "none";
+      void button.offsetWidth;
+      button.style.animation = "";
+    });
+  }
+
+  if (popularRoleStrip) {
+    popularRoleStrip.addEventListener("pointerenter", () => { popularRoleStripInUse = true; });
+    popularRoleStrip.addEventListener("pointerleave", () => { popularRoleStripInUse = false; });
+    popularRoleStrip.addEventListener("focusin", () => { popularRoleStripInUse = true; });
+    popularRoleStrip.addEventListener("focusout", (event) => {
+      if (!popularRoleStrip.contains(event.relatedTarget)) popularRoleStripInUse = false;
+    });
+    window.setInterval(() => {
+      if (!canRotatePopularRoles()) return;
+      popularRoleSetIndex = (popularRoleSetIndex + 1) % POPULAR_ROLE_SETS.length;
+      showPopularRoleSet(popularRoleSetIndex);
+    }, POPULAR_ROLE_ROTATE_MS);
+  }
+
   if (customRoleInput) {
     customRoleInput.addEventListener("focus", () => {
       setRolePickerOpen(true);
