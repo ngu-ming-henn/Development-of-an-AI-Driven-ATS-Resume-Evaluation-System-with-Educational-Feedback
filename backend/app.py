@@ -12,6 +12,7 @@ import base64
 import ssl
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+from decimal import ROUND_HALF_UP, Decimal
 from email.message import EmailMessage
 from functools import lru_cache
 from html import escape as html_escape
@@ -4070,8 +4071,13 @@ def fetch_previous_role_analysis(user_id: int, target_role: str) -> dict[str, An
             connection.close()
 
 
+def round_score_points(value: float) -> float:
+    """Round a score to one decimal place with halves going up, as the report shows it."""
+    return float(Decimal(str(float(value))).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
+
+
 def format_score_points(value: float) -> str:
-    rounded = round(float(value), 1)
+    rounded = round_score_points(value)
     return str(int(rounded)) if rounded == int(rounded) else f"{rounded:.1f}"
 
 
@@ -4126,7 +4132,8 @@ def build_progress_since_last_check(
     if not previous or current_score is None or previous_score is None:
         return {"available": False, "target_role": target_role, "check_number": check_number}
 
-    score_change = round(current_score - previous_score, 2)
+    # Use the one-decimal scores the report shows, so the change always equals "after" minus "before".
+    score_change = round(round_score_points(current_score) - round_score_points(previous_score), 1)
     if score_change >= PROGRESS_CHANGE_THRESHOLD:
         trend = "improved"
     elif score_change <= -PROGRESS_CHANGE_THRESHOLD:
