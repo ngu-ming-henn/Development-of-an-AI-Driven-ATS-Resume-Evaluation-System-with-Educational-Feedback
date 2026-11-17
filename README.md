@@ -34,7 +34,7 @@ The project uses Python, Flask, scikit-learn, pypdf, Tesseract OCR for supported
 
 ## For developers
 
-- Branches: `main` contains the current Render testing version, `update_version` holds the updated app, `method_2` prepares Netlify and Koyeb staging, and `old_version` preserves the previous release.
+- Branches: `main` contains the current Render testing version, `second_version` keeps the second version of the app (before semantic skill matching and progress feedback), `method_2` prepares Netlify and Koyeb staging, and `old_version` preserves the previous release.
 - To preview locally, build the stylesheet with `npm ci` and `npm run build:css`, then start the configured Flask app with `.\\.venv\\Scripts\\python.exe backend/app.py`. Open `http://127.0.0.1:5000/`. Opening an HTML file directly cannot load account or admin data.
 - `outputs/` contains local evaluation data and is ignored by Git. QA screenshots and temporary browser profiles are not needed by the app and should be removed after testing.
 - [Render deployment guide](docs/deployment/DEPLOY_RENDER_FREE.md)

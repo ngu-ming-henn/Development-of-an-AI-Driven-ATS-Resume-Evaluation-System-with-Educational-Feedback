@@ -829,7 +829,30 @@
     "The original file was not stored for this evaluation.": "Fail asal tidak disimpan untuk penilaian ini.",
     "Original resume image": "Imej resume asal",
     "PDF preview renderer did not load.": "Pemapar pratonton PDF tidak dimuatkan.",
-    "Could not load PDF preview renderer.": "Tidak dapat memuatkan pemapar pratonton PDF."
+    "Could not load PDF preview renderer.": "Tidak dapat memuatkan pemapar pratonton PDF.",
+    "Since your last check": "Sejak semakan lepas",
+    "Your progress": "Kemajuan anda",
+    "About the same": "Lebih kurang sama",
+    "Now shown in your resume": "Kini ada dalam resume anda",
+    "Still missing": "Masih tiada",
+    "No longer found": "Tidak lagi ditemui",
+    "ATS issues fixed": "Isu ATS dibaiki",
+    "ATS issues still open": "Isu ATS belum selesai",
+    "None yet": "Belum ada",
+    "None": "Tiada",
+    "Keyword match": "Padanan kata kunci",
+    "Edit your resume, then check it again with the same role. This card will show what improved and what is still missing.": "Sunting resume anda, kemudian semak semula dengan peranan yang sama. Kad ini akan menunjukkan apa yang bertambah baik dan apa yang masih tiada.",
+    "Suggested last time and still missing.": "Dicadangkan kali lepas dan masih tiada.",
+    "Found in your last check, missing now.": "Ditemui dalam semakan lepas, kini tiada.",
+    "Flagged in your last check too.": "Turut ditanda dalam semakan lepas.",
+    "Still missing since your last check": "Masih tiada sejak semakan lepas",
+    "Restore evidence that disappeared": "Pulihkan bukti yang hilang",
+    "Use the exact skill names from the job": "Gunakan nama kemahiran yang tepat seperti dalam kerja",
+    "Related-skill evidence": "Bukti kemahiran berkaitan",
+    "Skills proven by the tools you named": "Kemahiran yang dibuktikan oleh alat yang anda nyatakan",
+    "These requirements count as met because your resume names a tool that proves them. ATS keyword filters still look for the exact words, so write them too.": "Keperluan ini dikira dipenuhi kerana resume anda menyebut alat yang membuktikannya. Penapis kata kunci ATS masih mencari perkataan yang tepat, jadi tulis juga perkataan itu.",
+    "proven by": "dibuktikan oleh",
+    "Job asks for:": "Kerja memerlukan:"
   };
   const dynamicTranslations = [
     [/^Resend in ([0-9:]+s?)$/, (match) => `Hantar semula dalam ${match[1]}`],
@@ -864,7 +887,15 @@
     [/^View report for (.+)$/, (match) => `Lihat laporan untuk ${match[1]}`],
     [/^Delete user account for (.+)\?$/, (match) => `Padam akaun pengguna untuk ${match[1]}?`],
     [/^Resume page (\d+) of (\d+)$/, (match) => `Halaman resume ${match[1]} daripada ${match[2]}`],
-    [/^Showing the first (\d+) of (\d+) pages\. Download the file to see the rest\.$/, (match) => `Memaparkan ${match[1]} halaman pertama daripada ${match[2]}. Muat turun fail untuk melihat selebihnya.`]
+    [/^Showing the first (\d+) of (\d+) pages\. Download the file to see the rest\.$/, (match) => `Memaparkan ${match[1]} halaman pertama daripada ${match[2]}. Muat turun fail untuk melihat selebihnya.`],
+    [/^First check for (.+)$/, (match) => `Semakan pertama untuk ${match[1]}`],
+    [/^Check (\d+) for (.+)$/, (match) => `Semakan ke-${match[1]} untuk ${match[2]}`],
+    [/^Compared with your check on (.+)$/, (match) => `Dibandingkan dengan semakan anda pada ${match[1]}`],
+    [/^([+-][\d.]+) points$/, (match) => `${match[1]} mata`],
+    [/^Still open: (.+)$/, (match) => `Belum selesai: ${match[1]}`],
+    [/^Your score rose by ([\d.]+) points since your last check \(([\d.]+) to ([\d.]+)\)\.(?: Now shown: (.+)\.)?$/, (match) => `Skor anda naik ${match[1]} mata sejak semakan lepas (${match[2]} kepada ${match[3]}).${match[4] ? ` Kini ditunjukkan: ${match[4]}.` : ""}`],
+    [/^Your score fell by ([\d.]+) points since your last check \(([\d.]+) to ([\d.]+)\)\.(?: No longer found: (.+)\.)?$/, (match) => `Skor anda turun ${match[1]} mata sejak semakan lepas (${match[2]} kepada ${match[3]}).${match[4] ? ` Tidak lagi ditemui: ${match[4]}.` : ""}`],
+    [/^Your score is about the same as your last check \(([\d.]+)\)\.(?: Still missing: (.+)\.)?$/, (match) => `Skor anda lebih kurang sama dengan semakan lepas (${match[1]}).${match[2] ? ` Masih tiada: ${match[2]}.` : ""}`]
   ];
   const translatedText = new WeakMap();
   const translatedAttributes = new WeakMap();
@@ -1640,7 +1671,30 @@
       },
       job_description_analysis: {
         important_keywords: ["kubernetes", "systems design", "docker"],
-        missing_keywords: []
+        missing_keywords: [],
+        semantic_matches: [
+          { concept: "DevOps", evidence: ["Docker", "Kubernetes"], requirements: ["DevOps practices"] }
+        ]
+      },
+      progress: {
+        available: true,
+        target_role: "Computer Programmer",
+        check_number: 2,
+        previous_score: 79,
+        current_score: 87,
+        score_change: 8,
+        trend: "improved",
+        components: [
+          { key: "keyword_match", label: "Keyword match", previous: 78, current: 87, change: 9 },
+          { key: "resume_quality", label: "ATS format quality", previous: 80, current: 88, change: 8 }
+        ],
+        keywords_now_matched: ["Docker", "Kubernetes"],
+        keywords_still_missing: [],
+        keywords_no_longer_found: [],
+        ats_issues_fixed: ["Incomplete contact details"],
+        ats_issues_still_open: ["Limited measurable impact"],
+        ats_issues_new: [],
+        summary: "Your score rose by 8 points since your last check (79 to 87). Now shown: Docker, Kubernetes."
       },
       compatibility: {
         matching_percentage: 87,

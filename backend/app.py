@@ -13,6 +13,7 @@ import ssl
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
+from functools import lru_cache
 from html import escape as html_escape
 from io import BytesIO
 import smtplib
@@ -114,6 +115,7 @@ from job_repository import (
     fetch_raw_job_data_rows,
 )
 from models import ParsedResume
+from skill_knowledge import SKILL_CONCEPTS, SKILL_KNOWLEDGE_VERSION
 from security import (
     clear_login_session,
     get_password_validation_error,
@@ -143,7 +145,7 @@ except ImportError:  # pragma: no cover - optional OCR dependency
 
 
 ROLE_RECOMMENDATION_MARGIN = 8.0
-ROLE_RANKING_VERSION = "2.2"
+ROLE_RANKING_VERSION = "2.3"
 ROLE_REQUIREMENT_FIT_WEIGHT = 0.55
 ROLE_EVIDENCE_WEIGHT = 0.10
 ROLE_TITLE_WEIGHT = 0.35
@@ -2707,6 +2709,183 @@ def keyword_matches_resume(keyword: str, resume_text: str, resume_tokens: set[st
     )
 
 
+# --- Semantic requirement matching with the skill knowledge base -------------
+# A catalogue requirement such as "Machine Learning" or "CI/CD tools" is
+# evidenced by the specific skills a resume names (TensorFlow, Jenkins, ...).
+# See skill_knowledge.py for the concepts and the rules behind them.
+
+# Full credit gave the best role ranking on the 154 labelled resumes (Top-3
+# 96 vs 92 with half credit and 92 without semantic matching).
+SEMANTIC_MATCH_CREDIT = 1.0
+SKILL_EVIDENCE_TOKEN_PATTERN = re.compile(r"[a-zA-Z][a-zA-Z+.#/-]*")
+# Unlike the clause index, a full stop only ends a segment before a space or
+# the end of the text, so tool names such as "ASP.NET" stay one token, and a
+# single line break does not end a segment, because PDF text often wraps a
+# skills line inside a tool name ("VS" / "Code"). Blank lines, bullets and
+# separators still do.
+SKILL_EVIDENCE_SEGMENT_PATTERN = re.compile(
+    r"\n\s*\n|[!?;|•]+|\.(?=\s|$)|\b(?:but|however|although)\b",
+    flags=re.I,
+)
+# Catalogue tool categories (O*NET style) that nobody writes on a resume, so
+# the "use the exact skill names" advice skips them.
+TOOL_CATEGORY_LAST_WORDS = {"software", "tool", "tools", "platform", "platforms", "system", "systems", "database"}
+
+
+class CompiledSkillConcept(NamedTuple):
+    triggers: tuple[tuple[str, bool, tuple[str, ...]], ...]
+    evidence: tuple[tuple[str, tuple[str, ...]], ...]
+    patterns: tuple[tuple[str, re.Pattern[str]], ...]
+
+
+def skill_evidence_tokens(phrase: str) -> tuple[str, ...]:
+    """Tokens of an evidence phrase, keeping short words such as "BI" in "Power BI"."""
+    tokens = (normalize_keyword_token(token) for token in SKILL_EVIDENCE_TOKEN_PATTERN.findall(phrase.lower()))
+    return tuple(token for token in tokens if token)
+
+
+@lru_cache(maxsize=1)
+def get_compiled_skill_concepts() -> tuple[CompiledSkillConcept, ...]:
+    compiled: list[CompiledSkillConcept] = []
+    for concept in SKILL_CONCEPTS:
+        triggers = []
+        for trigger in concept.triggers:
+            exact = trigger.startswith("=")
+            phrase = trigger[1:] if exact else trigger
+            normalized = normalize_match_text(phrase)
+            if normalized:
+                triggers.append((normalized, exact, tuple(tokenize_canonical_keywords(phrase))))
+        evidence = [(name, skill_evidence_tokens(name)) for name in concept.evidence]
+        # Longer names first, so "Jupyter Notebook" is reported instead of "Jupyter".
+        evidence = sorted((item for item in evidence if item[1]), key=lambda item: -len(item[1]))
+        patterns = tuple((name, re.compile(pattern)) for name, pattern in concept.patterns)
+        compiled.append(CompiledSkillConcept(tuple(triggers), tuple(evidence), patterns))
+    return tuple(compiled)
+
+
+@lru_cache(maxsize=8192)
+def get_requirement_skill_concepts(requirement_text: str) -> tuple[tuple[int, frozenset[str]], ...]:
+    """Concepts a requirement asks for, with the requirement tokens each one covers."""
+    normalized = normalize_match_text(requirement_text)
+    if not normalized:
+        return ()
+    padded = f" {normalized} "
+    requirement_tokens = set(tokenize_canonical_keywords(requirement_text))
+    matches: list[tuple[int, frozenset[str]]] = []
+    for index, concept in enumerate(get_compiled_skill_concepts()):
+        covered: set[str] = set()
+        for trigger_text, exact, trigger_tokens in concept.triggers:
+            found = normalized == trigger_text if exact else f" {trigger_text} " in padded
+            if found:
+                covered.update(set(trigger_tokens) & requirement_tokens)
+        if covered:
+            matches.append((index, frozenset(covered)))
+    return tuple(matches)
+
+
+def build_skill_evidence_index(resume_text: str) -> tuple[list[list[str]], dict[str, list[tuple[int, int]]]]:
+    segments: list[list[str]] = []
+    positions: dict[str, list[tuple[int, int]]] = {}
+    for segment in SKILL_EVIDENCE_SEGMENT_PATTERN.split(resume_text or ""):
+        tokens = list(skill_evidence_tokens(segment))
+        segment_number = len(segments)
+        segments.append(tokens)
+        for position, token in enumerate(tokens):
+            positions.setdefault(token, []).append((segment_number, position))
+    return segments, positions
+
+
+def skill_tokens_have_positive_evidence(
+    phrase_tokens: tuple[str, ...],
+    evidence_index: tuple[list[list[str]], dict[str, list[tuple[int, int]]]],
+) -> bool:
+    segments, positions = evidence_index
+    width = len(phrase_tokens)
+    for segment_number, index in positions.get(phrase_tokens[0], ()):
+        segment = segments[segment_number]
+        if tuple(segment[index : index + width]) != phrase_tokens:
+            continue
+        if not set(segment[max(0, index - 6) : index]) & NEGATED_EVIDENCE_MARKERS:
+            return True
+    return False
+
+
+def skill_pattern_has_positive_evidence(pattern: re.Pattern[str], resume_text: str) -> bool:
+    for match in pattern.finditer(resume_text or ""):
+        before = SKILL_EVIDENCE_SEGMENT_PATTERN.split(resume_text[max(0, match.start() - 200) : match.start()])[-1]
+        preceding = [normalize_keyword_token(word) for word in re.findall(r"[a-zA-Z]+", before.lower())][-6:]
+        if not set(preceding) & NEGATED_EVIDENCE_MARKERS:
+            return True
+    return False
+
+
+def get_resume_skill_concepts(resume_text: str) -> dict[int, tuple[str, ...]]:
+    """Concepts the resume proves, each with up to three evidence names found in it."""
+    cache = get_scoring_cache()
+    if cache is not None and resume_text in cache.skill_concepts:
+        return cache.skill_concepts[resume_text]
+
+    evidence_index = build_skill_evidence_index(resume_text)
+    found_concepts: dict[int, tuple[str, ...]] = {}
+    for index, concept in enumerate(get_compiled_skill_concepts()):
+        names: list[str] = []
+        found_tokens: list[tuple[str, ...]] = []
+        for name, tokens in concept.evidence:
+            if len(names) >= 3:
+                break
+            # Skip a shorter form of evidence that was already reported.
+            if any(
+                tokens == longer[start : start + len(tokens)]
+                for longer in found_tokens
+                for start in range(len(longer) - len(tokens) + 1)
+            ):
+                continue
+            if skill_tokens_have_positive_evidence(tokens, evidence_index):
+                names.append(name)
+                found_tokens.append(tokens)
+        for name, pattern in concept.patterns:
+            if len(names) >= 3:
+                break
+            if name not in names and skill_pattern_has_positive_evidence(pattern, resume_text):
+                names.append(name)
+        if names:
+            found_concepts[index] = tuple(names)
+
+    if cache is not None:
+        cache.skill_concepts[resume_text] = found_concepts
+    return found_concepts
+
+
+def find_semantic_requirement_matches(
+    requirement_text: str,
+    resume_text: str,
+    lexically_matched: set[str],
+) -> tuple[set[str], list[dict[str, Any]]]:
+    """Requirement tokens proven by related skills that exact matching missed."""
+    requirement_concepts = get_requirement_skill_concepts(requirement_text)
+    if not requirement_concepts:
+        return set(), []
+    resume_concepts = get_resume_skill_concepts(resume_text)
+    semantic_tokens: set[str] = set()
+    matches: list[dict[str, Any]] = []
+    for concept_index, covered_tokens in requirement_concepts:
+        evidence = resume_concepts.get(concept_index)
+        if not evidence:
+            continue
+        new_tokens = set(covered_tokens) - lexically_matched
+        if not new_tokens:
+            continue
+        semantic_tokens.update(new_tokens)
+        matches.append(
+            {
+                "concept": SKILL_CONCEPTS[concept_index].name,
+                "evidence": list(evidence),
+                "tokens": sorted(new_tokens),
+            }
+        )
+    return semantic_tokens, matches
+
+
 def key_phrase_exists(text: str, phrase: str) -> bool:
     cleaned_phrase = normalize_text(phrase).lower()
     if not cleaned_phrase:
@@ -3182,9 +3361,18 @@ def extract_job_keywords(job_description: str, limit: int = 10) -> list[str]:
     return ordered[:limit]
 
 
-def rule_based_feedback(resume_profile: ParsedResume, job_keywords: list[str]) -> tuple[list[str], list[str]]:
+def rule_based_feedback(
+    resume_profile: ParsedResume,
+    job_keywords: list[str],
+    semantic_matched_keywords: set[str] | None = None,
+) -> tuple[list[str], list[str]]:
     resume_tokens = set(tokenize_canonical_keywords(resume_profile.text))
-    keyword_hits = [keyword for keyword in job_keywords if keyword_matches_resume(keyword, resume_profile.text, resume_tokens)]
+    related_skill_hits = semantic_matched_keywords or set()
+    keyword_hits = [
+        keyword
+        for keyword in job_keywords
+        if keyword in related_skill_hits or keyword_matches_resume(keyword, resume_profile.text, resume_tokens)
+    ]
     missing_keywords = [keyword for keyword in job_keywords if keyword not in keyword_hits]
 
     feedback: list[str] = []
@@ -3242,9 +3430,25 @@ def score_requirement_against_resume(
     ]
 
     if not requirement_tokens:
-        return {"score": 0.0, "matched_tokens": [], "missing_tokens": []}
+        return {"score": 0.0, "matched_tokens": [], "missing_tokens": [], "semantic_matches": []}
 
-    token_coverage = (len(matched_tokens) / len(requirement_tokens)) * 100.0
+    # Related-skill evidence (for example TensorFlow for "Machine Learning")
+    # proves the skill, so each such token earns SEMANTIC_MATCH_CREDIT towards
+    # coverage C_r. The feedback still asks for the exact words, because an
+    # ATS keyword filter matches them literally.
+    semantic_tokens, semantic_matches = find_semantic_requirement_matches(
+        requirement_text,
+        resume_text,
+        set(matched_tokens),
+    )
+    lexical_match_count = len(matched_tokens)
+    if semantic_tokens:
+        covered = set(matched_tokens) | semantic_tokens
+        matched_tokens = [token for token in requirement_tokens if token in covered]
+
+    token_coverage = (
+        (lexical_match_count + SEMANTIC_MATCH_CREDIT * len(semantic_tokens)) / len(requirement_tokens)
+    ) * 100.0
     phrase_similarity = compute_tfidf_score(resume_text, requirement_text)
     score = (token_coverage * 0.85) + (phrase_similarity * 0.15)
 
@@ -3252,11 +3456,13 @@ def score_requirement_against_resume(
     if normalized_requirement and normalized_requirement in scoped_normalize_match_text(resume_text):
         score = 100.0
         matched_tokens = requirement_tokens
+        semantic_matches = []
 
     return {
         "score": round(min(100.0, score), 2),
         "matched_tokens": matched_tokens,
         "missing_tokens": [token for token in requirement_tokens if token not in matched_tokens],
+        "semantic_matches": semantic_matches,
     }
 
 
@@ -3274,6 +3480,8 @@ def evaluate_weighted_requirements(
     all_keywords: list[str] = []
     matched_keywords: list[str] = []
     missing_keywords: list[str] = []
+    semantic_tokens: set[str] = set()
+    semantic_summary: dict[str, dict[str, Any]] = {}
 
     for requirement in requirements:
         requirement_text = normalize_text(str(requirement.get("requirement_text") or ""))
@@ -3287,6 +3495,15 @@ def evaluate_weighted_requirements(
         all_keywords.extend(tokenize_canonical_keywords(requirement_text))
         matched_keywords.extend(score_detail["matched_tokens"])
         missing_keywords.extend(score_detail["missing_tokens"])
+        for semantic_match in score_detail.get("semantic_matches") or []:
+            semantic_tokens.update(semantic_match["tokens"])
+            entry = semantic_summary.setdefault(
+                semantic_match["concept"],
+                {"concept": semantic_match["concept"], "evidence": [], "requirements": [], "weight": 0.0},
+            )
+            entry["evidence"] = unique_clean_values(entry["evidence"] + list(semantic_match["evidence"]), 4)
+            entry["requirements"] = unique_clean_values(entry["requirements"] + [requirement_text], 3)
+            entry["weight"] = max(entry["weight"], weight)
         scored_requirements.append(
             {
                 "requirement_text": requirement_text,
@@ -3295,6 +3512,7 @@ def evaluate_weighted_requirements(
                 "match_score": score_detail["score"],
                 "matched_tokens": score_detail["matched_tokens"],
                 "missing_tokens": score_detail["missing_tokens"],
+                "semantic_matches": score_detail.get("semantic_matches") or [],
             }
         )
 
@@ -3309,6 +3527,10 @@ def evaluate_weighted_requirements(
     ordered_matched = [word for word, _ in Counter(matched_keywords).most_common(20)]
     matched_keyword_set = set(ordered_matched)
     ordered_missing = [word for word, _ in Counter(missing_keywords).most_common(20) if word not in matched_keyword_set]
+    semantic_matches = [
+        {key: value for key, value in entry.items() if key != "weight"}
+        for entry in sorted(semantic_summary.values(), key=lambda item: (-item["weight"], item["concept"]))
+    ]
 
     return {
         "requirement_coverage_score": round(coverage_score, 2),
@@ -3318,6 +3540,11 @@ def evaluate_weighted_requirements(
         "matched_requirements": matched_requirements[:8],
         "missing_requirements": missing_requirements[:8],
         "scored_requirements": scored_requirements,
+        "semantic_matches": semantic_matches[:8],
+        "semantic_matched_tokens": sorted(semantic_tokens),
+        # Complete lists, so a later check can compare against this one.
+        "all_matched_keywords": sorted(set(matched_keywords)),
+        "all_missing_keywords": sorted(set(missing_keywords) - set(matched_keywords)),
     }
 
 
@@ -3360,6 +3587,10 @@ def evaluate_job_fit(
         result["matched_requirements"] = requirement_result["matched_requirements"]
         result["missing_requirements"] = requirement_result["missing_requirements"]
         result["scored_requirements"] = requirement_result["scored_requirements"]
+        result["semantic_matches"] = requirement_result["semantic_matches"]
+        result["semantic_matched_tokens"] = requirement_result["semantic_matched_tokens"]
+        result["all_matched_keywords"] = requirement_result["all_matched_keywords"]
+        result["all_missing_keywords"] = requirement_result["all_missing_keywords"]
 
     return result
 
@@ -3845,6 +4076,197 @@ def build_role_recommendation(
     }
 
 
+# --- Adaptive feedback: progress since the user's last check -----------------
+# A signed-in user's new analysis is compared with their latest saved analysis
+# for the same compared role, and the improvement plan is re-ordered around
+# what did and did not change.
+
+PROGRESS_SCORE_COMPONENTS = (
+    ("keyword_match", "Keyword match"),
+    ("role_evidence", "Role evidence"),
+    ("experience_alignment", "Experience evidence"),
+    ("resume_quality", "ATS format quality"),
+    ("academic_rigor", "Education / skills evidence"),
+)
+# A change smaller than one point is reported as "about the same".
+PROGRESS_CHANGE_THRESHOLD = 1.0
+PROGRESS_HISTORY_SCAN_LIMIT = 50
+PROGRESS_LIST_LIMIT = 8
+
+
+def fetch_previous_role_analysis(user_id: int, target_role: str) -> dict[str, Any]:
+    """The user's latest saved analysis for the same compared role, and how many there are."""
+    empty: dict[str, Any] = {"analysis": None, "checks_for_role": 0}
+    role_key = normalize_match_text(target_role or "")
+    if not role_key:
+        return empty
+
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT id, target_role, created_at FROM resume_analyses WHERE user_id = %s ORDER BY id DESC LIMIT %s",
+            (int(user_id), PROGRESS_HISTORY_SCAN_LIMIT),
+        )
+        same_role = [
+            row
+            for row in cursor.fetchall()
+            if normalize_match_text(str(row.get("target_role") or "")) == role_key
+        ]
+        if not same_role:
+            return empty
+
+        latest = same_role[0]
+        cursor.execute(
+            "SELECT analysis_json FROM resume_analyses WHERE id = %s AND user_id = %s",
+            (int(latest["id"]), int(user_id)),
+        )
+        row = cursor.fetchone() or {}
+        return {
+            "analysis_id": int(latest["id"]),
+            "checked_at": isoformat_datetime(latest.get("created_at")),
+            "analysis": parse_stored_analysis_json(row.get("analysis_json")),
+            "checks_for_role": len(same_role),
+        }
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
+
+
+def format_score_points(value: float) -> str:
+    rounded = round(float(value), 1)
+    return str(int(rounded)) if rounded == int(rounded) else f"{rounded:.1f}"
+
+
+def get_analysis_score(analysis: dict[str, Any]) -> float | None:
+    compatibility = analysis.get("compatibility") if isinstance(analysis.get("compatibility"), dict) else {}
+    for value in (analysis.get("matching_percentage"), compatibility.get("matching_percentage")):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def get_analysis_issue_titles(analysis: dict[str, Any]) -> dict[str, str]:
+    """Open ATS checks of an analysis, keyed by check category."""
+    quality = analysis.get("resume_quality") if isinstance(analysis.get("resume_quality"), dict) else {}
+    issues: dict[str, str] = {}
+    for item in quality.get("issues") or []:
+        if not isinstance(item, dict):
+            continue
+        title = normalize_text(str(item.get("title") or ""))
+        category = normalize_text(str(item.get("category") or "")) or title
+        if category and category not in issues:
+            issues[category] = title or category
+    return issues
+
+
+def get_analysis_keyword_status(analysis: dict[str, Any]) -> tuple[list[str], set[str], set[str]]:
+    """(missing keywords shown to the user, all matched keywords, all missing keywords)."""
+    job = analysis.get("job_description_analysis") if isinstance(analysis.get("job_description_analysis"), dict) else {}
+    shown_missing = [str(keyword) for keyword in job.get("missing_keywords") or [] if keyword]
+    # Older reports only kept the top keywords; fall back to those lists.
+    matched = {str(keyword) for keyword in (job.get("all_matched_keywords") or job.get("matched_keywords") or []) if keyword}
+    missing = {str(keyword) for keyword in (job.get("all_missing_keywords") or job.get("missing_keywords") or []) if keyword}
+    return shown_missing, matched, missing - matched
+
+
+def display_progress_keywords(keywords: list[str]) -> list[str]:
+    return unique_clean_values([format_resume_keyword(keyword) for keyword in keywords], PROGRESS_LIST_LIMIT)
+
+
+def build_progress_since_last_check(
+    current: dict[str, Any],
+    previous_record: dict[str, Any] | None,
+) -> dict[str, Any]:
+    target_role = normalize_text(str(current.get("target_role") or ""))
+    previous_record = previous_record or {}
+    previous = previous_record.get("analysis") if isinstance(previous_record.get("analysis"), dict) else {}
+    check_number = int(previous_record.get("checks_for_role") or 0) + 1
+    current_score = get_analysis_score(current)
+    previous_score = get_analysis_score(previous) if previous else None
+    if not previous or current_score is None or previous_score is None:
+        return {"available": False, "target_role": target_role, "check_number": check_number}
+
+    score_change = round(current_score - previous_score, 2)
+    if score_change >= PROGRESS_CHANGE_THRESHOLD:
+        trend = "improved"
+    elif score_change <= -PROGRESS_CHANGE_THRESHOLD:
+        trend = "declined"
+    else:
+        trend = "unchanged"
+
+    current_components = current.get("compatibility") if isinstance(current.get("compatibility"), dict) else {}
+    previous_components = previous.get("compatibility") if isinstance(previous.get("compatibility"), dict) else {}
+    components: list[dict[str, Any]] = []
+    for key, label in PROGRESS_SCORE_COMPONENTS:
+        try:
+            before = float(previous_components[key])
+            after = float(current_components[key])
+        except (KeyError, TypeError, ValueError):
+            continue
+        components.append(
+            {"key": key, "label": label, "previous": round(before), "current": round(after), "change": round(after - before)}
+        )
+
+    previous_shown_missing, previous_matched, _ = get_analysis_keyword_status(previous)
+    _, current_matched, current_missing = get_analysis_keyword_status(current)
+    now_matched = [keyword for keyword in previous_shown_missing if keyword in current_matched]
+    still_missing = [keyword for keyword in previous_shown_missing if keyword in current_missing]
+    no_longer_found = [keyword for keyword in sorted(previous_matched) if keyword in current_missing]
+
+    previous_issues = get_analysis_issue_titles(previous)
+    current_issues = get_analysis_issue_titles(current)
+    issues_fixed = [title for category, title in previous_issues.items() if category not in current_issues]
+    issues_still_open = [title for category, title in current_issues.items() if category in previous_issues]
+    issues_new = [title for category, title in current_issues.items() if category not in previous_issues]
+
+    progress = {
+        "available": True,
+        "target_role": target_role,
+        "check_number": check_number,
+        "previous_analysis_id": previous_record.get("analysis_id"),
+        "previous_checked_at": previous_record.get("checked_at"),
+        "previous_score": round(previous_score, 2),
+        "current_score": round(current_score, 2),
+        "score_change": score_change,
+        "trend": trend,
+        "components": components,
+        "keywords_now_matched": display_progress_keywords(now_matched),
+        "keywords_still_missing": display_progress_keywords(still_missing),
+        "keywords_no_longer_found": display_progress_keywords(no_longer_found),
+        "ats_issues_fixed": issues_fixed[:PROGRESS_LIST_LIMIT],
+        "ats_issues_still_open": issues_still_open[:PROGRESS_LIST_LIMIT],
+        "ats_issues_new": issues_new[:PROGRESS_LIST_LIMIT],
+    }
+    progress["summary"] = build_progress_summary(progress)
+    return progress
+
+
+def build_progress_summary(progress: dict[str, Any]) -> str:
+    before = format_score_points(progress["previous_score"])
+    after = format_score_points(progress["current_score"])
+    change = format_score_points(abs(progress["score_change"]))
+    if progress["trend"] == "improved":
+        summary = f"Your score rose by {change} points since your last check ({before} to {after})."
+        if progress["keywords_now_matched"]:
+            summary += " Now shown: " + ", ".join(progress["keywords_now_matched"][:4]) + "."
+    elif progress["trend"] == "declined":
+        summary = f"Your score fell by {change} points since your last check ({before} to {after})."
+        if progress["keywords_no_longer_found"]:
+            summary += " No longer found: " + ", ".join(progress["keywords_no_longer_found"][:4]) + "."
+    else:
+        summary = f"Your score is about the same as your last check ({after})."
+        if progress["keywords_still_missing"]:
+            summary += " Still missing: " + ", ".join(progress["keywords_still_missing"][:4]) + "."
+    return summary
+
+
 def build_recommendation_action(
     priority: int,
     category: str,
@@ -3863,6 +4285,13 @@ def build_recommendation_action(
         "keywords": unique_clean_values(list(keywords or []), 6),
         "source": source,
     }
+
+
+def mark_adaptive_action(action: dict[str, Any], note: str) -> dict[str, Any]:
+    """Flag an action that was carried over from the user's last check."""
+    action["adaptive"] = True
+    action["progress_note"] = normalize_text(note)
+    return action
 
 
 def build_part8_recommendation_module(analysis: dict[str, Any]) -> dict[str, Any]:
@@ -3909,6 +4338,12 @@ def build_part8_recommendation_module(analysis: dict[str, Any]) -> dict[str, Any
     match_status = normalize_match_text(str(role_recommendation.get("match_status") or ""))
     human_review_required = bool(role_recommendation.get("human_review_required"))
     fallback_sample_role = normalize_text(str(role_recommendation.get("fallback_sample_role") or ""))
+    progress = analysis.get("progress") if isinstance(analysis.get("progress"), dict) else {}
+    has_progress = bool(progress.get("available"))
+    still_missing_keywords = list(progress.get("keywords_still_missing") or []) if has_progress else []
+    lost_keywords = list(progress.get("keywords_no_longer_found") or []) if has_progress else []
+    still_open_issue_titles = set(progress.get("ats_issues_still_open") or []) if has_progress else set()
+    semantic_matches = [item for item in job_analysis.get("semantic_matches") or [] if isinstance(item, dict)]
 
     actions: list[dict[str, Any]] = []
 
@@ -3954,7 +4389,39 @@ def build_part8_recommendation_module(analysis: dict[str, Any]) -> dict[str, Any
             )
         )
 
-    if display_missing_keywords:
+    if lost_keywords:
+        actions.append(
+            mark_adaptive_action(
+                build_recommendation_action(
+                    len(actions) + 1,
+                    "regression",
+                    "Restore evidence that disappeared",
+                    "These keywords were found in your last check for this role but are missing from this version.",
+                    "If you removed or reworded them by mistake, add the evidence back in your skills or a project bullet.",
+                    lost_keywords[:6],
+                    "progress",
+                ),
+                "Found in your last check, missing now.",
+            )
+        )
+
+    if still_missing_keywords:
+        repeated_first = unique_clean_values(still_missing_keywords + display_missing_keywords, 6)
+        actions.append(
+            mark_adaptive_action(
+                build_recommendation_action(
+                    len(actions) + 1,
+                    "keyword_gap",
+                    "Still missing since your last check",
+                    "These keywords were suggested in your last check for this role and are still not in the resume.",
+                    "Add them inside a truthful project, coursework, internship, or work-experience bullet. Skip any you cannot prove.",
+                    repeated_first,
+                    "progress",
+                ),
+                "Suggested last time and still missing.",
+            )
+        )
+    elif display_missing_keywords:
         actions.append(
             build_recommendation_action(
                 len(actions) + 1,
@@ -3966,6 +4433,36 @@ def build_part8_recommendation_module(analysis: dict[str, Any]) -> dict[str, Any
                 "database_requirements",
             )
         )
+
+    if semantic_matches:
+        exact_terms: list[str] = []
+        examples: list[str] = []
+        for item in semantic_matches[:6]:
+            # Suggest the job's own wording, but not tool categories such as
+            # "Development Environment Software" that no resume would contain.
+            writable = [
+                normalize_text(str(text))
+                for text in item.get("requirements") or []
+                if 0 < len(str(text).split()) <= 5
+                and str(text).split()[-1].lower() not in TOOL_CATEGORY_LAST_WORDS
+            ]
+            if not writable:
+                continue
+            evidence = ", ".join(str(name) for name in (item.get("evidence") or [])[:3])
+            exact_terms.append(writable[0])
+            examples.append(f"{writable[0]} ({evidence})" if evidence else writable[0])
+        if exact_terms:
+            actions.append(
+                build_recommendation_action(
+                    len(actions) + 1,
+                    "ats_wording",
+                    "Use the exact skill names from the job",
+                    "Your resume proves these skills through related tools but never names them: " + "; ".join(examples[:3]) + ".",
+                    "ATS keyword filters match words exactly. Write each term next to the tool that proves it, for example in your skills section.",
+                    exact_terms,
+                    "semantic_matching",
+                )
+            )
 
     if percent_status_label(keyword_match) == "needs_improvement" or percent_status_label(role_evidence) == "needs_improvement":
         actions.append(
@@ -3994,18 +4491,25 @@ def build_part8_recommendation_module(analysis: dict[str, Any]) -> dict[str, Any
         )
 
     if quality_issues:
-        first_issue = quality_issues[0]
-        actions.append(
-            build_recommendation_action(
-                len(actions) + 1,
-                "ats_quality",
-                str(first_issue.get("title") or "Fix ATS readability issue"),
-                str(first_issue.get("detail") or resume_quality.get("summary") or "ATS quality issue detected."),
-                str(first_issue.get("suggestion") or "Fix the highest-risk formatting issue before exporting the resume."),
-                [],
-                "ats_quality",
-            )
+        # An issue that was already flagged last time comes first.
+        repeated_issue = next(
+            (item for item in quality_issues if normalize_text(str(item.get("title") or "")) in still_open_issue_titles),
+            None,
         )
+        first_issue = repeated_issue or quality_issues[0]
+        issue_action = build_recommendation_action(
+            len(actions) + 1,
+            "ats_quality",
+            str(first_issue.get("title") or "Fix ATS readability issue"),
+            str(first_issue.get("detail") or resume_quality.get("summary") or "ATS quality issue detected."),
+            str(first_issue.get("suggestion") or "Fix the highest-risk formatting issue before exporting the resume."),
+            [],
+            "ats_quality",
+        )
+        if repeated_issue is not None:
+            issue_action["title"] = "Still open: " + issue_action["title"]
+            mark_adaptive_action(issue_action, "Flagged in your last check too.")
+        actions.append(issue_action)
 
     if percent_status_label(academic_rigor) == "needs_improvement":
         actions.append(
@@ -4033,6 +4537,9 @@ def build_part8_recommendation_module(analysis: dict[str, Any]) -> dict[str, Any
             )
         )
 
+    # Adaptive order: a role review gate stays first, then anything carried
+    # over from the last check, then the remaining actions in their usual order.
+    actions.sort(key=lambda item: 0 if item["category"] == "role_fit_review" else (1 if item.get("adaptive") else 2))
     actions = actions[:5]
     for index, action in enumerate(actions, start=1):
         action["priority"] = index
@@ -4063,6 +4570,8 @@ def build_part8_recommendation_module(analysis: dict[str, Any]) -> dict[str, Any
         summary += " Main keyword targets: " + ", ".join(display_missing_keywords[:5]) + "."
     elif display_matched_signals:
         summary += " Main evidence to keep: " + ", ".join(display_matched_signals[:5]) + "."
+    if has_progress and progress.get("summary"):
+        summary = str(progress["summary"]) + " " + summary
 
     return {
         "stage": "Part 8 - Recommendation and generated resume support",
@@ -4101,7 +4610,11 @@ def build_analysis_payload(
     resume_quality = analyze_resume_quality(resume_text, uploaded_name, document_info, resume_profile)
     fit_result = evaluate_job_fit(resume_text, job_description, requirements)
     job_keywords = fit_result["important_keywords"]
-    rule_feedback, missing_keywords = rule_based_feedback(resume_profile, job_keywords)
+    rule_feedback, missing_keywords = rule_based_feedback(
+        resume_profile,
+        job_keywords,
+        set(fit_result.get("semantic_matched_tokens") or []),
+    )
     similarity_score = fit_result["similarity_score"]
     keyword_coverage = fit_result["keyword_overlap_score"]
 
@@ -4157,6 +4670,14 @@ def build_analysis_payload(
             "matched_keywords": fit_result["matched_keywords"],
             "matched_requirements": fit_result.get("matched_requirements", []),
             "missing_requirements": fit_result.get("missing_requirements", []),
+            "semantic_matches": fit_result.get("semantic_matches", []),
+            "semantic_method": (
+                f"Skill knowledge base v{SKILL_KNOWLEDGE_VERSION}: a specific skill in the resume "
+                "(for example TensorFlow) counts as evidence for the general requirement it belongs to "
+                "(Machine Learning). It never works the other way round."
+            ),
+            "all_matched_keywords": fit_result.get("all_matched_keywords", []),
+            "all_missing_keywords": fit_result.get("all_missing_keywords", []),
         },
         "compatibility": {
             "matching_percentage": ats_score,
@@ -8772,6 +9293,30 @@ def build_feedback_report_pdf_buffer(report: dict[str, Any]) -> BytesIO:
     add_section(story, "Role Fit Explanation")
     story.append(paragraph(report.get("roleReason"), "note", "Selected role and recommendation are aligned.", 650))
 
+    progress = report.get("progress") if isinstance(report.get("progress"), dict) else {}
+    if progress.get("available"):
+        add_section(story, "Progress Since Your Last Check")
+        try:
+            score_change = float(progress.get("score_change") or 0)
+            score_text = (
+                f"{format_score_points(float(progress.get('previous_score') or 0))} to "
+                f"{format_score_points(float(progress.get('current_score') or 0))} "
+                f"({'+' if score_change > 0 else ''}{format_score_points(score_change)} points)"
+            )
+        except (TypeError, ValueError):
+            score_text = "Not available"
+        progress_rows = [
+            ["Readiness score", score_text],
+            ["Check for this role", clean_report_text(progress.get("check_number"), "-", 10)],
+            ["Now shown", ", ".join(clean_report_items(progress.get("keywords_now_matched"), "None", 8, 45))],
+            ["Still missing", ", ".join(clean_report_items(progress.get("keywords_still_missing"), "None", 8, 45))],
+            ["No longer found", ", ".join(clean_report_items(progress.get("keywords_no_longer_found"), "None", 8, 45))],
+            ["ATS issues fixed", ", ".join(clean_report_items(progress.get("ats_issues_fixed"), "None", 6, 70))],
+            ["ATS issues still open", ", ".join(clean_report_items(progress.get("ats_issues_still_open"), "None", 6, 70))],
+        ]
+        story.append(report_table(progress_rows, [1.9 * inch, 5.1 * inch]))
+        story.append(paragraph(progress.get("summary"), "note", max_length=420))
+
     recommendation_actions = recommendation_action_items()
     if recommendation_actions:
         add_section(story, "Priority Improvement Plan")
@@ -8815,6 +9360,22 @@ def build_feedback_report_pdf_buffer(report: dict[str, Any]) -> BytesIO:
     missing_keywords = ", ".join(clean_report_items(report.get("missingKeywords"), "No missing keywords", 10, 55))
     story.append(paragraph("Matched signals: " + matched_signals, "body", max_length=520))
     story.append(paragraph("Missing keywords: " + missing_keywords, "body", max_length=520))
+    related_skill_items = [
+        item for item in (report.get("semanticMatches") or [])[:6] if isinstance(item, dict) and item.get("concept")
+    ]
+    if related_skill_items:
+        related_text = "; ".join(
+            clean_report_text(item.get("concept"), "", 60)
+            + " (" + ", ".join(clean_report_items(item.get("evidence"), "", 3, 40)) + ")"
+            for item in related_skill_items
+        )
+        story.append(
+            paragraph(
+                "Proven by related skills: " + related_text + ". Write these terms exactly as well, because ATS filters match words literally.",
+                "body",
+                max_length=620,
+            )
+        )
     rewrite_hint = (
         "Rewrite project bullets to include missing keywords naturally, only where you have real evidence. "
         if clean_report_items(report.get("missingKeywords"), "", 1)
@@ -11670,6 +12231,13 @@ def _analyze_file():
         else "ROLE MATCH AVAILABLE"
     )
     analysis["resume_contact"] = extract_resume_contact(resume_text)
+    # Adaptive feedback: compare with this user's last check for the same role.
+    # The comparison is optional, so a database problem only skips it.
+    try:
+        previous_record = fetch_previous_role_analysis(session_user_id, target_role)
+    except DatabaseErrors:
+        previous_record = None
+    analysis["progress"] = build_progress_since_last_check(analysis, previous_record)
     analysis["recommendation_module"] = build_part8_recommendation_module(analysis)
     mark_phase("report")
 

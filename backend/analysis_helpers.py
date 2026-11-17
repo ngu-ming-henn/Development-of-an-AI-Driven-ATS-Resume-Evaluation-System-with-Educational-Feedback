@@ -21,6 +21,8 @@ class ScoringCache:
     clause_index: dict[str, tuple[list[list[str]], dict[str, list[tuple[int, int]]]]] = field(default_factory=dict)
     match_text: dict[str, str] = field(default_factory=dict)
     canonical_tokens: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    # Skill-knowledge evidence found in each resume: concept index -> evidence names.
+    skill_concepts: dict[str, dict[int, tuple[str, ...]]] = field(default_factory=dict)
 
 
 _scoring_cache: ContextVar[ScoringCache | None] = ContextVar("scoring_cache", default=None)

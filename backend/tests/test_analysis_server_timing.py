@@ -49,6 +49,7 @@ class AnalysisServerTimingTests(unittest.TestCase):
             stack.enter_context(patch.object(app_module, "build_role_recommendation", return_value={"top_role_matches": []}))
             stack.enter_context(patch.object(app_module, "build_analysis_payload", return_value=analysis))
             stack.enter_context(patch.object(app_module, "extract_resume_contact", return_value={}))
+            stack.enter_context(patch.object(app_module, "fetch_previous_role_analysis", return_value=None))
             stack.enter_context(patch.object(app_module, "build_part8_recommendation_module", return_value={}))
             stack.enter_context(patch.object(app_module, "persist_analysis", return_value=123))
             stack.enter_context(patch.object(app_module, "update_accuracy_testing_workbook", return_value={}))

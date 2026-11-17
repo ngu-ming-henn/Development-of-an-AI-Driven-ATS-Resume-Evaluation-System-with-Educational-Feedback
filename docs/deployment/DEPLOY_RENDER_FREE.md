@@ -4,7 +4,7 @@ This option runs the existing Flask website and API in one Render web service. S
 
 ## 1. Put the current code on GitHub
 
-The project already has a root `Dockerfile` that builds the frontend CSS, installs Python and Tesseract, and starts Gunicorn. Render can build it directly from a GitHub repository. **Use the intended live commit on `main` when creating or updating the service**; Render cannot deploy changes that exist only on your laptop. Use `update_version` for further work, while `old_version` preserves the previous `main` release. Keep `config/env` and all passwords out of GitHub. [Render Docker deployment](https://render.com/docs/docker), [web service sources](https://render.com/docs/web-services).
+The project already has a root `Dockerfile` that builds the frontend CSS, installs Python and Tesseract, and starts Gunicorn. Render can build it directly from a GitHub repository. **Use the intended live commit on `main` when creating or updating the service**; Render cannot deploy changes that exist only on your laptop. `second_version` keeps the second version of the app, while `old_version` preserves the previous `main` release. Keep `config/env` and all passwords out of GitHub. [Render Docker deployment](https://render.com/docs/docker), [web service sources](https://render.com/docs/web-services).
 
 The Supabase testing database has already been migrated and seeded locally. The role list and analysis history stay in Supabase when the Render process sleeps or restarts. The completed database URI is private; use the **Shared/Session pooler** connection string on port `5432` with `sslmode=require`. [Supabase connection methods](https://supabase.com/docs/guides/database/connecting-to-postgres).
 
