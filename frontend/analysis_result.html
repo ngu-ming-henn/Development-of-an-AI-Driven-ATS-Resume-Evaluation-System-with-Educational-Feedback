@@ -369,6 +369,9 @@
         .report-quick-list h3 { margin: 0; font-size: 1rem; line-height: 1.45; }
         .report-quick-list p { margin-top: .25rem; font-size: .86rem; }
         .report-quick-list .action-progress-note { grid-column: 2; }
+        .report-quick-list .quick-keywords { grid-column: 2; }
+        .quick-keywords { display: flex; flex-wrap: wrap; gap: .35rem; margin: .55rem 0 0; padding: 0; list-style: none; }
+        .quick-keywords li { padding: .15rem .6rem; border-radius: 999px; background: #e8f1fa; color: #123a5c; font-size: .74rem; font-weight: 700; }
         .report-tabs { position: sticky; top: 4.65rem; z-index: 30; margin-bottom: 3.75rem; box-shadow: none; }
         .report-tabs a { transition: background-color .18s ease, color .18s ease; }
         .report-section { margin-bottom: 4rem; }
@@ -511,6 +514,7 @@
             .report-quick-list article { grid-template-columns: minmax(0,1fr); gap: .3rem; padding: .95rem; }
             .report-quick-list span { grid-row: auto; padding-top: 0; }
             .report-quick-list .action-progress-note { grid-column: auto; }
+            .report-quick-list .quick-keywords { grid-column: auto; }
             .report-quick-list h3 { font-size: .96rem; }
             .report-quick-list p { margin-top: 0; }
             .report-shell :is(h1,h2,h3,h4,p) { overflow-wrap: anywhere; }
@@ -2486,10 +2490,15 @@ Download PDF
         const actions = Array.isArray(recommendationModule && recommendationModule.priority_actions)
             ? recommendationModule.priority_actions.filter((item) => item && (item.action || item.title || item.detail))
             : [];
+        // Keyword edits say "add them" or "these terms", so the card lists the words it means.
+        const keywordCategories = new Set(["keyword_gap", "ats_wording"]);
         const quickActions = actions.slice(0, 3).map((item) => ({
             title: String(item.title || "Review this finding"),
             detail: String(item.action || item.detail || ""),
-            note: item.adaptive ? String(item.progress_note || "") : ""
+            note: item.adaptive ? String(item.progress_note || "") : "",
+            keywords: keywordCategories.has(String(item.category || "")) && Array.isArray(item.keywords)
+                ? item.keywords.filter(Boolean).slice(0, 4).map(String)
+                : []
         }));
         const seen = new Set(quickActions.map((item) => item.detail.toLowerCase()));
         const addAction = (title, detail) => {
@@ -2513,6 +2522,9 @@ Download PDF
             '<h3>' + escapeHtml(item.title) + '</h3>' +
             '<p>' + escapeHtml(item.detail) + '</p>' +
             (item.note ? '<em class="action-progress-note">' + escapeHtml(item.note) + '</em>' : "") +
+            (item.keywords && item.keywords.length
+                ? '<ul class="quick-keywords">' + item.keywords.map((keyword) => '<li>' + escapeHtml(keyword) + '</li>').join("") + '</ul>'
+                : "") +
             '</article>'
         )).join("");
         const heading = document.getElementById("quickActionsTitle");

@@ -248,6 +248,15 @@ class AdaptiveProgressTests(unittest.TestCase):
         self.assertEqual(progress["keywords_no_longer_found"], ["Docker"])
         self.assertIn("No longer found: Docker", progress["summary"])
 
+    def test_score_change_matches_the_rounded_scores_shown(self):
+        # 72.51 - 54.06 = 18.45, but the report shows 54.1 and 72.5, so the change must read 18.4.
+        progress = app_module.build_progress_since_last_check(
+            make_analysis(72.51), {"analysis": make_analysis(54.06), "checks_for_role": 1}
+        )
+        self.assertEqual(progress["score_change"], 18.4)
+        self.assertEqual(progress["summary"], "Your score rose by 18.4 points since your last check (54.1 to 72.5).")
+        self.assertEqual(app_module.format_score_points(54.05), "54.1")
+
     def test_small_changes_count_as_unchanged(self):
         progress = app_module.build_progress_since_last_check(
             make_analysis(60.4, shown_missing=["aws"], all_missing=["aws"]),
@@ -473,6 +482,9 @@ class FrontendWiringTests(unittest.TestCase):
         self.assertIn("buildReportRelatedSkillsSection(report.semanticMatches)", page)
         self.assertIn("semanticMatches: Array.isArray(jobAnalysis.semantic_matches)", page)
         self.assertIn('progress: result.progress && typeof result.progress === "object"', page)
+        # Keyword edits in "Your next 3 edits" list the words that "add them" refers to.
+        self.assertIn('const keywordCategories = new Set(["keyword_gap", "ats_wording"]);', page)
+        self.assertIn('<ul class="quick-keywords">', page)
 
     def test_new_labels_have_malay_translations(self):
         common = (FRONTEND_DIR / "app_common.js").read_text(encoding="utf-8")
