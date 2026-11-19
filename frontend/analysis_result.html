@@ -563,9 +563,77 @@
         .sample-resume-sheet ul { margin: 0; padding-left: 1rem; color: #26394c; font-size: .78rem; line-height: 1.55; }
         .sample-resume-sheet li + li { margin-top: .35rem; }
         .sample-preview-note { margin: .75rem 0 0; color: #526174; font-size: .74rem; line-height: 1.5; }
+        /* Minimize controls for the long report blocks. Phones start minimized
+           ("Since your last check", ATS Feedback); the Priority Improvement Plan
+           starts as numbered rows on every screen because "Your next 3 edits"
+           already shows the first three in full. */
+        .report-collapse-toggle { display: inline-flex; flex: none; align-items: center; gap: .4rem; min-height: 38px; padding: .45rem .85rem; border: 1px solid #c4dbef; border-radius: 10px; background: #fff; color: var(--studio-teal-dark); font-size: .8rem; font-weight: 800; line-height: 1.2; white-space: nowrap; cursor: pointer; transition: border-color .2s ease, background-color .2s ease; }
+        .report-collapse-toggle:hover { border-color: var(--studio-teal); background: #f5faff; }
+        .report-collapse-toggle:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: 2px; }
+        .report-collapse-toggle svg { width: 16px; height: 16px; transition: transform .25s ease; }
+        .report-collapse-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+        .report-collapse-toggle[hidden] { display: none; }
+        .report-progress-head { align-items: center; }
+        .report-progress-head > div:first-child { margin-right: auto; }
+        .report-plan-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; align-self: flex-start; }
+        .report-feedback-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+        @media screen {
+            #reportProgressBody.is-collapsed > :not(.report-progress-score) { display: none; }
+            #structuredFeedbackList.is-collapsed > li > span:last-child { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
+        }
+        /* Priority plan: each action is a numbered row that opens on tap. */
+        .priority-action-grid { align-items: start; }
+        .priority-action-grid > .priority-action { min-width: 0; overflow: hidden; }
+        .priority-action-summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .85rem; padding: 1rem 1.1rem; cursor: pointer; list-style: none; }
+        .priority-action-summary::-webkit-details-marker { display: none; }
+        .priority-action-summary::marker { content: ""; }
+        .priority-action-summary:hover .priority-action-chevron { color: var(--studio-teal-dark); }
+        .priority-action-summary:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: -3px; border-radius: inherit; }
+        .priority-action-number { display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 999px; font-weight: 800; }
+        .priority-action-title { margin: 0; font-size: 1rem; font-weight: 800; line-height: 1.3; }
+        .priority-action-title small { display: block; margin-bottom: .2rem; color: var(--studio-muted); font-size: .66rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+        .priority-action-chevron { width: 18px; height: 18px; color: #8a98a8; transition: transform .25s ease, color .2s ease; }
+        .priority-action-details[open] .priority-action-chevron { transform: rotate(180deg); }
+        .priority-action-body { padding: 0 1.1rem 1.15rem; }
+        .priority-action-body > :first-child { margin-top: 0; }
+        .priority-action-details[open] .priority-action-body { animation: priorityActionOpen .3s ease both; }
+        @keyframes priorityActionOpen { from { opacity: 0; transform: translateY(-4px); } }
+        /* One strategy card: keywords to add and the evidence that stays. */
+        .report-strategy-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.5rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--studio-border); }
+        .report-strategy-label { margin: 0 0 .55rem; color: var(--studio-muted); font-size: .7rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        /* Tick lists: each tick appears in turn, first to last. */
+        .tick-flow > li > .tick-mark { display: inline-grid; flex: none; place-items: center; width: 1.35rem; height: 1.35rem; margin-top: .05rem; border-radius: 999px; background: #e3f1fd; color: var(--studio-teal-dark); font-size: .72rem; font-weight: 800; line-height: 1; }
+        .tick-flow.tick-flow-ready > li { opacity: 0; }
+        .tick-flow.tick-flow-ready.is-flowing > li { animation: tickFlowIn .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--tick-index, 0) * 130ms); }
+        .tick-flow.tick-flow-ready.is-flowing > li > .tick-mark { animation: tickFlowPop .5s cubic-bezier(.3,1.5,.5,1) both; animation-delay: calc(var(--tick-index, 0) * 130ms + 150ms); }
+        @keyframes tickFlowIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+        @keyframes tickFlowPop { from { opacity: 0; transform: scale(.2); } 70% { opacity: 1; transform: scale(1.2); } to { opacity: 1; transform: scale(1); } }
+        @media (max-width: 700px) {
+            /* Phones: the button sits under the content it opens, full width. */
+            #reportProgress:not([hidden]), .report-feedback-block { display: flex; flex-direction: column; }
+            .report-progress-head, .report-feedback-head { display: contents; }
+            .report-progress-head > div:first-child { order: 1; margin-right: 0; }
+            .report-progress-meta { order: 2; margin-top: .35rem; }
+            #reportProgressBody { order: 3; }
+            .report-feedback-head > div { order: 1; }
+            #structuredFeedbackList { order: 2; }
+            .report-progress-head .report-collapse-toggle, .report-feedback-head .report-collapse-toggle { order: 4; align-self: stretch; justify-content: center; margin-top: 1rem; }
+            .report-strategy-groups { grid-template-columns: 1fr; }
+            .priority-action-summary { gap: .75rem; padding: .85rem .95rem; }
+            .priority-action-number { width: 2rem; height: 2rem; font-size: .9rem; }
+            .priority-action-title { font-size: .95rem; }
+            .priority-action-body { padding: 0 .95rem 1rem; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .report-collapse-toggle, .report-collapse-toggle svg, .priority-action-chevron { transition: none; }
+            .priority-action-details[open] .priority-action-body { animation: none; }
+            .tick-flow.tick-flow-ready > li, .tick-flow.tick-flow-ready.is-flowing > li, .tick-flow.tick-flow-ready.is-flowing > li > .tick-mark { opacity: 1; animation: none; }
+        }
         @media print {
             .report-hero::before, .report-hero::after { animation: none !important; }
             .report-reveal { opacity: 1 !important; filter: none !important; transform: none !important; }
+            .report-collapse-toggle { display: none !important; }
+            .tick-flow > li, .tick-flow > li > .tick-mark { opacity: 1 !important; transform: none !important; animation: none !important; }
         }
     </style>
 </head>
@@ -576,6 +644,7 @@
 <a class="report-brand" href="home_page.html" aria-label="UTS CS Career Navigator home"><span class="report-brand-mark" aria-hidden="true"><svg width="25" height="25" viewBox="0 0 32 32" fill="none"><path d="M7 7v10c0 6 3.4 9 9 9s9-3 9-9V7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 11h8M12 15h8" stroke="#B7ECF2" stroke-width="2" stroke-linecap="round"/></svg></span><span class="report-brand-name"><small>UTS CS</small><strong>Career Navigator</strong></span></a>
 <div class="report-nav-links">
 <a href="home_page.html#how-it-works">How it works</a>
+<a href="home_page.html#feedback-overview">Feedback</a>
 <a href="home_page.html#sample-results">Sample results</a>
 <a class="report-nav-return hidden" id="returnToRealReportLink" href="analysis_result.html" aria-label="Return to your latest resume report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h7l4 4V20.5H7a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z"/><path d="M14 3.5v4h4M9 12h6M9 15.5h6"/></svg><span>Your report</span></a>
 <a class="hidden" href="job_data_insights.html" data-admin-link>Admin insights</a>
@@ -613,7 +682,7 @@
 </div>
 </section>
 <section class="report-progress" id="reportProgress" aria-labelledby="reportProgressTitle" hidden>
-<div class="report-progress-head"><div><span class="report-eyebrow">Since your last check</span><h2 id="reportProgressTitle">Your progress</h2></div><p class="report-progress-meta" id="reportProgressMeta"></p></div>
+<div class="report-progress-head"><div><span class="report-eyebrow">Since your last check</span><h2 id="reportProgressTitle">Your progress</h2></div><p class="report-progress-meta" id="reportProgressMeta"></p><button class="report-collapse-toggle" type="button" data-collapse-toggle="progress" data-collapse-default="phone" aria-controls="reportProgressBody" aria-expanded="true" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span data-collapse-label>Minimize</span></button></div>
 <div id="reportProgressBody" aria-live="polite"></div>
 </section>
 <section class="report-quick" aria-labelledby="quickActionsTitle">
@@ -754,31 +823,33 @@ Top role matches will appear after analysis.
 <h2 class="text-2xl sm:text-3xl font-extrabold text-primary tracking-tight">Priority Improvement Plan</h2>
 <p class="text-sm sm:text-base text-on-surface-variant mt-3 leading-relaxed" id="recommendationPlanSummary">Run an analysis to see the recommended next actions for the selected role.</p>
 </div>
-<span class="self-start lg:self-auto px-3 py-1 rounded-full bg-surface-container-high text-primary text-xs font-bold" id="recommendationPlanBadge">Waiting for analysis</span>
+<div class="report-plan-tools"><span class="px-3 py-1 rounded-full bg-surface-container-high text-primary text-xs font-bold" id="recommendationPlanBadge">Waiting for analysis</span><button class="report-collapse-toggle" type="button" data-collapse-toggle="plan" data-collapse-default="always" aria-controls="priorityActionList" aria-expanded="true" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span data-collapse-label>Minimize</span></button></div>
 </div>
 <div class="priority-action-grid" id="priorityActionList">
 <article class="rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-5 text-sm text-on-surface-variant">
 Recommendation actions will appear after analysis.
 </article>
 </div>
-<div class="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
-<article class="rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-5">
+<!-- One strategy card: what the draft adds (with proof) and what it keeps. -->
+<article class="mt-5 rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-5">
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-2">Resume Generator Strategy</p>
 <h3 class="text-xl font-bold text-primary" id="resumeStrategyRole">Target role pending.</h3>
 <p class="text-sm text-on-surface-variant mt-3 leading-relaxed" id="resumeStrategySummary">The generated resume will use the recommended role, matched evidence, and missing keyword targets.</p>
-<div class="mt-4 flex flex-wrap gap-2" id="resumeStrategyKeywordList">
+<div class="report-strategy-groups">
+<div>
+<p class="report-strategy-label">Keywords to add with proof</p>
+<div class="flex flex-wrap gap-2" id="resumeStrategyKeywordList">
 <span class="px-3 py-1 rounded-full bg-surface-container-low text-on-surface-variant text-xs font-semibold">Keyword targets pending.</span>
 </div>
-</article>
-<article class="rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-5">
-<p class="text-xs uppercase tracking-widest text-on-surface-variant mb-2">Evidence To Keep</p>
-<h3 class="text-xl font-bold text-primary">Resume strengths</h3>
-<p class="text-sm text-on-surface-variant mt-3 leading-relaxed">These are the signals the system will preserve when generating the ATS resume draft.</p>
-<div class="mt-4 flex flex-wrap gap-2" id="resumeStrategyEvidenceList">
+</div>
+<div>
+<p class="report-strategy-label">Evidence kept from your resume</p>
+<div class="flex flex-wrap gap-2" id="resumeStrategyEvidenceList">
 <span class="px-3 py-1 rounded-full bg-surface-container-low text-on-surface-variant text-xs font-semibold">Matched evidence pending.</span>
 </div>
-</article>
 </div>
+</div>
+</article>
 </section>
 <section class="report-section mb-12" id="ats-checks">
 <div class="bg-surface-container-lowest rounded-xl border border-outline-variant/60 p-5 sm:p-6 lg:p-8">
@@ -798,10 +869,15 @@ Recommendation actions will appear after analysis.
 <p class="text-sm text-on-surface-variant">Quality checks will appear here after analysis.</p>
 </div>
 </div>
-<div class="mt-6 border-t border-outline-variant/60 pt-5">
+<div class="report-feedback-block mt-6 border-t border-outline-variant/60 pt-5">
+<div class="report-feedback-head">
+<div>
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-3">Next Edit</p>
 <h3 class="text-xl font-bold text-primary mb-4">ATS Feedback</h3>
-<ul class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-on-surface-variant leading-relaxed" id="structuredFeedbackList">
+</div>
+<button class="report-collapse-toggle" type="button" data-collapse-toggle="feedback" data-collapse-default="phone" aria-controls="structuredFeedbackList" aria-expanded="true" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span data-collapse-label>Minimize</span></button>
+</div>
+<ul class="tick-flow grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-on-surface-variant leading-relaxed" id="structuredFeedbackList">
 <li>Feedback will appear here after analysis.</li>
 </ul>
 </div>
@@ -896,7 +972,7 @@ Download PDF
 </div>
 <iframe class="generated-resume-frame" id="generatedResumePreview" title="Generated ATS resume preview"></iframe>
 <p class="mt-5 text-xs uppercase tracking-[0.16em] font-bold text-secondary">Improvement advice shown here only, not included in the PDF download</p>
-<ul class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-on-surface-variant" id="generatedResumeNotesList"></ul>
+<ul class="tick-flow mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-on-surface-variant" id="generatedResumeNotesList"></ul>
 <section class="role-examples hidden" id="roleExamplesPanel" aria-labelledby="roleExamplesTitle">
 <p class="text-xs uppercase tracking-widest font-bold text-secondary mb-2">Learning examples</p>
 <h3 class="text-xl font-extrabold text-primary tracking-tight" id="roleExamplesTitle">Example resumes for your recommended roles</h3>
@@ -942,7 +1018,9 @@ Download PDF
       </div>
     </div>
   </div>
-  <div class="career-container career-footer-bottom"><span>© 2026 UTS CS Career Navigator.</span></div>
+  <!-- Decorative moving banner; the same names are in the footer text above. -->
+  <div class="site-ticker" aria-hidden="true"><div class="site-ticker-track"><div class="site-ticker-group"><span class="site-ticker-item" data-no-translate><span class="site-ticker-mark"><svg viewBox="0 0 32 32" fill="none"><path d="M7 7v10c0 6 3.4 9 9 9s9-3 9-9V7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 11h8M12 15h8" stroke="#B7ECF2" stroke-width="2" stroke-linecap="round"/></svg></span>UTS CS Career Navigator</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Resume feedback for Computer Science students</span><span class="site-ticker-dot"></span><span class="site-ticker-item" data-no-translate><span class="site-ticker-uts"></span>University of Technology Sarawak</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Role matching</span><span class="site-ticker-dot"></span><span class="site-ticker-item">ATS checks</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Improvement tips</span><span class="site-ticker-dot"></span><span class="site-ticker-item">ATS resume drafts</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Final Year Project 2026</span><span class="site-ticker-dot"></span></div><div class="site-ticker-group"><span class="site-ticker-item" data-no-translate><span class="site-ticker-mark"><svg viewBox="0 0 32 32" fill="none"><path d="M7 7v10c0 6 3.4 9 9 9s9-3 9-9V7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 11h8M12 15h8" stroke="#B7ECF2" stroke-width="2" stroke-linecap="round"/></svg></span>UTS CS Career Navigator</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Resume feedback for Computer Science students</span><span class="site-ticker-dot"></span><span class="site-ticker-item" data-no-translate><span class="site-ticker-uts"></span>University of Technology Sarawak</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Role matching</span><span class="site-ticker-dot"></span><span class="site-ticker-item">ATS checks</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Improvement tips</span><span class="site-ticker-dot"></span><span class="site-ticker-item">ATS resume drafts</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Final Year Project 2026</span><span class="site-ticker-dot"></span></div></div></div>
+  <div class="career-container career-footer-bottom"><span>© 2026 UTS CS Career Navigator.</span><span class="site-footer-logos"><span class="site-ticker-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M7 7v10c0 6 3.4 9 9 9s9-3 9-9V7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 11h8M12 15h8" stroke="#B7ECF2" stroke-width="2" stroke-linecap="round"/></svg></span><span class="site-footer-logo-divider" aria-hidden="true"></span><span class="site-ticker-uts" role="img" aria-label="University of Technology Sarawak logo"></span></span></div>
 </footer>
 <dialog class="report-preview-dialog" id="feedbackReportPreviewDialog" aria-modal="true" aria-labelledby="feedbackReportPreviewTitle" aria-describedby="feedbackReportPreviewDescription">
 <div class="report-preview-shell">
@@ -2233,8 +2311,103 @@ Download PDF
             return;
         }
         list.innerHTML = cleanItems.map((item) => (
-            '<li class="flex gap-3"><span class="text-secondary font-bold" aria-hidden="true">✓</span><span>' + escapeHtml(item) + '</span></li>'
+            '<li class="flex gap-3"><span class="tick-mark" aria-hidden="true">✓</span><span>' + escapeHtml(item) + '</span></li>'
         )).join("");
+        playTickFlow(list);
+        syncCollapseToggle(id, list.querySelectorAll(".tick-mark").length > 0);
+    }
+
+    // "Show details" / "Minimize" buttons. data-collapse-default="phone" starts
+    // minimized on phones only; "always" starts minimized on every screen.
+    function getCollapseToggle(targetId) {
+        return document.querySelector('[data-collapse-toggle][aria-controls="' + targetId + '"]');
+    }
+
+    function isCollapseTargetOpen(targetId) {
+        const toggle = getCollapseToggle(targetId);
+        return !toggle || toggle.getAttribute("aria-expanded") === "true";
+    }
+
+    function setCollapseState(toggle, expanded) {
+        const target = document.getElementById(toggle.getAttribute("aria-controls"));
+        toggle.setAttribute("aria-expanded", String(expanded));
+        const label = toggle.querySelector("[data-collapse-label]");
+        if (label) label.textContent = expanded ? "Minimize" : "Show details";
+        if (!target) return;
+        if (toggle.dataset.collapseToggle === "plan") {
+            target.querySelectorAll(".priority-action-details").forEach((item) => { item.open = expanded; });
+        } else {
+            target.classList.toggle("is-collapsed", !expanded);
+        }
+    }
+
+    function syncCollapseToggle(targetId, hasContent) {
+        const toggle = getCollapseToggle(targetId);
+        if (toggle) toggle.hidden = !hasContent;
+    }
+
+    function initReportCollapsibles() {
+        const phone = window.matchMedia && window.matchMedia("(max-width: 700px)").matches;
+        document.querySelectorAll("[data-collapse-toggle]").forEach((toggle) => {
+            if (toggle.dataset.collapseBound === "true") return;
+            toggle.dataset.collapseBound = "true";
+            const start = toggle.dataset.collapseDefault;
+            setCollapseState(toggle, !(start === "always" || (start === "phone" && phone)));
+            toggle.addEventListener("click", () => {
+                setCollapseState(toggle, toggle.getAttribute("aria-expanded") !== "true");
+            });
+        });
+        const plan = document.getElementById("priorityActionList");
+        if (plan && plan.dataset.toggleBound !== "true") {
+            plan.dataset.toggleBound = "true";
+            // Opening or closing one row keeps the plan button in step: it says
+            // "Minimize" only while every row is open.
+            plan.addEventListener("toggle", () => {
+                const toggle = getCollapseToggle("priorityActionList");
+                const items = Array.from(plan.querySelectorAll(".priority-action-details"));
+                if (!toggle || !items.length) return;
+                const allOpen = items.every((item) => item.open);
+                toggle.setAttribute("aria-expanded", String(allOpen));
+                const label = toggle.querySelector("[data-collapse-label]");
+                if (label) label.textContent = allOpen ? "Minimize" : "Show details";
+            }, true);
+        }
+        // Print every plan row in full, then restore what was open.
+        window.addEventListener("beforeprint", () => {
+            document.querySelectorAll(".priority-action-details").forEach((item) => {
+                item.dataset.openBeforePrint = String(item.open);
+                item.open = true;
+            });
+        });
+        window.addEventListener("afterprint", () => {
+            document.querySelectorAll(".priority-action-details").forEach((item) => {
+                if (item.dataset.openBeforePrint) item.open = item.dataset.openBeforePrint === "true";
+                delete item.dataset.openBeforePrint;
+            });
+        });
+    }
+
+    // Tick lists: the ticks come in one after another when the list scrolls into view.
+    let tickFlowObserver = null;
+    function playTickFlow(list) {
+        if (!list) return;
+        Array.from(list.children).forEach((item, index) => item.style.setProperty("--tick-index", String(index)));
+        const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (!window.IntersectionObserver || reduceMotion) return;
+        if (!tickFlowObserver) {
+            tickFlowObserver = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+                    entry.target.classList.add("is-flowing");
+                    tickFlowObserver.unobserve(entry.target);
+                });
+            }, { threshold: 0, rootMargin: "0px 0px -12% 0px" });
+        }
+        tickFlowObserver.unobserve(list);
+        list.classList.remove("is-flowing");
+        list.classList.add("tick-flow-ready");
+        void list.offsetWidth; // restart the animation when the list is filled again
+        tickFlowObserver.observe(list);
     }
 
     function buildFallbackRecommendationActions(context = {}) {
@@ -2306,6 +2479,7 @@ Download PDF
                         'Recommendation actions will appear after analysis.' +
                     '</article>';
             }
+            syncCollapseToggle("priorityActionList", false);
             return;
         }
         const strategy = safeModule.resume_generation_strategy && typeof safeModule.resume_generation_strategy === "object"
@@ -2351,9 +2525,12 @@ Download PDF
                 '<article class="rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-5 text-sm text-on-surface-variant">' +
                     'Recommendation actions will appear after analysis.' +
                 '</article>';
+            syncCollapseToggle("priorityActionList", false);
             return;
         }
 
+        // Rows start closed (number and title only) unless the plan is expanded.
+        const openAttribute = isCollapseTargetOpen("priorityActionList") ? " open" : "";
         actionList.innerHTML = actions.map((item, index) => {
             const priority = Number(item.priority || index + 1);
             const category = String(item.category || "recommendation").replace(/_/g, " ");
@@ -2364,19 +2541,24 @@ Download PDF
                 )).join("") + '</div>'
                 : "";
             return (
-                '<article class="rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-5 min-h-[230px] flex flex-col">' +
-                    '<div class="flex items-start justify-between gap-3">' +
-                        '<span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-on-primary font-extrabold">' + escapeHtml(priority) + '</span>' +
-                    '</div>' +
-                    '<p class="mt-4 text-[11px] uppercase tracking-widest text-on-surface-variant font-bold">' + escapeHtml(category) + '</p>' +
-                    (item.adaptive && item.progress_note ? '<em class="action-progress-note">' + escapeHtml(item.progress_note) + '</em>' : "") +
-                    '<h3 class="mt-2 text-lg font-extrabold text-primary leading-tight">' + escapeHtml(item.title || "Recommendation action") + '</h3>' +
-                    '<p class="mt-3 text-sm text-on-surface-variant leading-relaxed">' + escapeHtml(item.detail || "Review this part of the resume.") + '</p>' +
-                    '<p class="mt-3 text-sm font-semibold text-primary leading-relaxed">' + escapeHtml(item.action || "Apply this improvement before exporting the resume.") + '</p>' +
-                    keywordMarkup +
+                '<article class="priority-action rounded-xl border border-outline-variant/60 bg-surface-container-lowest">' +
+                    '<details class="priority-action-details"' + openAttribute + '>' +
+                        '<summary class="priority-action-summary">' +
+                            '<span class="priority-action-number bg-primary text-on-primary">' + escapeHtml(priority) + '</span>' +
+                            '<h3 class="priority-action-title text-primary"><small>' + escapeHtml(category) + '</small><span>' + escapeHtml(item.title || "Recommendation action") + '</span></h3>' +
+                            '<svg class="priority-action-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
+                        '</summary>' +
+                        '<div class="priority-action-body">' +
+                            (item.adaptive && item.progress_note ? '<em class="action-progress-note">' + escapeHtml(item.progress_note) + '</em>' : "") +
+                            '<p class="mt-3 text-sm text-on-surface-variant leading-relaxed">' + escapeHtml(item.detail || "Review this part of the resume.") + '</p>' +
+                            '<p class="mt-3 text-sm font-semibold text-primary leading-relaxed">' + escapeHtml(item.action || "Apply this improvement before exporting the resume.") + '</p>' +
+                            keywordMarkup +
+                        '</div>' +
+                    '</details>' +
                 '</article>'
             );
         }).join("");
+        syncCollapseToggle("priorityActionList", true);
     }
 
     function formatProgressPoints(value) {
@@ -2415,6 +2597,8 @@ Download PDF
         }
         section.hidden = false;
         const role = String(progress.target_role || "").trim();
+        // A first check has one short line, so it needs no Minimize button.
+        syncCollapseToggle("reportProgressBody", Boolean(progress.available));
         if (!progress.available) {
             meta.innerHTML = role ? '<span>' + escapeHtml("First check for " + role) + '</span>' : "";
             body.innerHTML = '<p class="report-progress-summary">' + escapeHtml("Edit your resume, then check it again with the same role. This card will show what improved and what is still missing.") + '</p>';
@@ -3568,9 +3752,10 @@ Download PDF
             const notes = Array.isArray(draft.ats_notes) ? draft.ats_notes.filter(Boolean).slice(0, 8) : [];
             notesList.innerHTML = notes.length
                 ? notes.map((note) => (
-                    '<li class="flex gap-3"><span class="text-secondary text-base mt-0.5" aria-hidden="true">✓</span><span>' + escapeHtml(note) + '</span></li>'
+                    '<li class="flex gap-3"><span class="tick-mark" aria-hidden="true">✓</span><span>' + escapeHtml(note) + '</span></li>'
                 )).join("")
                 : '<li class="text-on-surface-variant">No extra ATS notes returned.</li>';
+            playTickFlow(notesList);
         }
         renderRoleExamples(isExample ? null : draft.role_examples);
     }
@@ -4007,6 +4192,7 @@ Download PDF
 
     function loadAnalysisResult() {
         document.getElementById("reportLoadingState").hidden = true;
+        initReportCollapsibles();
         const sampleRequested = new URLSearchParams(window.location.search).get("sample") === "1";
         let result = null;
         if (sampleRequested) {
