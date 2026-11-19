@@ -99,6 +99,14 @@ class ImagePreparationTests(unittest.TestCase):
         self.assertEqual(prepared.width, app_module.OCR_TARGET_WIDTH)
         self.assertEqual(prepared.height, 2800)
 
+    def test_enlarging_is_sized_to_the_image(self):
+        # Mid-size images need less enlarging, and large ones are read as they are,
+        # which keeps OCR fast on a small server.
+        medium = app_module.prepare_image_for_ocr(Image.new("RGB", (900, 1270), "white"))
+        self.assertEqual(medium.width, app_module.OCR_MEDIUM_TARGET_WIDTH)
+        large = app_module.prepare_image_for_ocr(Image.new("RGB", (1200, 1700), "white"))
+        self.assertEqual(large.size, (1200, 1700))
+
     def test_upscaling_is_capped(self):
         prepared = app_module.prepare_image_for_ocr(Image.new("RGB", (100, 140), "white"))
         self.assertEqual(prepared.width, int(100 * app_module.OCR_MAX_UPSCALE))

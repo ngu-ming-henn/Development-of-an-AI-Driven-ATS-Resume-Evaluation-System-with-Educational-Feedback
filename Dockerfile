@@ -7,11 +7,14 @@ RUN npm ci && npm run build:css
 
 # The Flask service serves both the frontend and API.
 FROM python:3.12-slim-bookworm
+# OMP_THREAD_LIMIT=1: free hosting plans give a small share of one CPU, and
+# Tesseract's extra OpenMP threads only compete for it, so OCR runs in one thread.
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    OMP_THREAD_LIMIT=1
 WORKDIR /app
 
-# Tesseract supports PNG/JPG resume OCR. The CA bundle supports Supabase TLS.
+# Tesseract reads PNG/JPG resumes and scanned PDFs. The CA bundle supports Supabase TLS.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates tesseract-ocr tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
