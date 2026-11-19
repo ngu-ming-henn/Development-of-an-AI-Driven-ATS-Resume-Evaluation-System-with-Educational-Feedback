@@ -22,7 +22,7 @@ import urllib.error
 import urllib.request
 from time import perf_counter
 from urllib.parse import urlsplit
-from typing import Any, NamedTuple
+from typing import Any, Iterable, NamedTuple
 
 from database import (
     DatabaseError,
@@ -2407,6 +2407,32 @@ def choose_pdf_text_candidate(plain_raw_text: str, layout_raw_text: str) -> tupl
     return plain_text, plain_raw_text, "plain"
 
 
+def extract_pdf_page_images_for_ocr(reader: Any) -> list[Any]:
+    """Return the largest picture on each of the first pages of a scanned PDF."""
+
+    page_images: list[Any] = []
+    for page in reader.pages[:OCR_MAX_PDF_PAGES]:
+        largest = None
+        try:
+            for embedded in page.images:
+                try:
+                    image = embedded.image
+                except Exception:
+                    continue
+                if image is None or image.size[0] * image.size[1] > OCR_MAX_INPUT_PIXELS:
+                    continue
+                if min(image.size) < OCR_MIN_PAGE_IMAGE_SIDE:
+                    # Icons, logos and passport photos are not a scanned page.
+                    continue
+                if largest is None or image.size[0] * image.size[1] > largest.size[0] * largest.size[1]:
+                    largest = image
+        except Exception:
+            continue
+        if largest is not None:
+            page_images.append(largest)
+    return page_images
+
+
 def extract_pdf_text(file_storage) -> tuple[str, dict[str, Any]]:
     try:
         reader = PdfReader(BytesIO(file_storage.read()))
@@ -2433,7 +2459,7 @@ def extract_pdf_text(file_storage) -> tuple[str, dict[str, Any]]:
     raw_text = "\n".join(plain_pages)
     layout_raw_text = "\n".join(layout_pages)
     normalized_text, chosen_raw_text, extraction_mode = choose_pdf_text_candidate(raw_text, layout_raw_text)
-    return normalized_text, {
+    document_info = {
         "file_type": "pdf",
         "page_count": len(reader.pages),
         "embedded_image_count": embedded_image_count,
@@ -2443,23 +2469,133 @@ def extract_pdf_text(file_storage) -> tuple[str, dict[str, Any]]:
         "character_spacing_repaired": bool(CHARACTER_SPACED_WORD_PATTERN.search(chosen_raw_text)),
     }
 
+    # A scanned or exported-as-picture PDF has no text layer, only a page image.
+    # Read that image with OCR, the same way as a PNG or JPG upload.
+    if count_resume_words(normalized_text) < OCR_PDF_TEXT_WORD_THRESHOLD and embedded_image_count:
+        page_images = extract_pdf_page_images_for_ocr(reader)
+        if page_images and find_tesseract_command():
+            configure_tesseract()
+            try:
+                ocr_pages = [run_resume_ocr(image) for image in page_images]
+            except Exception as error:
+                raise ValueError(
+                    "Could not read the scanned PDF with OCR. Please upload a clearer scan or a text-based PDF."
+                ) from error
+            ocr_raw_text = "\n".join(ocr_pages)
+            ocr_text = clean_resume_source_text(ocr_raw_text)
+            ensure_ocr_text_is_readable(ocr_text, page_images[0].size, "scanned PDF")
+            document_info.update(
+                {
+                    "ocr_used": True,
+                    "raw_text_length": len(ocr_raw_text),
+                    "pdf_extraction_mode": "ocr",
+                    "character_spacing_repaired": False,
+                    "image_width": page_images[0].size[0],
+                    "image_height": page_images[0].size[1],
+                }
+            )
+            return ocr_text, document_info
+
+    return normalized_text, document_info
+
+
+# Default install folders of the Windows Tesseract installer, so local
+# development works without setting TESSERACT_CMD by hand.
+WINDOWS_TESSERACT_PATHS = (
+    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+    r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    os.path.join(os.getenv("LOCALAPPDATA", ""), "Programs", "Tesseract-OCR", "tesseract.exe"),
+)
+# Small or phone-sized resume images are enlarged to about this width before
+# OCR: Tesseract reads text best when letters are roughly 20-30 pixels tall.
+OCR_TARGET_WIDTH = 2000
+OCR_MAX_UPSCALE = 5.0
+# Bounds the memory and time of one OCR pass (about a 2400 x 3300 page), which
+# matters on a 512 MB hosting plan.
+OCR_MAX_PIXELS = 8_000_000
+# Images larger than this are refused before decoding: a small compressed file can
+# otherwise expand into hundreds of megabytes.
+OCR_MAX_INPUT_PIXELS = 40_000_000
+# A full-page OCR result shorter than this is retried with a single-block layout.
+OCR_RETRY_WORD_THRESHOLD = 80
+# Below this many words the image is too small or blurry to give a fair analysis.
+OCR_MIN_READABLE_WORDS = 60
+# PDFs with fewer words than this in their text layer are treated as scanned.
+OCR_PDF_TEXT_WORD_THRESHOLD = 25
+OCR_MAX_PDF_PAGES = 3
+OCR_MIN_PAGE_IMAGE_SIDE = 300
+
+
+def find_tesseract_command() -> str:
+    configured_cmd = os.getenv("TESSERACT_CMD", "").strip().strip('"')
+    candidates = [configured_cmd, shutil.which("tesseract") or ""]
+    if os.name == "nt":
+        candidates.extend(WINDOWS_TESSERACT_PATHS)
+    for candidate in candidates:
+        if candidate and os.path.isfile(candidate):
+            return candidate
+    return ""
+
 
 def configure_tesseract() -> None:
     if pytesseract is None:
         raise ValueError("Image resume OCR requires the pytesseract Python package. Please install backend requirements again.")
 
-    configured_cmd = os.getenv("TESSERACT_CMD", "").strip()
-    if configured_cmd:
-        pytesseract.pytesseract.tesseract_cmd = configured_cmd
-        if os.path.exists(configured_cmd):
-            return
+    tesseract_cmd = find_tesseract_command()
+    if not tesseract_cmd:
+        raise ValueError(
+            "Image resume OCR is not configured. Install Tesseract OCR, then set TESSERACT_CMD in env "
+            "to the tesseract.exe path. You can still upload a text-based PDF."
+        )
+    pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
 
-    if shutil.which("tesseract"):
+
+def prepare_image_for_ocr(image: Any) -> Any:
+    """Upright, greyscale and enlarge a resume image so Tesseract can read small text."""
+
+    image = ImageOps.exif_transpose(image)
+    if image.mode in ("RGBA", "LA", "PA") or (image.mode == "P" and "transparency" in image.info):
+        # Transparent PNG pixels would otherwise turn black and hide dark text.
+        image = image.convert("RGBA")
+        background = Image.new("RGBA", image.size, (255, 255, 255, 255))
+        image = Image.alpha_composite(background, image)
+    image = image.convert("L")
+
+    width, height = image.size
+    scale = 1.0
+    if width < OCR_TARGET_WIDTH:
+        scale = min(OCR_MAX_UPSCALE, OCR_TARGET_WIDTH / max(1, width))
+    if width * height * scale * scale > OCR_MAX_PIXELS:
+        scale = math.sqrt(OCR_MAX_PIXELS / max(1, width * height))
+    if abs(scale - 1.0) > 0.01:
+        image = image.resize((max(1, round(width * scale)), max(1, round(height * scale))), Image.LANCZOS)
+    return image
+
+
+def run_resume_ocr(image: Any) -> str:
+    prepared = prepare_image_for_ocr(image)
+    # Automatic page segmentation keeps the columns of a two-column resume apart.
+    text = pytesseract.image_to_string(prepared, config="--psm 3")
+    if count_resume_words(text) < OCR_RETRY_WORD_THRESHOLD:
+        # Busy designs can defeat the layout analysis; read the page as one block instead.
+        block_text = pytesseract.image_to_string(prepared, config="--psm 6")
+        if count_resume_words(block_text) > count_resume_words(text):
+            text = block_text
+    return text
+
+
+def ensure_ocr_text_is_readable(text: str, image_size: tuple[int, int], source_label: str) -> None:
+    if count_resume_words(text) >= OCR_MIN_READABLE_WORDS:
         return
-
+    width = int(image_size[0] or 0)
+    size_hint = (
+        f" The {source_label} is only {width} pixels wide, so the small text cannot be read."
+        if 0 < width < 1000
+        else ""
+    )
     raise ValueError(
-        "Image resume OCR is not configured. Install Tesseract OCR, then set TESSERACT_CMD in env "
-        "to the tesseract.exe path. You can still upload a text-based PDF."
+        f"Could not read enough text from the {source_label}.{size_hint} "
+        "Please upload a sharper, higher-resolution image (at least 1000 pixels wide) or a text-based PDF."
     )
 
 
@@ -2470,23 +2606,31 @@ def extract_image_text(file_storage) -> tuple[str, dict[str, Any]]:
     configure_tesseract()
     try:
         image = Image.open(BytesIO(file_storage.read()))
-        image = image.convert("RGB")
-    except (UnidentifiedImageError, OSError) as error:
-        raise ValueError("Could not read the uploaded image. Please upload a valid PNG or JPG file.") from error
+        if image.width * image.height > OCR_MAX_INPUT_PIXELS:
+            raise ValueError("too many pixels")
+        image.load()
+    except Exception as error:
+        raise ValueError(
+            "Could not read the uploaded image. Please upload a valid PNG or JPG file under 40 megapixels."
+        ) from error
 
     try:
-        raw_text = pytesseract.image_to_string(image)
-        return normalize_text(raw_text), {
-            "file_type": get_file_extension(file_storage.filename).lstrip(".") or "image",
-            "page_count": 1,
-            "embedded_image_count": 1,
-            "ocr_used": True,
-            "raw_text_length": len(raw_text),
-            "image_width": image.width,
-            "image_height": image.height,
-        }
+        raw_text = run_resume_ocr(image)
     except Exception as error:
         raise ValueError("Could not extract text from the image resume. Please upload a clearer image or a text-based PDF.") from error
+
+    # Keep the line breaks: the name, section headings and bullets are found line by line.
+    text = clean_resume_source_text(raw_text)
+    ensure_ocr_text_is_readable(text, image.size, "image")
+    return text, {
+        "file_type": get_file_extension(file_storage.filename).lstrip(".") or "image",
+        "page_count": 1,
+        "embedded_image_count": 1,
+        "ocr_used": True,
+        "raw_text_length": len(raw_text),
+        "image_width": image.width,
+        "image_height": image.height,
+    }
 
 
 def extract_resume_text(file_storage, filename: str) -> tuple[str, dict[str, Any]]:
@@ -6207,77 +6351,287 @@ def get_resume_generation_role(analysis: dict[str, Any], requested_role: str = "
     )
 
 
-def infer_resume_name_from_text(text: str) -> str:
-    lines = [normalize_text(line) for line in clean_resume_source_text(text).splitlines()]
-    ignored_terms = set(
-        CORE_RESUME_SECTION_MARKERS
-        + CONTACT_MARKERS
-        + [
-            "academic projects",
-            "activities",
-            "contact",
-            "email",
-            "language",
-            "mobile",
-            "phone",
-            "profile",
-            "resume",
-            "tech stack",
-            "technical stack",
-            "curriculum vitae",
-        ]
+# Words that end a candidate name: section headings, job titles, organisations,
+# places, contact labels and common words never written as part of a person's name.
+RESUME_NAME_BLOCKED_WORDS = frozenset(
+    {
+        # Section headings and document words.
+        "about", "abilities", "ability", "achievement", "achievements", "activities", "activity",
+        "additional", "availability", "award", "awards", "background", "career", "certificate",
+        "certificates", "certification", "certifications", "competencies", "contact", "core",
+        "courses", "coursework", "curricular", "curriculum", "cv", "details", "education",
+        "educational", "employment", "experience", "experiences", "expertise", "extracurricular",
+        "featured", "highlights", "history", "hobbies", "hobby", "honors", "honours", "information",
+        "interests", "involvement", "key", "language", "languages", "leadership", "membership",
+        "objective", "overview", "personal", "portfolio", "preference", "preferences", "profile",
+        "project", "projects", "publications", "qualification", "qualifications", "reference",
+        "references", "referees", "resume", "skill", "skills", "statement", "strengths", "summary",
+        "traits", "training", "vitae", "volunteer", "volunteering", "work", "workshop", "workshops",
+        "page", "powered", "example", "sample", "template", "my", "me",
+        # Contact labels and personal-detail labels.
+        "address", "age", "birth", "date", "email", "gender", "github", "hometown", "linkedin",
+        "location", "marital", "mobile", "nationality", "phone", "status", "tel", "telephone",
+        "website", "years", "old", "single", "married", "malaysian",
+        # Job titles and fields.
+        "accountant", "administrator", "analyst", "architect", "assistant", "associate", "business",
+        "cloud", "computer", "computing", "consultant", "customer", "data", "designer", "developer",
+        "engineer", "engineering", "executive", "final", "fresh", "graduate", "intern", "internship",
+        "junior", "lead", "manager", "marketing", "network", "officer", "operating", "position",
+        "programmer", "programming", "researcher", "sales", "science", "secretary", "security",
+        "senior", "service", "services", "software", "specialist", "student", "supervisor", "support",
+        "system", "systems", "technician", "technical", "web", "devops", "cyber", "qa", "it",
+        "ui", "ux", "full", "stack", "frontend", "backend", "fullstack", "entry", "level",
+        "wireless", "remote", "hybrid", "job", "category", "salary", "industry",
+        # Skill-group headings in sidebars (`APPLICATION SERVER`, `Microsoft Office`).
+        "application", "applications", "database", "databases", "framework", "frameworks",
+        "libraries", "office", "server", "tools",
+        # Education and organisations.
+        "academy", "bachelor", "berhad", "bhd", "college", "company", "corporation", "degree",
+        "diploma", "enterprise", "foundation", "group", "holdings", "inc", "institut", "institute",
+        "kolej", "ltd", "master", "politeknik", "polytechnic", "school", "sdn", "sekolah", "solutions",
+        "tech", "technologies", "technology", "universiti", "universitas", "university",
+        "association", "bank", "centre", "center", "club", "council", "department", "express",
+        "holding", "hospital", "hotel", "hypermarket", "industries", "labs", "logistics", "ministry",
+        "society", "studio", "trading",
+        # Address words and places that often sit next to the name.
+        "alor", "area", "avenue", "bay", "blok", "block", "butterworth", "city", "cyberjaya",
+        "jalan", "jln", "johor", "kampung", "kedah", "kelantan", "kg", "klang", "kuala", "kuantan",
+        "kuching", "lorong", "lot", "lumpur", "malaysia", "melaka", "miri", "negeri", "no", "pahang",
+        "penang", "perak", "perlis", "petaling", "pinang", "pulau", "puchong", "putrajaya", "road",
+        "sabah", "sarawak", "selangor", "sembilan", "seremban", "sibu", "street", "taman",
+        "terengganu", "tmn", "unit",
+        # Function words.
+        "an", "and", "as", "at", "by", "for", "from", "in", "is", "of", "on", "or",
+        "the", "to", "with", "your",
+    }
+)
+# Lower-case words that belong inside a name, as in `Nurul Aisyah binti Kamarudin`.
+RESUME_NAME_PARTICLES = frozenset(
+    {
+        "a/l", "a/p", "al", "anak", "bin", "binte", "binti", "bt", "bte", "d/o", "da", "de",
+        "del", "di", "el", "ibni", "ibnu", "s/o", "van", "von",
+    }
+)
+# Words that end an organisation name: the words before them are the organisation,
+# as in `Mydin Mohamed Hypermarket Holding Berhad`, not a person.
+RESUME_NAME_ORGANIZATION_WORDS = frozenset(
+    {
+        "academy", "association", "bank", "berhad", "bhd", "centre", "center", "club", "college",
+        "company", "corporation", "council", "department", "enterprise", "express", "group",
+        "holding", "holdings", "hospital", "hotel", "hypermarket", "inc", "industries", "institut",
+        "institute", "kolej", "labs", "logistics", "ltd", "ministry", "politeknik", "polytechnic",
+        "school", "sdn", "sekolah", "society", "solutions", "studio", "technologies", "trading",
+        "universiti", "universitas", "university",
+    }
+)
+# Short surnames written without a vowel.
+RESUME_NAME_VOWELLESS_WORDS = frozenset({"hng", "ng", "sz", "tsz"})
+RESUME_NAME_PATRONYMIC_PARTICLES = frozenset({"a/l", "a/p", "bin", "binte", "binti", "bt", "bte", "d/o", "s/o"})
+# A name is normally near the top; lower lines (two-column sidebars) need the
+# email address or file name to confirm them.
+RESUME_NAME_EARLY_LINE_LIMIT = 15
+# Two-column PDFs can print the sidebar first; a lone upper-case name line up to
+# here is still accepted when nothing earlier qualifies.
+RESUME_NAME_LATE_LINE_LIMIT = 40
+RESUME_NAME_SEARCH_LINE_LIMIT = 80
+
+
+def get_resume_name_hint_tokens(text: str, hints: Iterable[str] = ()) -> list[str]:
+    """Letters of the email local parts and file names, used to confirm a name."""
+
+    hint_tokens = [
+        re.sub(r"[^a-z]+", "", match.group(1).lower())
+        for match in re.finditer(r"([\w.+-]+)@[\w-]+(?:\.[\w-]+)+", text)
+    ]
+    for hint in hints:
+        stem = os.path.splitext(os.path.basename(str(hint or "")))[0]
+        hint_tokens.append(re.sub(r"[^a-z]+", "", stem.lower()))
+    return [token for token in hint_tokens if len(token) >= 3]
+
+
+def read_resume_name_tokens(line: str) -> tuple[list[str], bool, str]:
+    """Return the leading name-like words of one line, whether they fill the line,
+    and why the name stopped (`lowercase`, `organization`, `blocked`, `invalid` or empty)."""
+
+    text = re.sub(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", " ", line)
+    text = re.sub(r"(?:https?://|www\.)\S+|\b[\w-]+\.(?:com|my|app|dev|io|me|net|org)\S*", " ", text, flags=re.I)
+    text = re.sub(r"^\s*(?:full\s+)?name\s*[:\-]\s*", "", text, flags=re.I)
+    # OCR reads a capital I at the end of an upper-case word as `]` (SIT] -> SITI).
+    text = re.sub(r"(?<=[A-Z])\](?=\s|$)", "I", text)
+    # Keep `A/L`, `S/O` and similar together while `/` splits everything else.
+    text = re.sub(r"\b([AaSsDd])\s*/\s*([LlPpOo])\b", "\\1\x00\\2", text)
+    # Template PDFs glue the next field onto the name: `FIRST LASTDevOps Manager`,
+    # `First LastSenior Developer`.
+    text = re.sub(r"(?<=[A-Z]{2})(?=[A-Z][a-z])|(?<=[a-z]{3})(?=[A-Z])", " ", text)
+    # A short surname (`Jordan LeeSenior`) is split only before a known non-name
+    # word, so `DevOps` or `MacArthur` stay whole.
+    text = re.sub(
+        r"(?<=\b[A-Z][a-z]{2})([A-Z][a-z]+)",
+        lambda match: (" " + match.group(1)) if match.group(1).lower() in RESUME_NAME_BLOCKED_WORDS else match.group(1),
+        text,
     )
-    role_terms = {"developer", "engineer", "analyst", "manager", "intern", "student", "assistant", "support"}
+    text = normalize_text(text)
+    segment = re.split(
+        r"\s[-|\u2013\u2014\u2022\u00b7]\s|[|\u2022\u00b7(),:;/\\\[\]{}<>@#&+=*!?\"~^]|\d",
+        text,
+        maxsplit=1,
+    )[0]
+    segment_tokens = segment.split()
+    tokens: list[str] = []
+    stop_reason = ""
+    for raw_token in segment_tokens:
+        token = raw_token.strip(",'").replace("\x00", "/")
+        if not re.fullmatch(r"[A-Za-z]\.", token):
+            # Keep the dot only on an initial such as the `A.` of `Nur A. Aziz`.
+            token = token.strip(".")
+        lower = token.lower()
+        if lower in RESUME_NAME_PARTICLES:
+            tokens.append(token)
+            continue
+        if not re.fullmatch(r"[A-Za-z][A-Za-z'.-]*", token):
+            stop_reason = "invalid"
+            break
+        parts = [part for part in re.split(r"[-.']", lower) if part]
+        if any(part in RESUME_NAME_ORGANIZATION_WORDS for part in parts):
+            stop_reason = "organization"
+            break
+        if not token[0].isupper():
+            # A lower-case word ends the name, e.g. OCR noise in `TAUFIQ SYAHMI sacs`.
+            stop_reason = "lowercase"
+            break
+        if any(part in RESUME_NAME_BLOCKED_WORDS for part in parts):
+            stop_reason = "blocked"
+            break
+        tokens.append(token)
+    if not stop_reason and text[len(segment):].lstrip().startswith(":"):
+        # `Job Category: Help desk` is a field label, not a name.
+        stop_reason = "label"
+    fills_line = bool(tokens) and len(tokens) == len(segment_tokens) and normalize_text(segment) == text
+    return tokens, fills_line, stop_reason
 
-    # Multi-column PDFs often expose a name as two adjacent all-capital lines,
-    # for example `CHENG` then `QING HONG`. Join those lines before evaluating
-    # ordinary one-line candidates, and never treat a section heading as a name.
-    uppercase_name_parts: list[str] = []
-    for line_index, raw_line in enumerate(lines[:20]):
-        normalized = normalize_match_text(raw_line)
-        words = re.findall(r"[A-Za-z][A-Za-z'-]*", raw_line)
-        is_heading = any(normalized == term or normalized.startswith(term + " ") for term in ignored_terms)
-        is_uppercase_name_part = (
-            bool(words)
-            and len(words) <= 3
-            and not is_heading
-            and not re.search(r"\d|@|https?://", raw_line, re.I)
-            and all(word.upper() == word for word in words)
-            and not (set(normalized.split()) & role_terms)
+
+def format_resume_name(tokens: list[str]) -> str:
+    core_tokens = [token for token in tokens if token.lower() not in RESUME_NAME_PARTICLES]
+    if not all(token.upper() == token for token in core_tokens):
+        return " ".join(tokens)
+
+    def title_word(match: re.Match[str]) -> str:
+        word = match.group(0)
+        start = match.start()
+        # `O'BRIEN` -> `O'Brien`, but `MA'AMOR` -> `Ma'amor`.
+        if start >= 3 and match.string[start - 1] == "'":
+            return word.lower()
+        return word[:1].upper() + word[1:].lower()
+
+    return " ".join(re.sub(r"[A-Za-z]+", title_word, token) for token in tokens)
+
+
+def infer_resume_name_from_text(text: str, hints: Iterable[str] = ()) -> str:
+    """Pick the line most likely to hold the candidate's name.
+
+    Each line gives its leading name-like words, stopping at headings, job
+    titles, places, contact details and lower-case words. Candidates are scored
+    by position, by filling their own line and by matching the email address or
+    file name, so a name printed below a sidebar (`CONTACT INFORMATION`,
+    `+60...`) still beats the sidebar, and `ABOUT M E` is never a name.
+    """
+
+    source = clean_resume_source_text(text)
+    lines = [normalize_text(line) for line in source.splitlines()]
+    lines = [line for line in lines if line][:RESUME_NAME_SEARCH_LINE_LIMIT]
+    hint_tokens = get_resume_name_hint_tokens(source, hints)
+    vocabulary = get_resume_word_repair_vocabulary()
+
+    def trim_particles(tokens: list[str]) -> list[str]:
+        trimmed = list(tokens)
+        upper_prefix = 0
+        for token in trimmed:
+            if token.upper() != token:
+                break
+            upper_prefix += 1
+        if upper_prefix < len(trimmed) and sum(
+            1 for token in trimmed[:upper_prefix] if token.lower() not in RESUME_NAME_PARTICLES and len(token) > 1
+        ) >= 2:
+            trimmed = trimmed[:upper_prefix]
+        # A name never ends with `bin` or a lone letter such as the `J` of `First LastJ`.
+        while trimmed and (trimmed[-1].lower() in RESUME_NAME_PARTICLES or len(trimmed[-1].strip(".")) == 1):
+            trimmed.pop()
+        return trimmed
+
+    def score_candidate(
+        tokens: list[str], index: int, fills_line: bool, joined: bool, stop_reason: str
+    ) -> float | None:
+        core = [token for token in tokens if token.lower() not in RESUME_NAME_PARTICLES]
+        if len(core) < 2 or len(tokens) > 6 or stop_reason in {"organization", "label"}:
+            return None
+        if starts_with_resume_action_verb(" ".join(tokens)):
+            # `Utilized Java Mail` begins an experience bullet.
+            return None
+        if stop_reason == "lowercase" and not all(token.upper() == token for token in core):
+            # `Computer Science undergraduate ...` starts a sentence, not a name.
+            return None
+        if (
+            sum(1 for token in core if len(token.strip(".")) == 1) > 1
+            or len(core[0].strip(".")) == 1
+            or any(len(token) > 20 for token in core)
+            or any(
+                not re.search(r"[aeiouy]", token, re.I) and token.lower() not in RESUME_NAME_VOWELLESS_WORDS
+                for token in core
+                if len(token.strip(".")) > 1
+            )
+        ):
+            # Initials only in the middle; OCR noise such as `QQ` has no vowel.
+            return None
+        hint_matches = sum(
+            1
+            for token in core
+            if len(token) >= 3 and any(re.sub(r"[^a-z]+", "", token.lower()) in hint for hint in hint_tokens)
         )
-        if is_uppercase_name_part:
-            uppercase_name_parts.extend(words)
-            if 2 <= len(uppercase_name_parts) <= 5:
-                next_index = line_index + 1
-                next_line = lines[next_index] if next_index < len(lines) else ""
-                next_words = re.findall(r"[A-Za-z][A-Za-z'-]*", next_line)
-                if not next_words or not all(word.upper() == word for word in next_words):
-                    return " ".join(uppercase_name_parts).title()
-        else:
-            uppercase_name_parts = []
+        vocabulary_words = sum(1 for token in core if token.lower() in vocabulary)
+        if index >= RESUME_NAME_EARLY_LINE_LIMIT and not hint_matches:
+            if (
+                fills_line
+                and index < RESUME_NAME_LATE_LINE_LIMIT
+                and 2 <= len(core) <= 4
+                and not vocabulary_words
+                and all(token.upper() == token for token in core)
+            ):
+                # Lowest score: only used when no line near the top looks like a name.
+                return 0.5
+            return None
+        if vocabulary_words == len(core) and not hint_matches:
+            # Every word is an ordinary job-catalogue word, e.g. `Operating System`.
+            return None
+        score = 10.0 - 0.4 * index
+        score += 3.0 if fills_line else 0.0
+        score += 1.0 if joined else 0.0
+        score += 2.0 if any(token.lower() in RESUME_NAME_PATRONYMIC_PARTICLES for token in tokens) else 0.0
+        score += min(15.0, 5.0 * hint_matches)
+        score -= 2.0 * vocabulary_words
+        score -= 2.0 if len(core) > 5 else 0.0
+        return score
 
-    for raw_line in lines[:14]:
-        line = re.sub(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", "", raw_line)
-        line = re.sub(r"(?:\+?\d[\d\s().-]{7,}\d)", "", line)
-        line = re.sub(r"^(?:name|candidate)\s*:\s*", "", line, flags=re.I)
-        line = re.sub(r"([a-z])([A-Z])", r"\1 \2", line)
-        line = re.split(
-            r"\b(?:entry level|junior|senior|lead)?\s*(?:software|web|full stack|front end|back end|react|java|python|computer|desktop|support|network|qa|quality|data|cyber|cloud)\b",
-            line,
-            maxsplit=1,
-            flags=re.I,
-        )[0]
-        line = normalize_text(line.strip(" |,;:-"))
-        if not line:
-            continue
-        normalized = normalize_match_text(line)
-        if not normalized or any(normalized == term or normalized.startswith(term + " ") for term in ignored_terms):
-            continue
-        words = [word for word in re.split(r"\s+", line) if word]
-        if 2 <= len(words) <= 5 and not (set(normalized.split()) & role_terms):
-            if sum(1 for word in words if word[:1].isupper() or word.isupper()) >= max(1, len(words) - 1):
-                return line
-    return ""
+    best_name = ""
+    best_score = 0.0
+    line_tokens = [read_resume_name_tokens(line) for line in lines]
+    for index, (tokens, fills_line, stop_reason) in enumerate(line_tokens):
+        candidates = [(trim_particles(tokens), fills_line, False, stop_reason)]
+        # Multi-column PDFs often split an upper-case name across two lines,
+        # for example `CHENG` then `QING HONG`, or `AINA ADRIANA` then `BINTI MOHD PUAD`.
+        if index + 1 < len(line_tokens):
+            next_tokens, next_fills_line, next_stop_reason = line_tokens[index + 1]
+            if (
+                fills_line
+                and next_fills_line
+                and len(tokens) <= 4
+                and all(token.upper() == token for token in tokens + next_tokens)
+            ):
+                candidates.append((trim_particles(tokens + next_tokens), True, True, next_stop_reason))
+        for candidate_tokens, candidate_fills_line, joined, candidate_stop_reason in candidates:
+            score = score_candidate(candidate_tokens, index, candidate_fills_line, joined, candidate_stop_reason)
+            if score is not None and score > best_score:
+                best_name, best_score = format_resume_name(candidate_tokens), score
+    return best_name
 
 
 def infer_resume_name_from_filename(filename: str) -> str:
@@ -6293,31 +6647,99 @@ def infer_resume_name_from_filename(filename: str) -> str:
     return ""
 
 
-def extract_resume_phone(text: str) -> str:
-    candidates = re.findall(r"(?:\+?\s*\d[\d\s().-]{7,}\d)", text)
-    for candidate in candidates:
-        cleaned = re.sub(r"^\+\s*", "+", normalize_text(candidate))
-        if re.fullmatch(r"(?:19|20)\d{2}\s*[-/]\s*(?:19|20)\d{2}", cleaned):
+def extract_resume_phone(text: str, near_email: str = "") -> str:
+    lines = str(text or "").splitlines()
+    email_line_indexes = [
+        index
+        for index, line in enumerate(lines)
+        if near_email and near_email.split("@", 1)[0] in re.sub(r"\s+", "", line).lower()
+    ]
+    phones: list[tuple[str, int]] = []
+    for line_index, line in enumerate(lines):
+        if re.search(r"\bdoi\b|https?\s*:|www\s*\.", line, re.I):
+            # `doi.org/10.35370/bjost.2026.8.3-03` is a reference number, not a phone.
             continue
-        digits = re.sub(r"\D", "", cleaned)
-        if len(digits) < 8:
+        if re.search(r"\b(?:i\.\s?c|ic\s+no|nric|passport|mykad)\b", line, re.I):
+            # `I.C or Passport : 940401-02-****` is an identity number.
             continue
-        if len(digits) == 8 and re.fullmatch(r"(?:19|20)\d{2}(?:19|20)\d{2}", digits):
-            continue
-        return cleaned
-    return ""
+        for match in re.finditer(r"(?:\(?\+\s*)?\(?\d[\d\s().-]{7,}\d", line):
+            if match.start() > 0 and re.match(r"[A-Za-z/]", line[match.start() - 1]):
+                continue
+            cleaned = re.sub(r"^\+\s*", "+", normalize_text(match.group(0)))
+            if cleaned.startswith("(") and ")" not in cleaned:
+                cleaned = cleaned[1:]
+            if (
+                not cleaned.startswith(("+", "("))
+                and not re.search(r"\b(?:phone|tel|telephone|mobile|h/?p|contact|call|whatsapp)\b", line, re.I)
+                and len(re.findall(r"(?<![\w@.])[a-z][A-Za-z'-]+\b", line)) >= 3
+            ):
+                # A number inside a sentence or OCR noise (`rithe ab. rGuciem 239 4435799`).
+                continue
+            if re.fullmatch(r"(?:(?:19|20)\d{2}[\s()./-]*)+", cleaned.strip("() ")):
+                # Year ranges such as `2021 - 2025 2025`.
+                continue
+            digits = re.sub(r"\D", "", cleaned)
+            if len(digits) < 8:
+                continue
+            if len(digits) == 8 and re.fullmatch(r"(?:19|20)\d{2}(?:19|20)\d{2}", digits):
+                continue
+            phones.append((cleaned, line_index))
+    if not phones:
+        return ""
+    if email_line_indexes:
+        # Two-column PDFs can print a referee's phone first; the candidate's own
+        # phone sits in the same contact block as the candidate's email.
+        nearby = [
+            (min(abs(line_index - email_index) for email_index in email_line_indexes), order, phone)
+            for order, (phone, line_index) in enumerate(phones)
+            if min(abs(line_index - email_index) for email_index in email_line_indexes) <= 3
+        ]
+        if nearby:
+            return min(nearby)[2]
+    return phones[0][0]
+
+
+# Endings that complete an email domain; anything else at a line break may have wrapped.
+COMPLETE_EMAIL_TLDS = frozenset(
+    {"ai", "app", "au", "biz", "ca", "co", "com", "dev", "edu", "gov", "id", "in", "info", "io", "me", "my", "net", "org", "sg", "uk", "us"}
+)
 
 
 def extract_resume_email(text: str) -> str:
     candidates = re.findall(r"[\w.+-]+@[\w-]+(?:\s*\.\s*[\w-]+)+", text)
-    for line in str(text or "").splitlines():
+    source_lines = str(text or "").splitlines()
+    for line_index, line in enumerate(source_lines):
         if "@" not in line:
             continue
-        compact_line = re.sub(r"\s+", "", line)
-        candidates.extend(re.findall(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", compact_line))
+        raw_line_candidates = []
+        for raw_match in re.finditer(r"[\w.+-]+@[\w-]+(?:\s*\.\s*[\w-]+)+", line):
+            raw_candidate = raw_match.group(0)
+            split_word = re.search(r"([\w.+-]+)\s$", line[: raw_match.start()])
+            if split_word and len(raw_candidate.split("@", 1)[0]) < 3:
+                raw_candidate = split_word.group(1) + raw_candidate
+            raw_line_candidates.append(raw_candidate)
+        if raw_line_candidates:
+            # The whitespace-free copy is only for letter-spaced lines such as
+            # `b c s24020043@s t u d e n t`; on ordinary lines it glues the phone,
+            # address or an OCR icon onto the address.
+            line_candidates = [re.sub(r"\s+", "", candidate) for candidate in raw_line_candidates]
+            ends_with_email = line.rstrip(" .,;").endswith(raw_line_candidates[-1])
+        else:
+            compact_line = re.sub(r"\s+", "", line)
+            line_candidates = re.findall(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", compact_line)
+            ends_with_email = bool(line_candidates) and compact_line.endswith(line_candidates[-1])
+        if line_candidates and ends_with_email and line_index + 1 < len(source_lines):
+            last_label = line_candidates[-1].rsplit(".", 1)[-1].lower()
+            continuation = re.sub(r"\s+", "", source_lines[line_index + 1])
+            if last_label not in COMPLETE_EMAIL_TLDS and re.fullmatch(r"\.?[a-z]{1,4}(?:\.[a-z]{2,4})*", continuation, re.I):
+                # `bcs24020043@student.uts.ed` / `u.my` in a narrow sidebar.
+                line_candidates[-1] += continuation
+        candidates.extend(line_candidates)
     emails: list[tuple[str, str, int]] = []
     for index, candidate in enumerate(candidates):
-        cleaned = re.sub(r"\s+", "", candidate).strip(".,;:()[]{}<>")
+        cleaned = re.sub(r"\s+", "", candidate).strip(".,;:()[]{}<>-")
+        # `+6017-4410205+name@gmail.com`: a phone number glued in front of the address.
+        cleaned = re.sub(r"^\+?[\d()-]{7,}\+?", "", cleaned)
         cleaned = re.sub(r"\.comm\b", ".com", cleaned, flags=re.I)
         if not re.fullmatch(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", cleaned):
             continue
@@ -6329,6 +6751,12 @@ def extract_resume_email(text: str) -> str:
 
     if not emails:
         return ""
+    # Drop the cut-off copy of an address that was rejoined across a line break.
+    emails = [
+        entry
+        for entry in emails
+        if not any(other[0] != entry[0] and other[0].startswith(entry[0]) for other in emails)
+    ]
 
     counts = Counter(email for email, _, _ in emails)
     first_seen: dict[str, int] = {}
@@ -6341,19 +6769,58 @@ def extract_resume_email(text: str) -> str:
     )
 
 
+def compact_resume_link_text(line: str) -> str:
+    """Rejoin a URL that PDF extraction or OCR broke with spaces.
+
+    `h t t p s : / / w w w . l in k e d in.com / in / j o h n` and
+    `linkedin.com/in/jane-doe-68 a36 a11 b` become whole links, while the next
+    field on the line (`linkedin.com 9 Denver, CO`) is left out.
+    """
+
+    start = re.search(
+        r"h\s*t\s*t\s*p\s*s?\s*:|w\s*w\s*w\s*\.|l\s*i\s*n\s*k\s*e\s*d\s*i\s*n\s*\.\s*c\s*o\s*m|g\s*i\s*t\s*h\s*u\s*b\s*\.\s*c\s*o\s*m",
+        line,
+        re.I,
+    )
+    if not start:
+        return ""
+    tokens = line[start.start():].split()
+    if not tokens:
+        return ""
+    url = tokens[0]
+    previous_token = tokens[0]
+    for token in tokens[1:]:
+        host_only = re.fullmatch(r"(?:https?:/*)?(?:www\.)?[\w-]+(?:\.[\w-]+)+", url, re.I)
+        # In a letter-spaced line (`v e r c e l . a p p`) single letters keep joining
+        # even after a complete host; after a whole host such as `linkedin.com`,
+        # the next field (`9 Denver`) does not.
+        letter_spaced = len(previous_token) <= 2
+        joins = (
+            url.endswith(("/", ".", "-", "_", ":"))
+            or token.startswith(("/", ".", "-", "_"))
+            or ((letter_spaced or not host_only) and re.fullmatch(r"[a-z0-9._:-]{1,8}/?", token) is not None)
+        )
+        if not joins:
+            break
+        url += token
+        previous_token = token
+    return url
+
+
 def extract_resume_contact(
     resume_text: str,
     candidate_name: str = "",
     extra_links: list[str] | None = None,
+    resume_filename: str = "",
 ) -> dict[str, Any]:
     text = clean_resume_source_text(resume_text)
     email = extract_resume_email(text)
-    phone = extract_resume_phone(text)
+    phone = extract_resume_phone(text, email)
     link_scan_text = text
     compact_link_lines = [
-        re.sub(r"\s+", "", line)
+        compacted
         for line in text.splitlines()
-        if re.search(r"h\s*t\s*t\s*p|linkedin|github", line, re.I)
+        if (compacted := compact_resume_link_text(line))
     ]
     if compact_link_lines:
         link_scan_text += "\n" + "\n".join(compact_link_lines)
@@ -6368,17 +6835,28 @@ def extract_resume_contact(
     )
     links: list[str] = []
     seen_link_keys: set[str] = set()
+    link_keys: list[str] = []
     for link in [normalize_resume_link(link) for link in list(extra_links or []) + extracted_links]:
         link_key = re.sub(r"^https?://(?:www\.)?", "", link.lower()).rstrip("/")
         if not link or not link_key or link_key in seen_link_keys:
             continue
+        if any(existing.startswith(link_key) for existing in link_keys):
+            # A cut-off copy (`linkedin.com/in/siew-seng-chiu-0`) of a link already kept.
+            continue
+        shorter_index = next((index for index, existing in enumerate(link_keys) if link_key.startswith(existing)), None)
         seen_link_keys.add(link_key)
+        if shorter_index is not None:
+            links[shorter_index] = link
+            link_keys[shorter_index] = link_key
+            continue
         links.append(link)
+        link_keys.append(link_key)
         if len(links) >= 5:
             break
 
     provided_name = normalize_text(candidate_name)
-    resume_name = infer_resume_name_from_text(text)
+    # The file name only confirms a name printed in the resume; it never replaces one.
+    resume_name = infer_resume_name_from_text(text, [resume_filename] if resume_filename else [])
     # The uploaded resume is the source of truth for the candidate identity.
     # The signed-in profile name is only a fallback when the document does not
     # expose a credible name (users may legitimately analyse another resume).
@@ -6781,8 +7259,20 @@ def extract_resume_evidence_sentences(resume_text: str, keywords: list[str], lim
                 "skilled in ",
                 "student currently ",
                 "the ability to ",
+                # Career objectives belong in the summary, not in Experience.
+                "aspiring ",
+                "eager to ",
+                "hoping to ",
+                "i am ",
+                "interested in ",
+                "looking for ",
+                "passionate about ",
+                "seeking ",
             )
         ):
+            continue
+        if sentence[:1].islower() and not starts_with_resume_action_verb(sentence[:1].upper() + sentence[1:]):
+            # `pipelines, from data preparation ...` is the tail of a wrapped sentence.
             continue
         if is_skill_inventory_sentence(sentence, sentence_tokens, action_terms):
             continue
@@ -6831,6 +7321,17 @@ def extract_education_lines(resume_text: str, education_markers: list[str]) -> l
         if len(sentence) < 16:
             continue
         if re.search(r"(?:19|20)\d{2}\s*-\s*(?:bachelor|master|phd|diploma|university|politeknik|polytechnic)", sentence, re.I):
+            continue
+        word_count = len(sentence.split())
+        if word_count > 24 or (
+            word_count > 14
+            and not EDUCATION_CREDENTIAL_PATTERN.search(sentence)
+            and not re.search(r"(?:19|20)\d{2}\s*-\s*(?:(?:19|20)\d{2}|present)", sentence, re.I)
+        ):
+            # `Student researcher at the University of ... and first author of ...` is a summary.
+            continue
+        if re.search(r"\buniversit(?:y|i)\s*'\s*s\b", sentence, re.I) and not EDUCATION_CREDENTIAL_PATTERN.search(sentence):
+            # A headline such as `University's Students` names no qualification or school.
             continue
         if any(term in normalized_sentence for term in education_terms):
             score = 0
@@ -6917,13 +7418,19 @@ RESUME_SECTION_HEADING_ALIASES: dict[str, tuple[str, ...]] = {
     ),
     "projects": (
         "academic projects",
+        "course projects",
+        "featured projects",
         "key projects",
+        "notable projects",
         "personal projects",
         "project experience",
         "projects",
         "projects experience",
+        "relevant projects",
         "selected projects",
+        "side projects",
         "technical projects",
+        "university projects",
     ),
     "skills": (
         "core competencies",
@@ -6942,14 +7449,34 @@ RESUME_SECTION_HEADING_ALIASES: dict[str, tuple[str, ...]] = {
         "certification",
         "certifications",
         "certifications and training",
+        "certifications training",
+        "certifications and courses",
+        "certifications courses",
+        "courses and certifications",
+        "courses certifications",
         "licenses and certifications",
         "licenses certifications",
+        "training and certifications",
+        "training and courses",
+        "training and workshops",
+        "training courses",
+        "training workshops",
+        "trainings",
+        "workshop and training",
+        "workshop training",
+        "workshops",
+        "workshops and training",
+        "workshops training",
     ),
     "achievements": (
         "achievement",
         "achievements",
         "awards",
+        "achievements and awards",
+        "achievements and leadership",
         "awards and achievements",
+        "awards and honors",
+        "awards and honours",
         "honors",
         "honors and awards",
         "honours",
@@ -6957,9 +7484,19 @@ RESUME_SECTION_HEADING_ALIASES: dict[str, tuple[str, ...]] = {
     "other": (
         "activities",
         "additional information",
+        "availability",
         "co curricular activities",
         "contact",
+        "contact details",
+        "contact info",
+        "contact information",
         "extracurricular activities",
+        "internship availability",
+        "personal details",
+        "personal information",
+        "personal particulars",
+        "personal traits",
+        "work preference",
         "hobbies",
         "interests",
         "language",
@@ -6976,10 +7513,20 @@ RESUME_SECTION_HEADING_ALIASES: dict[str, tuple[str, ...]] = {
     ),
 }
 RESUME_SECTION_HEADING_LOOKUP = {
-    alias: section
+    heading: section
     for section, aliases in RESUME_SECTION_HEADING_ALIASES.items()
     for alias in aliases
+    # `AWARDS & ACHIEVEMENTS` loses its `&` when normalised.
+    for heading in (alias, alias.replace(" and ", " "))
 }
+# Letter-spaced headings can come out of a PDF split mid-word, as in
+# `ABOUT M E` or `EDUCA TION`, so headings are also looked up without spaces.
+RESUME_SECTION_HEADING_COMPACT_LOOKUP = {
+    alias.replace(" ", ""): section for alias, section in RESUME_SECTION_HEADING_LOOKUP.items()
+}
+# One-word headings that are also ordinary words; a wrapped line such as
+# `Training` only counts as a heading when it is written in capitals.
+RESUME_UPPERCASE_ONLY_HEADINGS = {"courses": "certifications", "training": "certifications"}
 RESUME_MONTH_PATTERN = (
     r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|"
     r"sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
@@ -7060,7 +7607,14 @@ EDUCATION_GRADE_PATTERN = re.compile(
 )
 EDUCATION_DETAIL_PATTERN = re.compile(
     r"\b(?:coursework|courses|thesis|dissertation|final year project|fyp|dean'?s list|honou?rs|awards?|awarded|study abroad|exchange|"
-    r"scholarship|achievement|activities|society|club|minor|major|specialization|specialisation)\b",
+    r"scholarship|achievement|activities|society|club|minor|major|specialization|specialisation|"
+    r"muet|ielts|toefl|band|results?)\b",
+    re.I,
+)
+# `Expected Graduation: 2027`, `Expected graduation May 2027`, `Graduation date: 2026`.
+EDUCATION_EXPECTED_GRADUATION_PATTERN = re.compile(
+    rf"\b(expected\s+)?(?:graduation|completion)(?:\s+date)?\s*:?\s*"
+    rf"(?P<date>(?:{RESUME_MONTH_PATTERN}\.?\s*)?(?:19|20)\d{{2}})\b",
     re.I,
 )
 RESUME_WORD_REPAIR_EXTRA_WORDS = {
@@ -7162,7 +7716,13 @@ def detect_resume_section_heading(line: str) -> str:
     stripped = normalize_text(line).strip(" :|-")
     if not stripped or len(stripped) > 48:
         return ""
-    return RESUME_SECTION_HEADING_LOOKUP.get(normalize_match_text(stripped), "")
+    normalized = normalize_match_text(stripped)
+    section = RESUME_SECTION_HEADING_LOOKUP.get(normalized, "")
+    if not section and " " in normalized:
+        section = RESUME_SECTION_HEADING_COMPACT_LOOKUP.get(normalized.replace(" ", ""), "")
+    if not section and stripped.isupper():
+        section = RESUME_UPPERCASE_ONLY_HEADINGS.get(normalized, "")
+    return section
 
 
 def split_resume_into_sections(resume_text: str) -> dict[str, list[str]]:
@@ -7262,6 +7822,9 @@ def should_join_wrapped_resume_line(previous: str, current: str) -> bool:
         return True
     if re.search(r"[.!?]$", previous) or RESUME_DATE_RANGE_PATTERN.search(current):
         return False
+    if re.search(r"[A-Za-z]-$", previous) and current[:1].isalpha() and is_resume_bullet_text(previous, False):
+        # A hyphenated term broken at the line end, as in `Retrieval-` / `Augmented Generation`.
+        return True
     # Only bullet prose wraps onto a following line; titles and stacks do not.
     if not is_resume_bullet_text(previous, False):
         return False
@@ -7307,7 +7870,11 @@ def build_resume_section_logical_lines(lines: list[str]) -> list[dict[str, Any]]
             and not blank_before
             and should_join_wrapped_resume_line(previous["text"], text)
         ):
-            separator = "" if previous["text"].endswith("-") and text[:1].islower() else " "
+            separator = (
+                ""
+                if previous["text"].endswith("-") and (text[:1].islower() or re.search(r"[A-Za-z]-$", previous["text"]))
+                else " "
+            )
             previous["text"] = previous["text"] + separator + text
         else:
             logical_lines.append({"text": text, "marker": bool(marker_match)})
@@ -7544,14 +8111,29 @@ def parse_structured_project_entries(lines: list[str], document_words: set[str])
             return []
         if not separator:
             technologies = ""
+        extra_header = list(header[1:])
+        # `Dyslexia Screening App | TypeScript,` + `Python`: the stack wrapped onto the
+        # next line. The date split trims the trailing comma, so read it from the raw line.
+        wrapped_stack_end = header[0].strip()
+        while (
+            technologies
+            and re.search(r"(?:[,&/+]|\band)$", wrapped_stack_end)
+            and extra_header
+            and len(extra_header[0].split()) <= 6
+            and not extra_header[0].rstrip().endswith(".")
+        ):
+            continuation = extra_header.pop(0).strip()
+            joiner = ", " if wrapped_stack_end.endswith(",") else " "
+            technologies = technologies.strip().rstrip(",") + joiner + continuation
+            wrapped_stack_end = continuation
         descriptions: list[str] = []
-        for line in header[1:] + raw_entry["bullets"]:
+        for line in extra_header + raw_entry["bullets"]:
             label_match = technology_label.match(line)
             if label_match and not technologies:
                 technologies = label_match.group(1)
-            elif line in header[1:] and not technologies and looks_like_technology_list(line):
+            elif line in extra_header and not technologies and looks_like_technology_list(line):
                 technologies = line
-            elif line in header[1:] and not dates and RESUME_DATE_RANGE_PATTERN.fullmatch(line.strip()):
+            elif line in extra_header and not dates and RESUME_DATE_RANGE_PATTERN.fullmatch(line.strip()):
                 dates = format_resume_date_text(line)
             else:
                 descriptions.append(line)
@@ -7625,6 +8207,12 @@ def parse_structured_education_entries(lines: list[str], document_words: set[str
             if grade_match.group(3):
                 grade += f" / {grade_match.group(3).replace(' ', '')}"
             text = normalize_text(text[: grade_match.start()] + " " + text[grade_match.end():])
+        expected_graduation = ""
+        expected_match = EDUCATION_EXPECTED_GRADUATION_PATTERN.search(text)
+        if expected_match:
+            label = "Expected graduation" if expected_match.group(1) else "Graduation"
+            expected_graduation = f"{label}: {format_resume_date_text(expected_match.group('date'))}"
+            text = normalize_text(text[: expected_match.start()] + " | " + text[expected_match.end():]).strip(" |,;:-")
         date_match = (
             RESUME_DATE_RANGE_PATTERN.search(text)
             or RESUME_SINGLE_DATE_PATTERN.search(text)
@@ -7633,6 +8221,13 @@ def parse_structured_education_entries(lines: list[str], document_words: set[str
         dates = format_resume_date_text(date_match.group(0)) if date_match else ""
         if date_match:
             text = normalize_text(text[: date_match.start()] + " | " + text[date_match.end():]).strip(" |,;:-")
+            # `STPM (2022 - 2023)` leaves empty brackets behind.
+            text = normalize_text(re.sub(r"\(\s*\|?\s*\)", " ", text)).strip(" |,;:-")
+        if expected_graduation:
+            if not dates:
+                dates = expected_graduation
+            elif current is not None and len(current["details"]) < 2:
+                current["details"].append(expected_graduation + ".")
 
         if (
             current is not None
@@ -7649,6 +8244,9 @@ def parse_structured_education_entries(lines: list[str], document_words: set[str
             if EDUCATION_DETAIL_PATTERN.search(text):
                 if current is None:
                     return []
+                if grade and not current["grade"]:
+                    # `CGPA: 2.33 MUET: Band 3.5` keeps both the grade and the detail.
+                    current["grade"] = grade
                 if len(current["details"]) < 2:
                     current["details"].append(polish_structured_resume_text(text, document_words))
                 continue
@@ -7716,6 +8314,13 @@ def parse_structured_education_entries(lines: list[str], document_words: set[str
     return clean_entries
 
 
+# Last words of a training or certificate title that a narrow column can push
+# onto a line of their own.
+CERTIFICATION_WRAPPED_TITLE_ENDINGS = frozenset(
+    {"bootcamp", "certificate", "certification", "conference", "course", "programme", "program", "seminar", "training", "workshop"}
+)
+
+
 def parse_structured_certification_lines(lines: list[str], document_words: set[str], limit: int = 5) -> list[str]:
     if resume_section_has_contact_or_heading_leaks(lines):
         return []
@@ -7727,7 +8332,33 @@ def parse_structured_certification_lines(lines: list[str], document_words: set[s
         if len(text.split()) > 25:
             # Long prose here usually means another column leaked into the section.
             return []
+        if items and not logical_line["marker"]:
+            previous = items[-1]
+            if (
+                re.fullmatch(r"[A-Za-z][\w&.' -]{1,40},?\s*(?:(?:19|20)\d{2})", text)
+                and not re.search(r"(?:19|20)\d{2}", previous)
+            ):
+                # `Advanced Java Programming` + `Coursera, 2024` is one course.
+                items[-1] = f"{previous} ({text})"
+                continue
+            if normalize_match_text(text) in CERTIFICATION_WRAPPED_TITLE_ENDINGS and not previous.endswith((".", ")")):
+                # A narrow column wraps `... Information Literacy` / `Programme`.
+                items[-1] = f"{previous} {text}"
+                continue
+            if (
+                starts_with_resume_action_verb(text)
+                and " - " not in previous
+                # A sentence (`Developed a food court ordering app.`), not a Title Case
+                # course name such as `Advanced Java Programming`.
+                and (text.endswith(".") or (len(text.split()) >= 4 and re.search(r"\s[a-z]", text)))
+            ):
+                # `TFE x SCENT Bootcamp` + `Developed a food court ordering app.` describes it.
+                items[-1] = f"{previous.rstrip(' .')} - {text}"
+                continue
         items.append(text)
+    if any(re.search(r"\b(?:and|or|of|for|in|with|to|the)$", item, re.I) for item in items):
+        # Two side-by-side columns read line by line (`Python for Data Science and`).
+        return []
     return unique_clean_values(items, limit)
 
 
@@ -7779,6 +8410,9 @@ def parse_structured_resume_sections(resume_text: str) -> dict[str, Any]:
         "remaining_text": join_sections(excluded_names),
         # Everything not claimed by a parsed section, for certification lookups.
         "unclaimed_text": join_sections(parsed_names),
+        # Headings the resume itself uses, e.g. to tell "no Projects section" apart
+        # from "a Projects section the parser could not read".
+        "section_names": [name for name in sections if name != "header"],
     }
 
 
@@ -10068,8 +10702,9 @@ def build_generated_resume_payload(
     display_matched_signals = unique_clean_values([format_resume_keyword(signal) for signal in matched_signals], 12)
     display_missing_keywords = unique_clean_values([format_resume_keyword(keyword) for keyword in missing_keywords], 10)
 
-    contact = extract_resume_contact(resume_source, candidate_name, contact_links)
-    filename_name = infer_resume_name_from_filename(str(safe_analysis.get("uploaded_resume_name") or ""))
+    uploaded_resume_name = str(safe_analysis.get("uploaded_resume_name") or "")
+    contact = extract_resume_contact(resume_source, candidate_name, contact_links, uploaded_resume_name)
+    filename_name = infer_resume_name_from_filename(uploaded_resume_name)
     current_contact_name = normalize_text(str(contact.get("name") or ""))
     if filename_name and (not current_contact_name or current_contact_name == "Candidate Name"):
         contact["name"] = filename_name
@@ -10094,6 +10729,10 @@ def build_generated_resume_payload(
     experience_bullets, fallback_project_bullets = split_project_and_experience_bullets(evidence_bullets)
     if project_entries:
         project_bullets = [format_structured_project_line(entry) for entry in project_entries]
+    elif experience_entries and "projects" not in structured_sections.get("section_names", []):
+        # The layout was read reliably and the resume has no Projects section, so the
+        # leftover summary, skill or interest lines are not projects.
+        project_bullets = []
     else:
         project_bullets = build_project_entries(
             evidence_source,
@@ -12261,7 +12900,7 @@ def _analyze_file():
         if role_recommendation.get("human_review_required")
         else "ROLE MATCH AVAILABLE"
     )
-    analysis["resume_contact"] = extract_resume_contact(resume_text)
+    analysis["resume_contact"] = extract_resume_contact(resume_text, resume_filename=resume_file.filename or "")
     # Adaptive feedback: compare with this user's last check for the same role.
     # The comparison is optional, so a database problem only skips it.
     try:
