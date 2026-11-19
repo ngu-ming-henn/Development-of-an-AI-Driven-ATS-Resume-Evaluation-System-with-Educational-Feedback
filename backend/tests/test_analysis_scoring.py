@@ -312,6 +312,34 @@ class AnalysisScoringTests(unittest.TestCase):
         self.assertEqual(app_module.extract_explicit_resume_headline(name_first), "")
         self.assertEqual(app_module.extract_explicit_resume_headline(ordinary_summary), "")
 
+    def test_resume_name_skips_split_and_neighbouring_section_headings(self):
+        infer_name = app_module.infer_resume_name_from_text
+        # Letter-spaced `ABOUT ME` heading extracted as `ABOUT M E` after a
+        # four-word name.
+        self.assertEqual(
+            infer_name("ALEX TAN WEI MING\nABOUT M E\nFinal-year Computer Science student."),
+            "Alex Tan Wei Ming",
+        )
+        # Two-column layout whose sidebar is extracted before the name.
+        self.assertEqual(
+            infer_name(
+                "CONTACT INFORMATION\n+60123456789\nalex@example.com\n"
+                "INTERNSHIP AVAILABILITY\nMarch 2027 - August 2027\n"
+                "ALEX TAN WEI MING\nABOUT M E\nFinal-year Computer Science student."
+            ),
+            "Alex Tan Wei Ming",
+        )
+        # A following heading must not be merged into the name.
+        self.assertEqual(
+            infer_name("NGU MING HENN\nPROFESSIONAL SUMMARY\nComputer Science student."),
+            "Ngu Ming Henn",
+        )
+        # Names split across two all-capital lines are still joined.
+        self.assertEqual(
+            infer_name("CHENG\nQING HONG\nSOFTWARE DEVELOPER\nBuilt web applications."),
+            "Cheng Qing Hong",
+        )
+
     def test_non_it_current_job_title_counts_when_profile_has_no_it_evidence(self):
         text = (
             "FICTIONAL TEST RESUME\nAisha Rahman\nRetail Operations Executive\n"
