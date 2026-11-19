@@ -8,6 +8,13 @@
   let authSessionRequest = null;
   let authSessionVerified = false;
 
+  // Light or dark colours. Applied here, before the page styles, so a dark page
+  // never flashes white while it loads.
+  const THEME_KEY = "careerNavigatorTheme";
+  let theme = "light";
+  try { theme = localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light"; } catch (error) { /* Storage can be unavailable. */ }
+  document.documentElement.dataset.theme = theme;
+
   function getRequestUrl(input) {
     if (typeof input === "string" || input instanceof URL) {
       return new URL(input, window.location.href);
@@ -289,6 +296,18 @@
     "University of Technology Sarawak logo": "Logo University of Technology Sarawak",
     "Ready for user action": "Sedia untuk tindakan anda",
     "Generated from analysis": "Dijana daripada analisis",
+    "Display": "Paparan",
+    "Preferences and security": "Pilihan dan keselamatan",
+    "Your preferences": "Pilihan anda",
+    "Language": "Bahasa",
+    "Appearance": "Tema warna",
+    "Light": "Cerah",
+    "Dark": "Gelap",
+    "Your choice is saved in this browser.": "Pilihan anda disimpan dalam pelayar ini.",
+    "Choose the language and colours, and manage your verified email and password.": "Pilih bahasa dan warna, serta urus e-mel yang disahkan dan kata laluan anda.",
+    "Choose the language and colours for this site.": "Pilih bahasa dan warna untuk laman ini.",
+    "Custom role typed by user.": "Peranan tersuai ditaip oleh pengguna.",
+    "The Top 3 list below shows the closest database roles.": "Senarai 3 teratas di bawah menunjukkan peranan pangkalan data terdekat.",
     "Turn your feedback into an": "Jadikan maklum balas anda",
     "ATS-ready draft.": "draf sedia ATS.",
     "After the analysis, the report builds a clean resume draft from your own evidence for the role you chose. You review it, then download it as a PDF.": "Selepas analisis, laporan membina draf resume yang kemas daripada bukti anda sendiri untuk peranan yang anda pilih. Anda semak dahulu, kemudian muat turunnya sebagai PDF.",
@@ -1040,32 +1059,49 @@
       name.hidden = true;
       trigger.before(name);
     }
-    if (!document.querySelector("[data-language-switch]")) {
-      const switcher = document.createElement("div");
-      switcher.className = "account-language-switch";
-      switcher.dataset.languageSwitch = "";
-      switcher.setAttribute("role", "group");
-      switcher.setAttribute("aria-label", "Language / Bahasa");
-      [["en", "English", "EN"], ["ms", "Bahasa Melayu", "BM"]].forEach(([code, label, shortLabel]) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.dataset.languageOption = code;
-        button.setAttribute("aria-label", label);
-        button.title = label;
-        const full = document.createElement("span");
-        full.className = "account-language-full";
-        full.textContent = label;
-        const short = document.createElement("span");
-        short.className = "account-language-short";
-        short.textContent = shortLabel;
-        button.append(full, short);
-        button.addEventListener("click", () => setLanguage(code));
-        switcher.appendChild(button);
-      });
-      const name = document.querySelector("[data-header-account-name]");
-      (name || trigger).before(switcher);
-      setLanguage(language);
-    }
+  }
+
+  function setTheme(nextTheme) {
+    theme = nextTheme === "dark" ? "dark" : "light";
+    try { localStorage.setItem(THEME_KEY, theme); } catch (error) { /* Keep this page usable. */ }
+    document.documentElement.dataset.theme = theme;
+    document.querySelectorAll("[data-theme-option]").forEach((button) => {
+      const active = button.dataset.themeOption === theme;
+      button.setAttribute("aria-pressed", String(active));
+      button.classList.toggle("is-active", active);
+    });
+  }
+
+  // Settings > Display: language and colour theme, for guests and signed-in users.
+  const SUN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>';
+  const MOON_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6Z"/></svg>';
+  function addDisplaySettings(panel) {
+    if (!panel || panel.querySelector(".account-display-card")) return;
+    const card = document.createElement("div");
+    card.className = "account-settings-card account-display-card";
+    card.innerHTML =
+      '<h3>Display</h3>' +
+      '<p>Your choice is saved in this browser.</p>' +
+      '<div class="account-display-row"><span class="account-display-label" id="displayLanguageLabel">Language</span>' +
+        '<div class="account-segmented" role="group" aria-labelledby="displayLanguageLabel">' +
+          '<button type="button" data-language-option="en" data-no-translate>English</button>' +
+          '<button type="button" data-language-option="ms" data-no-translate>Bahasa Melayu</button>' +
+        '</div></div>' +
+      '<div class="account-display-row"><span class="account-display-label" id="displayThemeLabel">Appearance</span>' +
+        '<div class="account-segmented" role="group" aria-labelledby="displayThemeLabel">' +
+          '<button type="button" data-theme-option="light">' + SUN_ICON + '<span>Light</span></button>' +
+          '<button type="button" data-theme-option="dark">' + MOON_ICON + '<span>Dark</span></button>' +
+        '</div></div>';
+    card.querySelectorAll("[data-language-option]").forEach((button) => {
+      button.addEventListener("click", () => setLanguage(button.dataset.languageOption));
+    });
+    card.querySelectorAll("[data-theme-option]").forEach((button) => {
+      button.addEventListener("click", () => setTheme(button.dataset.themeOption));
+    });
+    const intro = panel.querySelector(".account-panel-intro");
+    (intro || panel.firstElementChild).after(card);
+    setTheme(theme);
+    setLanguage(language);
   }
 
   function updateHeaderAccount(user, photoUrl) {
@@ -1993,6 +2029,14 @@
     const emailInfoNote = modal && modal.querySelector("#profileEmailInfoNote");
     const deleteAccountCard = modal && modal.querySelector("#profileDeleteAccountCard");
     const openDeleteAccountButton = modal && modal.querySelector("#openDeleteAccountBtn");
+    const settingsPanel = modal && modal.querySelector('[data-account-panel="settings"]');
+    const securityCards = settingsPanel ? Array.from(settingsPanel.querySelectorAll(".account-settings-card")) : [];
+    const settingsTitle = settingsPanel && settingsPanel.querySelector(".account-panel-title");
+    const settingsIntro = settingsPanel && settingsPanel.querySelector(".account-panel-intro");
+    if (modal) {
+      modal.querySelectorAll('[data-account-view="settings"]').forEach((button) => button.removeAttribute("data-account-auth-only"));
+      addDisplaySettings(settingsPanel);
+    }
     let hasAccount = false;
     let currentView = "info";
     let currentUser = null;
@@ -2072,7 +2116,7 @@
     }
 
     function show(view) {
-      const allowedViews = hasAccount ? ["info", "settings", "history"] : ["access"];
+      const allowedViews = hasAccount ? ["info", "settings", "history"] : ["access", "settings"];
       currentView = allowedViews.includes(view) ? view : (hasAccount ? "info" : "access");
       buttons.forEach((button) => {
         const active = button.dataset.accountView === currentView;
@@ -2248,8 +2292,14 @@
         modal.querySelectorAll("[data-account-auth-only]").forEach((element) => { element.hidden = !hasAccount; });
         modal.querySelectorAll("[data-account-guest-only]").forEach((element) => { element.hidden = hasAccount; });
         const isAdmin = Boolean(user && user.is_admin);
-        if (emailChangeCard) emailChangeCard.hidden = isAdmin;
-        if (deleteAccountCard) deleteAccountCard.hidden = isAdmin;
+        // Email, password and delete need an account; guests only see Display.
+        securityCards.forEach((card) => { card.hidden = !hasAccount; });
+        if (emailChangeCard) emailChangeCard.hidden = !hasAccount || isAdmin;
+        if (deleteAccountCard) deleteAccountCard.hidden = !hasAccount || isAdmin;
+        if (settingsTitle) settingsTitle.textContent = hasAccount ? "Preferences and security" : "Your preferences";
+        if (settingsIntro) settingsIntro.textContent = hasAccount
+          ? "Choose the language and colours, and manage your verified email and password."
+          : "Choose the language and colours for this site.";
         if (adminEmailNote) adminEmailNote.hidden = !isAdmin;
         if (emailInfoNote) emailInfoNote.textContent = isAdmin ? "Administrator email is managed separately." : "Email changes need verification.";
         goButtons.forEach((button) => { if (button.dataset.accountGo === "settings") button.hidden = isAdmin; });
@@ -2261,7 +2311,7 @@
           renderAvatarInitials();
         }
       }
-      if (!hasAccount) show("access");
+      if (!hasAccount) show(currentView === "settings" ? "settings" : "access");
       else if (hasAccount && currentView === "access") show("info");
     }
 
@@ -2722,6 +2772,7 @@
     });
     window.addEventListener("storage", (event) => {
       if (event.key === LANGUAGE_KEY) setLanguage(event.newValue);
+      if (event.key === THEME_KEY) setTheme(event.newValue);
     });
   });
 
