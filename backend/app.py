@@ -2513,10 +2513,11 @@ OCR_TARGET_WIDTH = 2000
 # below OCR_SMALL_IMAGE_WIDTH the text is tiny and needs the full target width,
 # mid-size images read as well at OCR_MEDIUM_TARGET_WIDTH, and from
 # OCR_NATIVE_WIDTH upwards the original size already reads as well (tested on the
-# real image resumes in Resume_template/real_resume).
+# real image resumes in Resume_template/real_resume; at 1100 px the page layout of
+# some two-column designs was read in the wrong order, so mid-size goes up to 1400 px).
 OCR_SMALL_IMAGE_WIDTH = 700
 OCR_MEDIUM_TARGET_WIDTH = 1600
-OCR_NATIVE_WIDTH = 1100
+OCR_NATIVE_WIDTH = 1400
 OCR_MAX_UPSCALE = 5.0
 # Bounds the memory and time of one OCR pass (about a 2400 x 3300 page), which
 # matters on a 512 MB hosting plan.
@@ -2586,6 +2587,304 @@ def prepare_image_for_ocr(image: Any) -> Any:
     return image
 
 
+# --- OCR word correction -------------------------------------------------------
+# Small or blurry images make Tesseract swap look-alike letters (`Monours` for
+# `Honours`, `Teknotog!` for `Teknologi`, `Pythan` for `Python`). These helpers
+# repair such words in OCR text only; selectable PDF text is never changed.
+# A word is only replaced when
+#   * it is not an ordinary word (or a plural/-ed/-ing form of one),
+#   * every edit is an OCR-style slip: a look-alike letter or a thin stroke such as
+#     `i`/`l`/`t` lost or added inside the word, and
+#   * the result is a skill name, a resume/education/place word, or a long job-catalogue
+#     word, and no other candidate is about as close.
+# Names, emails, links and short acronyms are left as they are.
+OCR_KNOWN_WORDS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_known_words.txt")
+OCR_RESUME_WORDS = frozenset(
+    """
+    academic academy accomplished achievement achievements activities adaptable advanced alam alor analytical
+    analytics april august award awarded awards bachelor bahru basic bintulu bootcamp campus certificate
+    certification certifications champion club committee competition competitions contribute conducted coordination
+    coursework current dean december degree designing developing diploma driven eager education engagement english
+    environment expected experience experiences february finalist fluent foundation graduation guided hackathon
+    honours honors industrial institut institute intermediate internship interests ipoh january johor journal july
+    june kampung kebangsaan kedah kelantan kinabalu kolej kota kuala kuching languages leadership lumpur malay
+    malaysia march matriculation may melaka mentor mentored menengah miri motivated native negeri november october
+    organisation organization participants participation receiver receivers pahang penang perak perlis petaling
+    pinang politeknik polytechnic present presenter professional proficient projects provided pulau putrajaya
+    recipient references research sabah safety sarawak scholarship sekolah selangor sembilan september seremban
+    shah sibu sintok skills skudai society subang summary symposium teknikal teknologi terengganu universiti
+    university volunteer workshop workshops curricular extracurricular curriculum
+    """.split()
+)
+# Real words and tech names missing from the word list, so they are never "corrected".
+OCR_EXTRA_KNOWN_WORDS = frozenset(
+    """
+    programme programmes organisation organisations colour behaviour centre analyse analysed analysing
+    scala kotlin rust golang perl ruby swift dart flutter xcode jira figma canva vercel netlify heroku
+    supabase firebase postgresql sqlite mongodb redis kafka spark hadoop tableau looker matlab rstudio
+    browse browsed browsing startup startups throughput tooling erecting prevented wealth apartment
+    """.split()
+)
+OCR_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+OCR_MONTH_NAMES = frozenset({month.lower() for month in OCR_MONTHS} | {"sept", "june", "july"})
+OCR_CONFUSABLE_GROUPS = ("hmnu", "il1!|tfj", "aoec", "gq9", "bh6", "vwy", "s5", "z2", "o0", "b8", "cg")
+OCR_MONTH_LOOKALIKES = ("ogcqd", "ocea", "il1!|t", "uvy", "nmh", "pb", "gq")
+OCR_THIN_LETTERS = frozenset("iltrfj1!|")
+OCR_WORD_SUFFIXES = ("ies", "es", "s", "ed", "d", "ing", "ly", "er", "ers", "ment", "ments", "ation", "ations", "ness")
+OCR_EMAIL_PROVIDERS = ("gmail", "yahoo", "hotmail", "outlook", "icloud", "ymail")
+# Real mail domains that look like a misread webmail name but must stay as they are.
+OCR_REAL_MAIL_DOMAINS = frozenset({"email", "mail", "live", "aol", "msn", "proton", "protonmail", "zoho", "yandex", "gmx", "me"})
+OCR_PHRASE_FIXES = (
+    (re.compile(r"\bPower\s+[8B][!Il1|](?![A-Za-z0-9])"), "Power BI"),
+    (re.compile(r"\b[l1|I]o[T7]\b"), "IoT"),
+    # `linkedin.com/infname`: OCR read the `/` after `in` as a letter.
+    (re.compile(r"(linkedin\.com/in)[f'’|l1!](?=[a-z0-9])", re.I), r"\1/"),
+    # `COPA: 3.75` / `OGPA 3.5`: a misread CGPA in front of a grade.
+    (re.compile(r"\b[CO0G][GOC0Q][PF][A4](?=\s*[:=]?\s*\d)"), "CGPA"),
+    # `MUET Band 35`: the decimal point of the band was lost.
+    (re.compile(r"\b(Band\s*:?\s*)([1-6])([05])\b"), r"\1\2.\3"),
+    (re.compile(r"\bA(?:U|I/|1/|l/|\|/)ML\b"), "AI/ML"),
+    (re.compile(r"\b[Dd]a[lt]e(?=\s+(?:[Ss]cien|[Aa]naly|[Mm]ining|[Ee]ngineer|[Ss]tructure|[Vv]isuali))"), "Data"),
+)
+OCR_BULLET_GLYPHS = re.compile(r"(?m)^[ \t]*(?:[¢«»©®•·*�]|e(?=[ \t]+[A-Z]))[ \t]+")
+OCR_WORD_TOKEN = re.compile(r"(?<![\w@./])([A-Za-z][A-Za-z!|01'-]*[A-Za-z!|])(?![\w@/])")
+OCR_MONTH_BEFORE_YEAR = re.compile(r"\b([A-Za-z]{3,4})(\.?\s*)((?:19|20)\d{2})\b")
+OCR_EMAIL_DOMAIN = re.compile(r"([\w.+-]{3,})(\s*[@®©]\s*|\s+)([A-Za-z]{4,9})\.(com|COM)\b")
+
+
+class OcrVocabulary(NamedTuple):
+    known: frozenset[str]
+    anchors_by_delete: dict[str, frozenset[str]]
+    canonical: dict[str, str]
+
+
+def ocr_deletion_variants(word: str, depth: int) -> set[str]:
+    variants = {word}
+    frontier = {word}
+    for _ in range(depth):
+        frontier = {item[:index] + item[index + 1:] for item in frontier for index in range(len(item))}
+        variants |= frontier
+    return variants
+
+
+@lru_cache(maxsize=1)
+def get_ocr_vocabulary() -> OcrVocabulary:
+    known: set[str] = set(OCR_RESUME_WORDS) | set(OCR_EXTRA_KNOWN_WORDS) | set(OCR_MONTH_NAMES)
+    try:
+        with open(OCR_KNOWN_WORDS_PATH, encoding="utf-8") as handle:
+            known.update(line.strip() for line in handle if line.strip() and not line.startswith("#"))
+    except OSError:
+        pass
+    catalogue_words = set(get_resume_word_repair_vocabulary())
+    known |= catalogue_words
+    anchors = set(OCR_RESUME_WORDS) | set(OCR_MONTH_NAMES) | {word for word in catalogue_words if len(word) >= 6}
+    canonical: dict[str, str] = {}
+    skill_terms = list(DEFAULT_SKILL_DICTIONARY)
+    for concept in SKILL_CONCEPTS:
+        skill_terms.extend((concept.name, *concept.triggers, *concept.evidence))
+    for term in skill_terms:
+        for token in re.findall(r"[A-Za-z][A-Za-z+#.-]*[A-Za-z+#]", term):
+            lower = token.lower()
+            known.add(lower)
+            if len(token) >= 4:
+                anchors.add(lower)
+            # Only real tech spellings (`PyTorch`, `CompTIA`) keep their own casing.
+            if any(character.isupper() for character in token[1:]):
+                canonical.setdefault(lower, token)
+    by_delete: dict[str, set[str]] = {}
+    for word in anchors:
+        if len(word) < 4:
+            continue
+        for variant in ocr_deletion_variants(word, 2 if len(word) >= 8 else 1):
+            by_delete.setdefault(variant, set()).add(word)
+    return OcrVocabulary(
+        frozenset(word for word in known if len(word) >= 2),
+        {key: frozenset(value) for key, value in by_delete.items()},
+        canonical,
+    )
+
+
+def is_known_ocr_word(lower: str, known: frozenset[str]) -> bool:
+    if lower in known:
+        return True
+    for suffix in OCR_WORD_SUFFIXES:
+        if lower.endswith(suffix) and len(lower) - len(suffix) >= 3:
+            base = lower[: -len(suffix)]
+            if base in known or base + "e" in known or base + "y" in known:
+                return True
+            if len(base) > 3 and base[-1] == base[-2] and base[:-1] in known:
+                return True
+    return False
+
+
+def ocr_letters_look_alike(first: str, second: str, groups: tuple[str, ...] = OCR_CONFUSABLE_GROUPS) -> bool:
+    return any(first in group and second in group for group in groups)
+
+
+def ocr_slip_distance(source: str, target: str) -> float:
+    """Edit cost in which only OCR slips are cheap: a look-alike letter (0.4) or a thin
+    stroke lost or added inside the word (0.6). Every other edit costs 2.0, and a thin
+    letter at either end costs 1.2 (`browse` -> `browser` is a real ending)."""
+
+    columns = len(target) + 1
+    previous = [0.0] * columns
+    for j in range(1, columns):
+        previous[j] = previous[j - 1] + (1.2 if target[j - 1] in OCR_THIN_LETTERS else 2.0)
+    for i in range(1, len(source) + 1):
+        current = [previous[0] + (1.2 if source[i - 1] in OCR_THIN_LETTERS else 2.0)] + [0.0] * (columns - 1)
+        for j in range(1, columns):
+            first, second = source[i - 1], target[j - 1]
+            substitution = 0.0 if first == second else (0.4 if ocr_letters_look_alike(first, second) else 2.0)
+            thin_cost = 0.6 if 1 < j < columns - 1 else 1.2
+            current[j] = min(
+                previous[j] + (thin_cost if first in OCR_THIN_LETTERS else 2.0),
+                current[j - 1] + (thin_cost if second in OCR_THIN_LETTERS else 2.0),
+                previous[j - 1] + substitution,
+            )
+        previous = current
+    return previous[-1]
+
+
+def plain_edit_distance(source: str, target: str) -> int:
+    previous = list(range(len(target) + 1))
+    for i, first in enumerate(source, 1):
+        current = [i]
+        for j, second in enumerate(target, 1):
+            current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (first != second)))
+        previous = current
+    return previous[-1]
+
+
+def match_ocr_word_case(original: str, replacement: str, canonical: dict[str, str]) -> str:
+    if replacement in canonical:
+        return canonical[replacement]
+    if original.isupper():
+        return replacement.upper()
+    if original[:1].isupper():
+        return replacement[:1].upper() + replacement[1:]
+    return replacement
+
+
+def correct_ocr_word(token: str) -> str:
+    vocabulary = get_ocr_vocabulary()
+    lower = token.lower()
+    if len(token) < 4 or is_known_ocr_word(lower, vocabulary.known):
+        return token
+    if token.isupper() and len(token) <= 5:
+        return token  # acronyms such as XAMPP or NLTK
+    simple = lower.replace("!", "i").replace("|", "l").replace("0", "o")
+    for variant in (simple, simple.replace("rn", "m"), simple.replace("vv", "w"), simple.replace("1", "l"), simple.replace("1", "i")):
+        if variant != lower and is_known_ocr_word(variant, vocabulary.known):
+            return match_ocr_word_case(token, variant, vocabulary.canonical)
+    if not re.fullmatch(r"[a-z][a-z'-]*", simple):
+        return token
+    length_slack = 2 if len(simple) >= 8 else 1
+    candidates: set[str] = set()
+    for variant in ocr_deletion_variants(simple, length_slack):
+        candidates |= vocabulary.anchors_by_delete.get(variant, frozenset())
+    scored = sorted(
+        (ocr_slip_distance(simple, candidate), candidate)
+        for candidate in candidates
+        if abs(len(candidate) - len(simple)) <= length_slack
+    )
+    if not scored:
+        return token
+    best_cost, best = scored[0]
+    allowed_cost = 0.45 if len(simple) <= 5 else (1.0 if len(simple) <= 8 else 1.4)
+    if best_cost > allowed_cost or (len(scored) > 1 and scored[1][0] - best_cost < 0.3):
+        return token  # too far, or two words are about as likely
+    return match_ocr_word_case(token, best, vocabulary.canonical)
+
+
+def split_glued_webmail_address(token: str) -> str:
+    """`name1221gqmail.com` -> `name1221@gmail.com` when OCR lost the `@` and the space."""
+
+    body = token[:-4]
+    best: tuple[int, int, int, str, str] | None = None
+    for provider in OCR_EMAIL_PROVIDERS:
+        for length in range(len(provider) - 1, len(provider) + 2):
+            if length >= len(body) - 2:
+                continue
+            domain = body[-length:].lower()
+            distance = plain_edit_distance(domain.replace("rn", "m"), provider)
+            if distance > 1:
+                continue
+            # Prefer the split whose domain starts like the provider (`gqmail`, not `qmail`).
+            rank = (distance, 0 if domain[:1] == provider[:1] else 1, abs(length - len(provider)), provider, body[:-length])
+            if best is None or rank < best:
+                best = rank
+    # `1ga@gmail.com`: a few characters are a fragment of a split address, not a name.
+    if best is None or len(best[4]) < 5:
+        return token
+    return f"{best[4]}@{best[3]}.com"
+
+
+def fix_ocr_email_domain(line: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        domain = match.group(3).lower().replace("rn", "m")
+        if domain in OCR_REAL_MAIL_DOMAINS or is_known_ocr_word(domain, get_ocr_vocabulary().known):
+            # `email.com` or `mail.com` are real domains, not a misread `gmail`.
+            return match.group(0)
+        provider = min(OCR_EMAIL_PROVIDERS, key=lambda name: plain_edit_distance(domain, name))
+        # A webmail domain one letter off (`gqmail`, `gmait`), with or without its `@`.
+        if plain_edit_distance(domain, provider) <= 1:
+            return f"{match.group(1)}@{provider}.{match.group(4).lower()}"
+        return match.group(0)
+
+    line = OCR_EMAIL_DOMAIN.sub(replace, line)
+    if "@" not in line:
+        line = re.sub(r"\b[\w.+-]{6,}\.com\b", lambda match: split_glued_webmail_address(match.group(0)), line)
+    return line
+
+
+def fix_ocr_month_before_year(line: str) -> str:
+    def month_cost(word: str, month: str) -> float:
+        return sum(
+            0.0 if first == second else (0.4 if ocr_letters_look_alike(first, second, OCR_MONTH_LOOKALIKES) else 2.0)
+            for first, second in zip(word.lower(), month.lower())
+        )
+
+    def replace(match: re.Match[str]) -> str:
+        word = match.group(1)
+        if word.lower() in OCR_MONTH_NAMES:
+            return word[:1].upper() + word[1:].lower() + match.group(2) + match.group(3)
+        if len(word) != 3:
+            return match.group(0)
+        # `Get 2022` -> `Oct 2022`: only when one month is clearly the closest.
+        scored = sorted((month_cost(word, month), month) for month in OCR_MONTHS)
+        if scored[0][0] <= 0.8 and scored[1][0] - scored[0][0] >= 0.3:
+            return scored[0][1] + match.group(2) + match.group(3)
+        return match.group(0)
+
+    return OCR_MONTH_BEFORE_YEAR.sub(replace, line)
+
+
+def correct_ocr_text(text: str) -> str:
+    """Repair typical OCR slips in resume text read from an image."""
+
+    # A contact or calendar icon read as `@` at the start of a line is not part of an
+    # email; left in place, clean-up would glue it onto the line above.
+    text = re.sub(r"(?m)^[ \t]*@[ \t]+", "", text)
+    # `* ` rather than `- `: a hyphen at the start of a line would be glued onto the
+    # previous line by clean_resume_source_text.
+    text = OCR_BULLET_GLYPHS.sub("* ", text)
+    protected = {token.lower() for token in infer_resume_name_from_text(text).split()}
+    corrected_lines: list[str] = []
+    for line in text.splitlines():
+        line = fix_ocr_email_domain(line)
+        for pattern, replacement in OCR_PHRASE_FIXES:
+            line = pattern.sub(replacement, line)
+        line = fix_ocr_month_before_year(line)
+        lowered = line.lower()
+        if "@" not in line and "http" not in lowered and "www." not in lowered:
+            line = OCR_WORD_TOKEN.sub(
+                lambda match: match.group(1) if match.group(1).lower() in protected else correct_ocr_word(match.group(1)),
+                line,
+            )
+        corrected_lines.append(line)
+    return "\n".join(corrected_lines)
+
+
 def run_resume_ocr(image: Any) -> str:
     prepared = prepare_image_for_ocr(image)
     # Automatic page segmentation keeps the columns of a two-column resume apart.
@@ -2595,7 +2894,7 @@ def run_resume_ocr(image: Any) -> str:
         block_text = pytesseract.image_to_string(prepared, config="--psm 6")
         if count_resume_words(block_text) > count_resume_words(text):
             text = block_text
-    return text
+    return correct_ocr_text(text)
 
 
 def ensure_ocr_text_is_readable(text: str, image_size: tuple[int, int], source_label: str) -> None:
@@ -6755,6 +7054,8 @@ def extract_resume_email(text: str) -> str:
         # `+6017-4410205+name@gmail.com`: a phone number glued in front of the address.
         cleaned = re.sub(r"^\+?[\d()-]{7,}\+?", "", cleaned)
         cleaned = re.sub(r"\.comm\b", ".com", cleaned, flags=re.I)
+        # `name@email.com-linkedin.com`: the next field glued on after a dash.
+        cleaned = re.sub(r"(\.(?:com|net|org|edu|gov)(?:\.[a-z]{2})?)-[\w.-]+$", r"\1", cleaned, flags=re.I)
         if not re.fullmatch(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", cleaned):
             continue
         local_part, domain = cleaned.split("@", 1)
@@ -7413,14 +7714,22 @@ RESUME_SECTION_HEADING_ALIASES: dict[str, tuple[str, ...]] = {
         "employment",
         "employment history",
         "experience",
+        "experiences",
+        "industrial training",
+        "industry experience",
         "internship",
         "internship experience",
+        "internship experiences",
         "internships",
         "professional experience",
+        "professional experiences",
         "relevant experience",
+        "relevant experiences",
         "work experience",
         "work experiences",
         "work history",
+        "working experience",
+        "working experiences",
     ),
     "education": (
         "academic background",
@@ -7736,6 +8045,9 @@ def detect_resume_section_heading(line: str) -> str:
         section = RESUME_SECTION_HEADING_COMPACT_LOOKUP.get(normalized.replace(" ", ""), "")
     if not section and stripped.isupper():
         section = RESUME_UPPERCASE_ONLY_HEADINGS.get(normalized, "")
+    if not section and re.fullmatch(r"(?:co|extra)\s?curr?icc?ull?(?:um|ar)\s+activit(?:y|ies)", normalized):
+        # Misspelt headings such as `CO-CURICULLUM ACTIVITIES` or `EXTRA-CURICULLAR ACTIVITIES`.
+        section = "other"
     return section
 
 
@@ -7838,6 +8150,14 @@ def should_join_wrapped_resume_line(previous: str, current: str) -> bool:
         return False
     if re.search(r"[A-Za-z]-$", previous) and current[:1].isalpha() and is_resume_bullet_text(previous, False):
         # A hyphenated term broken at the line end, as in `Retrieval-` / `Augmented Generation`.
+        return True
+    if (
+        re.match(r"[A-Z][\w &/-]{2,30}:\s", previous)
+        and previous.count(",") >= 2
+        and "," in " ".join(current.split()[:5])
+    ):
+        # A labelled list wrapped mid-item: `Relevant Coursework: ..., Parallel` +
+        # `Distributed Data base, Machine Learning, ...` (the next word only looks like a verb).
         return True
     # Only bullet prose wraps onto a following line; titles and stacks do not.
     if not is_resume_bullet_text(previous, False):
@@ -8255,6 +8575,12 @@ def parse_structured_education_entries(lines: list[str], document_words: set[str
             continue
         credential, institution, leftovers = split_education_line_parts(text)
         if not credential and not institution:
+            if logical_line["marker"] and current is not None and not dates:
+                # A bullet under a qualification (`* Participation in SCI committee`)
+                # describes it; it is not another school or a stray column.
+                if len(current["details"]) < 2:
+                    current["details"].append(polish_structured_resume_text(text, document_words))
+                continue
             if EDUCATION_DETAIL_PATTERN.search(text):
                 if current is None:
                     return []
@@ -8267,6 +8593,10 @@ def parse_structured_education_entries(lines: list[str], document_words: set[str
             if starts_with_resume_action_verb(text) and len(text.split()) >= 6:
                 return []
             location = ", ".join(leftovers)
+            if current is not None and location and current["details"]:
+                # After the bullets of a qualification a short line is an activity
+                # title (`Committee Member-Souvenir Management`), not its location.
+                continue
             if current is not None and location and len(location.split()) <= 4 and not re.search(r"\d", location):
                 if current["institution"]:
                     # A location line such as `Sibu, Sarawak`.
@@ -8629,20 +8959,12 @@ def build_project_entries(resume_text: str, evidence_bullets: list[str], limit: 
 
 
 def has_explicit_experience_section(resume_text: str) -> bool:
-    experience_headings = {
-        "employment",
-        "employment history",
-        "experience",
-        "internship",
-        "professional experience",
-        "work experience",
-        "work history",
-    }
-    for raw_line in clean_resume_source_text(resume_text).splitlines():
-        normalized = normalize_match_text(raw_line)
-        if normalized in experience_headings:
-            return True
-    return False
+    # Same heading list as the section parser, so `EXPERIENCES` or
+    # `Industrial Training` count here too.
+    return any(
+        detect_resume_section_heading(raw_line) == "experience"
+        for raw_line in clean_resume_source_text(resume_text).splitlines()
+    )
 
 
 def has_achievement_signal(sentence: str) -> bool:

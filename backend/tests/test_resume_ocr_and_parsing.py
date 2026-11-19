@@ -104,8 +104,8 @@ class ImagePreparationTests(unittest.TestCase):
         # which keeps OCR fast on a small server.
         medium = app_module.prepare_image_for_ocr(Image.new("RGB", (900, 1270), "white"))
         self.assertEqual(medium.width, app_module.OCR_MEDIUM_TARGET_WIDTH)
-        large = app_module.prepare_image_for_ocr(Image.new("RGB", (1200, 1700), "white"))
-        self.assertEqual(large.size, (1200, 1700))
+        large = app_module.prepare_image_for_ocr(Image.new("RGB", (1500, 2120), "white"))
+        self.assertEqual(large.size, (1500, 2120))
 
     def test_upscaling_is_capped(self):
         prepared = app_module.prepare_image_for_ocr(Image.new("RGB", (100, 140), "white"))
@@ -389,6 +389,148 @@ class SectionParsingTests(unittest.TestCase):
             "Issuing Institution: Example Academy, Year: 2025",
         ]
         self.assertEqual(app_module.parse_structured_certification_lines(lines, set()), [])
+
+    def test_plural_and_training_experience_headings_are_recognised(self):
+        detect = app_module.detect_resume_section_heading
+        for heading in ("EXPERIENCES", "Working Experience", "INDUSTRIAL TRAINING", "Professional Experiences"):
+            with self.subTest(heading=heading):
+                self.assertEqual(detect(heading), "experience")
+        self.assertTrue(app_module.has_explicit_experience_section("SKILLS\nPython\nEXPERIENCES\nMentor, 2025"))
+        self.assertEqual(detect("CO-CURICULLUM ACTIVITIES"), "other")
+        self.assertEqual(detect("EXTRA-CURICULLAR ACTIVITIES"), "other")
+
+    def test_experiences_heading_gives_an_experience_entry(self):
+        text = (
+            "ALEX TAN\nSKILLS\nPython, SQL\n"
+            "EXPERIENCES\n"
+            "STEM Mentor | Example Innovation Challenge May 2025 - August 2025\n"
+            "* Mentored and guided more than 30 participants in designing robotics projects\n"
+            "* Conducted basic Machine Learning workshops for participants\n"
+        )
+        experience = app_module.parse_structured_resume_sections(text)["experience"]
+        self.assertEqual(len(experience), 1)
+        self.assertEqual(experience[0]["dates"], "May 2025 - August 2025")
+        self.assertEqual(len(experience[0]["bullets"]), 2)
+
+    def test_education_bullets_and_a_wrapped_coursework_list_stay_with_the_degree(self):
+        text = (
+            "EDUCATION\n"
+            "Example International University, Alor Setar, Kedah October 2022 - Present\n"
+            "Bachelor of Computer Science (Hons) Specialize in Data Science\n"
+            "* Participation in the student committee.\n"
+            "* Relevant Coursework: Object Oriented Programming, Statistical Programming, Parallel\n"
+            "Distributed Database, Machine Learning, Data Communication and\n"
+            "Networking, Deep Learning.\n"
+        )
+        education = app_module.parse_structured_resume_sections(text)["education"]
+        self.assertEqual(len(education), 1)
+        self.assertEqual(education[0]["credential"], "Bachelor of Computer Science (Hons) Specialize in Data Science")
+        self.assertEqual(education[0]["dates"], "October 2022 - Present")
+        self.assertEqual(len(education[0]["details"]), 2)
+        self.assertIn("Parallel Distributed Database", education[0]["details"][1])
+
+    def test_a_job_title_with_one_comma_is_not_joined_as_a_wrapped_list(self):
+        join = app_module.should_join_wrapped_resume_line
+        self.assertFalse(
+            join(
+                "Work experience placement: Example Store, Sydney",
+                "Two week work experience placement, involving customer contact and care of stock",
+            )
+        )
+        self.assertTrue(
+            join(
+                "Relevant Coursework: Object Oriented Programming (OOP), Statistical Programming, Parallel",
+                "Distributed Data base, Machine Learning and Data Communication",
+            )
+        )
+
+
+class OcrWordCorrectionTests(unittest.TestCase):
+    def test_look_alike_letters_are_repaired(self):
+        correct = app_module.correct_ocr_word
+        for misread, expected in (
+            ("Monours", "Honours"),
+            ("Teknotog!", "Teknologi"),
+            ("UNIVERSIT!", "UNIVERSITI"),
+            ("Pythan", "Python"),
+            ("Sckil-learn", "Scikit-learn"),
+            ("cornmunication", "communication"),
+            ("adaplable", "adaptable"),
+            ("Recewer", "Receiver"),
+        ):
+            with self.subTest(misread=misread):
+                self.assertEqual(correct(misread), expected)
+
+    def test_real_words_names_and_acronyms_are_left_alone(self):
+        for word in ("Scala", "browse", "Programme", "progression", "attacks", "seconds", "NATHAN", "Hinn", "Wafi", "XAMPP", "NLTK"):
+            with self.subTest(word=word):
+                self.assertEqual(app_module.correct_ocr_word(word), word)
+
+    def test_ocr_text_fixes_dates_emails_tools_and_bullets(self):
+        text = (
+            "MUHAMMAD AL WAFI\n"
+            "Alor Setar | muhammadalwafi1221gqmail.com | +60123456789\n"
+            "@ linkedin.com/infmuhammad-wafi\n"
+            "Bachelor of Computer Science (Computer Network and Security) with Monours\n"
+            "Universiti Teknotog! Malaysia, Johor Bahru Get 2022 - jul 2026\n"
+            "COPA: 3.75 MUET Band 35\n"
+            "¢ Tools: Power 8!, Tableau, Arduino loT Kit\n"
+            "« AUML Libraries: TensorFlow, Pythan\n"
+            "We will get together in 2019 at the expo.\n"
+        )
+        corrected = app_module.correct_ocr_text(text)
+        self.assertIn("MUHAMMAD AL WAFI", corrected)
+        self.assertIn("muhammadalwafi1221@gmail.com", corrected)
+        self.assertIn("linkedin.com/in/muhammad-wafi", corrected)
+        self.assertNotIn("@ linkedin", corrected)
+        self.assertIn("with Honours", corrected)
+        self.assertIn("Universiti Teknologi Malaysia, Johor Bahru Oct 2022 - Jul 2026", corrected)
+        self.assertIn("CGPA: 3.75 MUET Band 3.5", corrected)
+        self.assertIn("* Tools: Power BI, Tableau, Arduino IoT Kit", corrected)
+        self.assertIn("* AI/ML Libraries: TensorFlow, Python", corrected)
+        self.assertIn("get together in 2019", corrected)
+
+    def test_real_mail_domains_and_fragments_are_not_rewritten(self):
+        fix = app_module.fix_ocr_email_domain
+        self.assertEqual(fix("hanani.amir@email.com"), "hanani.amir@email.com")
+        self.assertEqual(fix("ali@gmait.com and siti@grnail.com"), "ali@gmail.com and siti@gmail.com")
+        self.assertEqual(fix("muhammadalwafit22 1gagmail.com"), "muhammadalwafit22 1gagmail.com")
+        self.assertEqual(fix("jahidah mail.com"), "jahidah mail.com")
+        self.assertEqual(app_module.extract_resume_email("nurul.aina@email.com-linkedin.com/in/nurul"), "nurul.aina@email.com")
+
+    def test_ocr_bullets_do_not_glue_words_across_lines(self):
+        text = app_module.clean_resume_source_text(app_module.correct_ocr_text("2019 - Present\ne Spearheaded the migration of 12 services."))
+        self.assertNotIn("Present-", text)
+        self.assertIn("Spearheaded", text)
+
+    def test_correction_is_only_used_for_ocr_text(self):
+        # Selectable PDF text is never passed through the OCR word fixer.
+        with patch.object(app_module, "correct_ocr_text", side_effect=AssertionError("not for PDFs")):
+            text, info = app_module.extract_pdf_text(BytesIO(self.text_pdf()))
+        self.assertFalse(info["ocr_used"])
+        self.assertIn("Monours", text)
+
+    @staticmethod
+    def text_pdf() -> bytes:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas
+
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=A4)
+        lines = [
+            "JORDAN LEE",
+            "EDUCATION",
+            "Bachelor of Computer Science with Monours",
+            "University of Example Malaysia, 2023 - Present",
+            "SKILLS",
+            "Python, Java, SQL, Flutter, Firebase, Git, Linux, Docker, REST APIs, Machine Learning",
+            "PROJECTS",
+            "Campus Parking App: built a parking finder used by 300 students with live slot updates.",
+        ]
+        for index, line in enumerate(lines):
+            pdf.drawString(72, 780 - index * 18, line)
+        pdf.save()
+        return buffer.getvalue()
 
 
 class GeneratedResumeFallbackTests(unittest.TestCase):
