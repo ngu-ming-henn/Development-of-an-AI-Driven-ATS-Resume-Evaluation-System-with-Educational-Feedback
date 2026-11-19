@@ -445,6 +445,25 @@
         .career-orbit-point-3 { bottom: 9%; left: 5%; }
         .career-orbit-note { margin: 6px 0 0; color: var(--career-muted); font-size: 12px; text-align: center; }
         .career-flow-section { background: #f7fbff; }
+        .career-flow-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px 36px; }
+        .career-flow-toggle { display: inline-flex; flex: none; align-items: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 1px solid #c4dbef; border-radius: 12px; background: #fff; color: var(--career-teal-deep); font-size: 13px; font-weight: 800; cursor: pointer; transition: border-color .2s ease, background-color .2s ease, transform .2s ease; }
+        .career-flow-toggle:hover { border-color: var(--career-teal); background: #f7fcff; transform: translateY(-1px); }
+        .career-flow-toggle svg { width: 18px; height: 18px; transition: transform .3s ease; }
+        .career-flow-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+        .career-flow-toggle:focus-visible, .career-flow-tile:focus-visible { outline: 3px solid rgba(0,102,204,.35); outline-offset: 3px; }
+        .career-flow-row { scroll-margin-top: 100px; }
+        /* Minimized: only the three numbered titles, as tiles that open their details. */
+        .career-flow-tile { display: none; }
+        .career-flow-section.is-minimized .career-flow-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 40px; border-top: 0; }
+        .career-flow-section.is-minimized .career-flow-row { display: block; padding: 0; border-bottom: 0; }
+        .career-flow-section.is-minimized .career-flow-copy { max-width: none; height: 100%; }
+        .career-flow-section.is-minimized .career-flow-copy > :not(.career-flow-tile), .career-flow-section.is-minimized .career-feature-visual { display: none; }
+        .career-flow-section.is-minimized .career-flow-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; width: 100%; height: 100%; padding: 26px 24px 22px; border: 1px solid #d3e4f4; border-radius: 20px; background: #fff; color: inherit; font: inherit; text-align: left; cursor: pointer; box-shadow: 0 10px 28px rgba(22,48,77,.05); transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+        .career-flow-tile:hover { border-color: #9fc6e8; box-shadow: 0 16px 34px rgba(22,48,77,.1); transform: translateY(-3px); }
+        .career-flow-tile-index { color: var(--career-teal); font-family: Manrope, Inter, sans-serif; font-size: clamp(2.3rem, 3.4vw, 3.1rem); font-weight: 800; line-height: 1; letter-spacing: -.08em; }
+        .career-flow-tile-title { color: var(--career-ink); font-family: Manrope, Inter, sans-serif; font-size: clamp(1.2rem, 1.7vw, 1.5rem); font-weight: 800; line-height: 1.2; letter-spacing: -.04em; }
+        .career-flow-tile-hint { display: inline-flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 6px; color: var(--career-teal-deep); font-size: 12px; font-weight: 800; }
+        .career-flow-tile-hint::after { content: "↓"; font-size: 15px; line-height: 1; }
         .career-flow-intro { max-width: 750px; }
         .career-flow-intro > p:not(.career-eyebrow) { max-width: 660px; margin: 25px 0 0; color: var(--career-muted); font-size: 17px; line-height: 1.75; }
         .career-flow-list { margin-top: 52px; border-top: 1px solid #d3e4f4; }
@@ -532,6 +551,41 @@
         .career-writing-example-after span { color: #176b52; }
         .career-writing-note { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0 0; color: #526477; font-size: 12px; line-height: 1.6; }
         .career-writing-mark { color: var(--career-teal); font-size: 18px; flex: none; line-height: 1; }
+        /* Resume draft: what the generated ATS resume looks like (fictional). */
+        .career-draft-section { background: #f7fbff; }
+        .career-draft-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: clamp(32px, 6vw, 96px); }
+        .career-draft-intro { max-width: 470px; margin: 22px 0 0; color: var(--career-muted); font-size: 16px; line-height: 1.7; }
+        .career-draft-points { display: grid; gap: 15px; margin: 28px 0 0; padding: 0; list-style: none; }
+        .career-draft-points li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 12px; align-items: start; }
+        .career-draft-mark { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 99px; background: #e1f0ff; color: var(--career-teal-deep); font-size: 13px; font-weight: 900; }
+        .career-draft-points strong { color: var(--career-ink); font-size: 14px; }
+        .career-draft-points p { margin: 3px 0 0; color: var(--career-muted); font-size: 13px; line-height: 1.6; }
+        .career-draft-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; margin-top: 32px; }
+        .career-draft-actions .career-text-link { margin-top: 0; }
+        .career-draft-visual { position: relative; min-width: 0; padding: 18px; border: 1px solid #d4e7f8; border-radius: 24px; background: linear-gradient(135deg, #e4f2ff 0%, #f6fbff 58%, #e7f6f3 100%); }
+        .career-draft-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+        .career-draft-badge { padding: 6px 10px; border-radius: 8px; background: #fff; color: #16466f; font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+        .career-draft-download { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 9px; background: var(--career-teal-deep); color: #fff; font-size: 11px; font-weight: 800; box-shadow: 0 8px 18px rgba(0,85,170,.2); }
+        .career-draft-download svg { width: 14px; height: 14px; }
+        .career-draft-page { padding: clamp(20px, 3vw, 30px) clamp(20px, 3.4vw, 36px); border: 1px solid #d8e5ef; border-radius: 10px; background: #fff; box-shadow: 0 18px 34px rgba(22,48,77,.1); color: #1d2733; font-family: Arial, Helvetica, sans-serif; }
+        .career-draft-name { font-size: clamp(20px, 2.4vw, 26px); font-weight: 700; letter-spacing: .02em; }
+        .career-draft-headline { margin-top: 4px; font-size: 12px; font-weight: 700; }
+        .career-draft-contact { margin-top: 5px; padding-bottom: 10px; border-bottom: 1px solid #1d2733; color: #3a4654; font-size: 10px; overflow-wrap: anywhere; }
+        .career-draft-block { margin-top: 12px; }
+        .career-draft-heading { padding-bottom: 3px; border-bottom: 1px solid #c9d3dd; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+        .career-draft-block p, .career-draft-block li { margin: 6px 0 0; font-size: 10.5px; line-height: 1.5; }
+        .career-draft-block ul { margin: 0; padding-left: 16px; list-style: disc; }
+        .career-draft-skills { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 3px 10px; margin: 6px 0 0; font-size: 10.5px; line-height: 1.5; }
+        .career-draft-skills dt { font-weight: 700; }
+        .career-draft-skills dd { margin: 0; }
+        .career-draft-advice { display: flex; align-items: flex-start; gap: 10px; margin-top: 12px; padding: 12px 14px; border: 1px dashed #9fc6e8; border-radius: 12px; background: rgba(255,255,255,.78); }
+        .career-draft-advice p { margin: 0; color: #3f5568; font-size: 12px; line-height: 1.55; }
+        .career-draft-advice strong { color: var(--career-teal-deep); }
+        /* When the preview scrolls into view, the page fills in line by line like a fresh draft. */
+        body.motion-ready .career-draft-visual.is-visible .career-draft-page > * { animation: careerDraftLine .5s ease both; animation-delay: calc(var(--line, 0) * 110ms + 300ms); }
+        body.motion-ready .career-draft-visual.is-visible .career-draft-download { animation: careerDraftPulse 1.6s 1.3s ease 2; }
+        @keyframes careerDraftLine { from { opacity: 0; transform: translateY(8px); } }
+        @keyframes careerDraftPulse { 50% { box-shadow: 0 0 0 6px rgba(0,102,204,.18), 0 8px 18px rgba(0,85,170,.2); } }
         .career-footer { background: #122b3b; color: #fff; }
         .career-footer-cta { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 32px; padding-block: clamp(42px, 6vw, 68px); border-bottom: 1px solid rgba(220,241,250,.18); }
         .career-footer-kicker { margin: 0 0 12px; color: #9fe4eb; font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
@@ -615,7 +669,7 @@
             .career-nav-links { gap: 18px; }
             .career-hero-grid { grid-template-columns: 1fr; gap: 46px; padding-block: 58px 70px; }
             .career-visual { width: min(590px, 100%); margin-inline: auto; }
-            .career-intelligence-grid, .career-sample-grid, .career-writing-grid { grid-template-columns: 1fr; }
+            .career-intelligence-grid, .career-sample-grid, .career-writing-grid, .career-draft-grid { grid-template-columns: 1fr; }
             .career-intelligence-copy, .career-flow-intro { max-width: 650px; }
             .career-orbit-wrap { width: min(100%, 500px); }
             .career-sample-copy { position: static; max-width: 650px; }
@@ -642,6 +696,12 @@
             .career-section { padding-block: 78px; }
             .career-intelligence-grid { gap: 44px; }
             .career-flow-row { grid-template-columns: 1fr; gap: 30px; padding: 55px 0; }
+            .career-flow-section.is-minimized .career-flow-list { grid-template-columns: 1fr; gap: 10px; margin-top: 30px; }
+            .career-flow-section.is-minimized .career-flow-tile { flex-direction: row; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 16px; }
+            .career-flow-tile-index { flex: none; font-size: 2rem; }
+            .career-flow-tile-title { flex: 1; font-size: 1.05rem; }
+            .career-flow-tile-hint { flex: none; margin: 0; padding: 0; font-size: 0; }
+            .career-flow-tile-hint::after { font-size: 18px; }
             .career-flow-row.is-reversed .career-flow-copy, .career-flow-row.is-reversed .career-feature-visual { grid-column: auto; grid-row: auto; }
             .career-feature-visual { width: min(100%, 650px); }
             .career-report-preview-hero, .career-report-preview-quick, .career-report-preview-overview { grid-template-columns: 1fr; }
@@ -669,6 +729,11 @@
             .career-tour-nav { min-width: 0; padding: 8px 12px; }
             .career-tour-dots button { width: 24px; }
             .career-tour-cta { align-self: stretch; }
+            .career-draft-visual { padding: 11px; border-radius: 18px; }
+            .career-draft-page { padding: 18px 16px; }
+            .career-draft-skills { grid-template-columns: 68px minmax(0, 1fr); }
+            .career-draft-actions .career-button { width: 100%; }
+            .career-flow-toggle { width: 100%; justify-content: center; }
             .career-visual-report-score strong { font-size: 36px; }
             .career-flow-list { margin-top: 28px; }
             .career-flow-row { padding: 42px 0; }
@@ -693,7 +758,8 @@
             .career-ui-meter span { transition: none; }
             .career-footer-cta-button:hover { transform: none; }
             body.motion-ready [data-reveal] { opacity: 1; filter: none; transform: none; transition: none; }
-            .career-tour-card, .career-tour-card::after, .career-tour-dots button span, .career-tour-nav { transition: none; }
+            .career-tour-card, .career-tour-card::after, .career-tour-dots button span, .career-tour-nav, .career-flow-tile, .career-flow-toggle, .career-flow-toggle svg { transition: none; }
+            .career-flow-tile:hover, .career-flow-toggle:hover { transform: none; }
             .career-tour-card *, .career-tour-caret, .career-tour-dots button span::after { animation: none !important; }
         }
         @media (max-width: 380px) {
@@ -877,16 +943,23 @@
     </div>
   </section>
 
-  <section class="career-section career-flow-section" id="feedback-overview" aria-labelledby="flow-heading">
+  <section class="career-section career-flow-section is-minimized" id="feedback-overview" aria-labelledby="flow-heading">
     <div class="career-container">
-      <div class="career-flow-intro" data-reveal="left">
-        <p class="career-eyebrow"><span class="career-eyebrow-rule"></span> Inside your report</p>
-        <h2 id="flow-heading">Feedback with a <em>clear purpose.</em></h2>
-        <p>These panels use the built-in fictional sample's role comparison, score evidence, and next edits. Open the linked report to see the exact screens.</p>
+      <div class="career-flow-head">
+        <div class="career-flow-intro" data-reveal="left">
+          <p class="career-eyebrow"><span class="career-eyebrow-rule"></span> Inside your report</p>
+          <h2 id="flow-heading">Feedback with a <em>clear purpose.</em></h2>
+          <p>These panels use the built-in fictional sample's role comparison, score evidence, and next edits. Open the linked report to see the exact screens.</p>
+        </div>
+        <button class="career-flow-toggle" id="flowToggle" type="button" aria-expanded="false" aria-controls="flowList">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          <span data-flow-toggle-label>Show details</span>
+        </button>
       </div>
-      <div class="career-flow-list">
+      <div class="career-flow-list" id="flowList">
         <article class="career-flow-row">
           <div class="career-flow-copy" data-reveal="left">
+            <button class="career-flow-tile" type="button" data-flow-open="0"><span class="career-flow-tile-index" aria-hidden="true">01</span><span class="career-flow-tile-title">See where your role fits.</span><span class="career-flow-tile-hint">Show details</span></button>
             <span class="career-flow-row-index career-count-up" data-count-to="1" data-count-pad="2" aria-hidden="true">01</span>
             <h3>See where your role fits.</h3>
             <p>Select a target role or let the system suggest one. The report shows the role you chose, its database mapping, and the strongest matching roles.</p>
@@ -907,6 +980,7 @@
         </article>
         <article class="career-flow-row is-reversed">
           <div class="career-flow-copy" data-reveal="right">
+            <button class="career-flow-tile" type="button" data-flow-open="1"><span class="career-flow-tile-index" aria-hidden="true">02</span><span class="career-flow-tile-title">Understand the evidence.</span><span class="career-flow-tile-hint">Show details</span></button>
             <span class="career-flow-row-index career-count-up" data-count-to="2" data-count-pad="2" aria-hidden="true">02</span>
             <h3>Understand the evidence.</h3>
             <p>Score components and matched resume signals make the result easier to read. You can see which keywords, skills, and experience support the match.</p>
@@ -928,6 +1002,7 @@
         </article>
         <article class="career-flow-row">
           <div class="career-flow-copy" data-reveal="left">
+            <button class="career-flow-tile" type="button" data-flow-open="2"><span class="career-flow-tile-index" aria-hidden="true">03</span><span class="career-flow-tile-title">Know what to edit next.</span><span class="career-flow-tile-hint">Show details</span></button>
             <span class="career-flow-row-index career-count-up" data-count-to="3" data-count-pad="2" aria-hidden="true">03</span>
             <h3>Know what to edit next.</h3>
             <p>The report turns gaps into priority actions, then checks resume readability and writing clarity. Use each suggestion only when it reflects your real work.</p>
@@ -985,6 +1060,54 @@
         <div class="career-writing-example"><span>Before · vague</span><p>“Responsible for developing a web application.”</p></div>
         <div class="career-writing-example career-writing-example-after"><span>After · specific</span><p>“Built a Flask web application with PostgreSQL and three API endpoints for campus timetable search.”</p></div>
         <p class="career-writing-note"><span class="career-writing-mark" aria-hidden="true">✦</span> Write only what you actually did. Use tools, actions, and outcomes you can support.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="career-section career-draft-section" id="resume-draft-preview" aria-labelledby="draft-heading">
+    <div class="career-container career-draft-grid">
+      <div class="career-draft-copy" data-reveal="left">
+        <p class="career-eyebrow"><span class="career-eyebrow-rule"></span> Resume draft</p>
+        <h2 id="draft-heading">Turn your feedback into an <em>ATS-ready draft.</em></h2>
+        <p class="career-draft-intro">After the analysis, the report builds a clean resume draft from your own evidence for the role you chose. You review it, then download it as a PDF.</p>
+        <ul class="career-draft-points">
+          <li><span class="career-draft-mark" aria-hidden="true">✓</span><div><strong>Built from your resume</strong><p>Your name, contact details, skills, projects and education stay in their own sections.</p></div></li>
+          <li><span class="career-draft-mark" aria-hidden="true">✓</span><div><strong>A layout ATS can read</strong><p>One column and standard headings, without tables, icons or photos.</p></div></li>
+          <li><span class="career-draft-mark" aria-hidden="true">✓</span><div><strong>Advice stays in the report</strong><p>Missing keywords are listed as tips, never added as experience you do not have.</p></div></li>
+        </ul>
+        <div class="career-draft-actions">
+          <button class="career-button career-button-primary" type="button" data-draft-start>Check my resume <span class="career-arrow" aria-hidden="true">→</span></button>
+          <a class="career-text-link" href="analysis_result.html?sample=1#resume-draft">See where the draft appears <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <div class="career-draft-visual" role="group" aria-label="Fictional example of a generated ATS resume draft" data-reveal="right">
+        <div class="career-draft-toolbar">
+          <span class="career-draft-badge">Generated draft · fictional example</span>
+          <span class="career-draft-download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg> Download PDF</span>
+        </div>
+        <div class="career-draft-page" data-no-translate>
+          <div class="career-draft-name" style="--line:0">AVERY TAN</div>
+          <div class="career-draft-headline" style="--line:1">Software Engineer</div>
+          <div class="career-draft-contact" style="--line:2">avery.tan@example.com | +60 12-345 6789 | linkedin.com/in/avery-tan-example</div>
+          <div class="career-draft-block" style="--line:3">
+            <div class="career-draft-heading">Professional Summary</div>
+            <p>Computer Science student targeting Software Engineer roles, with project evidence in Python, REST APIs and SQL databases.</p>
+          </div>
+          <div class="career-draft-block" style="--line:4">
+            <div class="career-draft-heading">Technical Skills</div>
+            <dl class="career-draft-skills"><dt>Languages</dt><dd>Python, Java, SQL</dd><dt>Tools</dt><dd>Git, Docker, Linux</dd></dl>
+          </div>
+          <div class="career-draft-block" style="--line:5">
+            <div class="career-draft-heading">Projects</div>
+            <p><strong>Campus Parking App</strong> | Flutter, Firebase</p>
+            <ul><li>Built a parking finder used by 300 students with live slot updates.</li></ul>
+          </div>
+          <div class="career-draft-block" style="--line:6">
+            <div class="career-draft-heading">Education</div>
+            <p><strong>Bachelor of Computer Science (Hons)</strong> | University of Example Malaysia | 2023 - Present</p>
+          </div>
+        </div>
+        <div class="career-draft-advice"><span class="career-info-mark" aria-hidden="true">i</span><p><strong>Shown in the report only:</strong> add the number of users or the test result to the API project if it is true.</p></div>
       </div>
     </div>
   </section>
@@ -3667,6 +3790,53 @@
       inView = true;
     }
   })();
+
+  // "Inside your report" starts minimized: three numbered tiles. The header
+  // button shows or hides every detail; a tile opens the details and jumps to
+  // its own row.
+  (function initFlowSection() {
+    const section = document.getElementById("feedback-overview");
+    const toggle = document.getElementById("flowToggle");
+    if (!section || !toggle) return;
+    const label = toggle.querySelector("[data-flow-toggle-label]");
+    const rows = Array.from(section.querySelectorAll(".career-flow-row"));
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    function setMinimized(minimized) {
+      section.classList.toggle("is-minimized", minimized);
+      toggle.setAttribute("aria-expanded", String(!minimized));
+      if (label) label.textContent = minimized ? "Show details" : "Minimize";
+    }
+
+    toggle.addEventListener("click", () => {
+      const minimize = !section.classList.contains("is-minimized");
+      setMinimized(minimize);
+      // After the long rows close, keep the reader at the top of this section.
+      if (minimize && section.getBoundingClientRect().top < 0) {
+        section.scrollIntoView({ block: "start", behavior: reduceMotion.matches ? "auto" : "smooth" });
+      }
+    });
+    section.querySelectorAll("[data-flow-open]").forEach((tile) => {
+      tile.addEventListener("click", () => {
+        const row = rows[Number(tile.dataset.flowOpen)];
+        setMinimized(false);
+        if (!row) return;
+        row.scrollIntoView({ block: "start", behavior: reduceMotion.matches ? "auto" : "smooth" });
+        const heading = row.querySelector("h3");
+        if (heading) {
+          heading.setAttribute("tabindex", "-1");
+          heading.focus({ preventScroll: true });
+        }
+      });
+    });
+  })();
+
+  document.querySelectorAll("[data-draft-start]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const evaluateButton = document.getElementById("evaluateResumeBtn");
+      if (evaluateButton) evaluateButton.click();
+    });
+  });
 
   const sectionNav = document.querySelector(".career-nav");
   const sectionNavLinks = Array.from(document.querySelectorAll('.career-nav-links a[href^="#"]'));
