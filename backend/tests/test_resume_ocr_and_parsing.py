@@ -429,6 +429,56 @@ class SectionParsingTests(unittest.TestCase):
         self.assertEqual(len(education[0]["details"]), 2)
         self.assertIn("Parallel Distributed Database", education[0]["details"][1])
 
+    def test_grades_with_spaced_decimals_are_read_and_digit_runs_are_not(self):
+        pattern = app_module.EDUCATION_GRADE_PATTERN
+        self.assertEqual(pattern.search("(Hons) - Present (CGPA - 3 . 17)").group(2).replace(" ", ""), "3.17")
+        self.assertEqual(pattern.search("Latest CGPA: 3 . 20").group(2).replace(" ", ""), "3.20")
+        self.assertEqual(pattern.search("CGPA:3.25").group(2), "3.25")
+        self.assertIsNone(pattern.search("Bachelor (CGPA: 348/4,00)"))
+        self.assertIsNone(pattern.search("Present CGPA 2021"))
+
+    def test_a_grade_on_its_own_bullet_stays_with_the_degree(self):
+        text = (
+            "EDUCATION\n"
+            "BOSTON EXAMPLE UNIVERSITY Boston, MA\n"
+            "Bachelor of Science in Computer Science\n"
+            "* GPA: 3.6/4.0\n"
+            "* Relevant Coursework: Programming Fundamentals, Data Structures, Algorithms\n"
+            "Current CGPA: 3.76\n"
+        )
+        education = app_module.parse_structured_resume_sections(text)["education"]
+        self.assertEqual(education[0]["grade"], "GPA: 3.6 / 4.0")
+        self.assertNotIn("", education[0]["details"])
+        self.assertTrue(all(detail.strip(".") not in {"Current", ""} for detail in education[0]["details"]))
+
+    def test_grades_join_the_fallback_education_lines(self):
+        attach = app_module.attach_grades_to_education_lines
+        source = (
+            "Bachelor of Software Engineering (Educational Software) with Honours-CGPA: 3.57 / 4.00\n"
+            "Example University, 2021 - 2025\n"
+            "Foundation in Physical Science\n"
+            "Physical Science Stream-CGPA: 3.76 / 4.00\n"
+        )
+        self.assertEqual(
+            attach(["Bachelor of Software Engineering.", "Foundation in Physical Science."], source),
+            ["Bachelor of Software Engineering | CGPA: 3.57 / 4.00.", "Foundation in Physical Science | CGPA: 3.76 / 4.00."],
+        )
+        # A sidebar grade far from the degree still belongs to the only degree.
+        sidebar = "Bachelor of Computer Science\nExample University\n" + "Skill\n" * 8 + "Latest CGPA: 3 . 20\n"
+        self.assertEqual(
+            attach(["Bachelor of Computer Science - Example University (2023 - Present).", "STPM - SMK Example (2021 - 2023)."], sidebar),
+            ["Bachelor of Computer Science - Example University (2023 - Present) | CGPA: 3.20.", "STPM - SMK Example (2021 - 2023)."],
+        )
+        # Two degrees and one far-away grade: unclear, so nothing is added.
+        unclear = "Bachelor of Arts\nMaster of Science\n" + "Skill\n" * 8 + "CGPA: 3.5\n"
+        self.assertEqual(attach(["Bachelor of Arts.", "Master of Science."], unclear), ["Bachelor of Arts.", "Master of Science."])
+
+    def test_ocr_grade_misreads_are_repaired(self):
+        corrected = app_module.correct_ocr_text("x\nBachelor (Honours) (CGPA: 348/4,00)\nCurrent OGPA: 3:76\nUniversiti Example (Oct 2022 - Present}")
+        self.assertIn("(CGPA: 3.48/4.00)", corrected)
+        self.assertIn("Current CGPA: 3.76", corrected)
+        self.assertIn("(Oct 2022 - Present)", corrected)
+
     def test_a_job_title_with_one_comma_is_not_joined_as_a_wrapped_list(self):
         join = app_module.should_join_wrapped_resume_line
         self.assertFalse(
