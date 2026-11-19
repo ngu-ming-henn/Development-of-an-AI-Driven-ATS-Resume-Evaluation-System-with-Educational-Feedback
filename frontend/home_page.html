@@ -597,13 +597,6 @@
         @keyframes careerDraftLine { from { opacity: 0; transform: translateY(8px); } }
         @keyframes careerDraftPulse { 50% { box-shadow: 0 0 0 6px rgba(0,102,204,.18), 0 8px 18px rgba(0,85,170,.2); } }
         .career-footer { background: #122b3b; color: #fff; }
-        .career-footer-cta { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 32px; padding-block: clamp(42px, 6vw, 68px); border-bottom: 1px solid rgba(220,241,250,.18); }
-        .career-footer-kicker { margin: 0 0 12px; color: #9fe4eb; font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-        .career-footer-cta h2 { max-width: 670px; margin: 0; font-family: Manrope,Inter,sans-serif; font-size: clamp(27px, 3.3vw, 43px); font-weight: 800; letter-spacing: -.045em; line-height: 1.15; }
-        .career-footer-cta p:not(.career-footer-kicker) { max-width: 610px; margin: 14px 0 0; color: #bcd0da; font-size: 14px; line-height: 1.65; }
-        .career-footer-cta-button { min-height: 50px; display: inline-flex; align-items: center; justify-content: center; gap: 18px; padding: 12px 20px; border-radius: 12px; background: #fff; color: #075f83; font-size: 13px; font-weight: 800; white-space: nowrap; box-shadow: 0 10px 26px rgba(0,0,0,.13); transition: background-color .2s ease, transform .2s ease, box-shadow .2s ease; }
-        .career-footer-cta-button:hover { background: #e8f7fa; box-shadow: 0 14px 30px rgba(0,0,0,.18); transform: translateY(-2px); }
-        .career-footer-cta-button svg { width: 18px; height: 18px; }
         .career-footer-inner { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(130px, .55fr) minmax(160px, .65fr); gap: clamp(26px, 5vw, 72px); padding-block: 43px 48px; }
         .career-footer-identity { max-width: 410px; }
         .career-footer-lockup { display: inline-flex; align-items: center; gap: 11px; color: #fff; text-decoration: none; }
@@ -691,7 +684,11 @@
             .career-brand-mark { width: 32px; height: 32px; }
             .career-brand-mark svg { width: 21px; height: 21px; }
             .career-brand-name strong { font-size: 14px; }
-            .career-nav-links { display: flex; grid-column: 1 / -1; grid-row: 2; justify-content: center; flex-wrap: wrap; gap: 6px clamp(10px, 3vw, 24px); padding-top: 4px; }
+            /* One row of links that scrolls sideways instead of wrapping into two rows. */
+            .career-nav-links { display: flex; grid-column: 1 / -1; grid-row: 2; justify-content: center; flex-wrap: nowrap; gap: 4px; padding: 4px 2px 2px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+            .career-nav-links::-webkit-scrollbar { display: none; }
+            .career-nav-links.is-scrollable { justify-content: flex-start; -webkit-mask-image: linear-gradient(90deg, #000 86%, transparent); mask-image: linear-gradient(90deg, #000 86%, transparent); }
+            .career-nav-links a { flex: none; }
             .career-nav-links a { min-height: 32px; padding: 5px 9px; font-size: 11px; }
             .career-nav-links a.career-resume-report-link { min-height: 30px; padding: 4px 7px; font-size: 11px; }
             .career-nav-actions { grid-column: 2; grid-row: 1; justify-content: flex-end; gap: 8px; }
@@ -714,10 +711,33 @@
             .career-flow-tile-hint::after { font-size: 18px; }
             .career-flow-row.is-reversed .career-flow-copy, .career-flow-row.is-reversed .career-feature-visual { grid-column: auto; grid-row: auto; }
             .career-feature-visual { width: min(100%, 650px); }
-            .career-report-preview-hero, .career-report-preview-quick, .career-report-preview-overview { grid-template-columns: 1fr; }
-            .career-report-preview-score { padding: 14px 0 0; border-left: 0; border-top: 1px solid #cedfeb; }
-            .career-footer-cta { grid-template-columns: 1fr; gap: 23px; }
-            .career-footer-cta-button { justify-self: start; }
+            .career-report-preview-quick, .career-report-preview-overview { grid-template-columns: 1fr; }
+            /* Phone: a shorter preview. The score sits beside the title, the
+               score parts become three small tiles, and lines that repeat other
+               text (source note, section tabs, footnote) are hidden. */
+            .career-sample-source, .career-report-bar > span:not(.career-sample-badge), .career-report-preview-tabs, .career-report-preview-hero p + p, .career-report-preview-score p, .career-report-footnote { display: none; }
+            .career-report-bar { padding: 11px 16px; }
+            .career-report-preview-hero { grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 14px; padding: 18px 16px; }
+            .career-report-preview-hero h3 { margin: 6px 0 8px; font-size: 21px; }
+            .career-report-preview-hero p { font-size: 10.5px; }
+            .career-report-preview-score { max-width: 96px; padding: 0; border-left: 0; text-align: right; }
+            .career-report-preview-score small { display: block; font-size: 9px; line-height: 1.3; letter-spacing: .06em; }
+            .career-report-preview-score strong { margin: 6px 0 0; font-size: 40px; }
+            .career-report-preview-score strong span:last-child { margin-left: 2px; font-size: 12px; }
+            .career-report-preview-main { padding: 16px 16px 18px; }
+            .career-report-preview-quick { gap: 6px; }
+            .career-report-preview-quick h4 { font-size: 16px; }
+            .career-report-preview-quick .career-ui-action { grid-template-columns: 30px 1fr; padding: 8px 0; }
+            .career-report-preview-quick .career-ui-action > span { font-size: 17px; }
+            .career-report-preview-overview { gap: 16px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #dde7ef; }
+            .career-report-preview-overview > div:first-child { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+            .career-report-preview-overview > div:first-child h5 { grid-column: 1 / -1; margin-bottom: 2px; }
+            .career-report-preview-overview .career-ui-metric { margin: 0; padding: 9px 9px 10px; border: 1px solid #e1ebf3; border-radius: 10px; background: #f8fbfe; }
+            .career-report-preview-overview .career-ui-metric-label { flex-direction: column; justify-content: flex-start; gap: 3px; font-size: 10px; line-height: 1.25; }
+            .career-report-preview-overview .career-ui-metric-label span { min-height: 2.5em; }
+            .career-report-preview-overview .career-ui-metric-label strong { font-size: 11px; }
+            .career-report-preview-overview .career-ui-meter { height: 6px; }
+            .career-report-preview-overview h5 { margin-bottom: 9px; }
             .career-footer-inner { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 34px 24px; }
             .career-footer-identity { grid-column: 1 / -1; }
         }
@@ -752,9 +772,6 @@
             .career-ui-body { padding: 17px; }
             .career-ui-role-card { padding: 12px; }
             .career-ui-role-card strong { font-size: 11px; }
-            .career-report-preview-hero { gap: 17px; padding: 22px; }
-            .career-report-preview-main { padding: 20px 22px; }
-            .career-report-preview-score strong { font-size: 48px; }
             .career-orbit-point { gap: 4px; padding: 3px 5px; font-size: 11px; }
             .career-orbit-point span { width: 28px; height: 28px; font-size: 10px; }
             .career-orbit-point-1 { top: 4%; left: 42%; }
@@ -764,9 +781,8 @@
         @media (prefers-reduced-motion: reduce) {
             html { scroll-behavior: auto; }
             .career-orbit-ring-outer, .job-role-btn, .role-picker-panel, .analysis-button-dots span, #evaluationStatusText.is-analyzing::after { animation: none !important; }
-            .career-button, .career-orbit-point, .career-nav-links a, .career-nav-actions button:not(.hidden), .career-footer-cta-button, .career-footer-links a, .career-footer-links button { transition: none; }
+            .career-button, .career-orbit-point, .career-nav-links a, .career-nav-actions button:not(.hidden), .career-footer-links a, .career-footer-links button { transition: none; }
             .career-ui-meter span { transition: none; }
-            .career-footer-cta-button:hover { transform: none; }
             body.motion-ready [data-reveal] { opacity: 1; filter: none; transform: none; transition: none; }
             .career-tour-card, .career-tour-card::after, .career-tour-dots button span, .career-tour-nav, .career-flow-tile, .career-flow-toggle, .career-flow-toggle svg { transition: none; }
             .career-flow-tile:hover, .career-flow-toggle:hover { transform: none; }
@@ -796,7 +812,9 @@
     </a>
     <div class="career-nav-links">
       <a href="#how-it-works">How it works</a>
+      <a href="#feedback-overview">Feedback</a>
       <a href="#sample-results">Sample results</a>
+      <a href="#resume-draft-preview">Resume draft</a>
       <a class="career-resume-report-link hidden" id="headerResumeReportLink" href="analysis_result.html" aria-label="Return to your latest resume report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h7l4 4V20.5H7a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z"/><path d="M14 3.5v4h4M9 12h6M9 15.5h6"/></svg><span>Your report</span></a>
       <a class="hidden" href="job_data_insights.html" data-admin-link>Admin insights</a>
     </div>
@@ -1263,14 +1281,6 @@
 </main>
 <!-- Footer -->
 <footer class="career-footer">
-  <div class="career-container career-footer-cta">
-    <div>
-      <p class="career-footer-kicker">Your next draft starts here</p>
-      <h2>Turn resume feedback into a clearer next step.</h2>
-      <p>Choose a role, upload your resume, and see the evidence and improvements in your report.</p>
-    </div>
-    <button class="career-footer-cta-button" id="footerEvaluateResumeBtn" type="button">Check my resume <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></button>
-  </div>
   <div class="career-container career-footer-inner">
     <div class="career-footer-identity">
       <a class="career-footer-lockup" href="home_page.html" aria-label="UTS CS Career Navigator home">
@@ -1296,7 +1306,9 @@
       </div>
     </div>
   </div>
-  <div class="career-container career-footer-bottom"><span>© 2026 UTS CS Career Navigator.</span></div>
+  <!-- Decorative moving banner; the same names are in the footer text above. -->
+  <div class="site-ticker" aria-hidden="true"><div class="site-ticker-track"><div class="site-ticker-group"><span class="site-ticker-item" data-no-translate><span class="site-ticker-mark"><svg viewBox="0 0 32 32" fill="none"><path d="M7 7v10c0 6 3.4 9 9 9s9-3 9-9V7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 11h8M12 15h8" stroke="#B7ECF2" stroke-width="2" stroke-linecap="round"/></svg></span>UTS CS Career Navigator</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Resume feedback for Computer Science students</span><span class="site-ticker-dot"></span><span class="site-ticker-item" data-no-translate><span class="site-ticker-uts"></span>University of Technology Sarawak</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Role matching</span><span class="site-ticker-dot"></span><span class="site-ticker-item">ATS checks</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Improvement tips</span><span class="site-ticker-dot"></span><span class="site-ticker-item">ATS resume drafts</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Final Year Project 2026</span><span class="site-ticker-dot"></span></div><div class="site-ticker-group"><span class="site-ticker-item" data-no-translate><span class="site-ticker-mark"><svg viewBox="0 0 32 32" fill="none"><path d="M7 7v10c0 6 3.4 9 9 9s9-3 9-9V7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 11h8M12 15h8" stroke="#B7ECF2" stroke-width="2" stroke-linecap="round"/></svg></span>UTS CS Career Navigator</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Resume feedback for Computer Science students</span><span class="site-ticker-dot"></span><span class="site-ticker-item" data-no-translate><span class="site-ticker-uts"></span>University of Technology Sarawak</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Role matching</span><span class="site-ticker-dot"></span><span class="site-ticker-item">ATS checks</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Improvement tips</span><span class="site-ticker-dot"></span><span class="site-ticker-item">ATS resume drafts</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Final Year Project 2026</span><span class="site-ticker-dot"></span></div></div></div>
+  <div class="career-container career-footer-bottom"><span>© 2026 UTS CS Career Navigator.</span><span class="site-footer-logos"><span class="site-ticker-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M7 7v10c0 6 3.4 9 9 9s9-3 9-9V7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 11h8M12 15h8" stroke="#B7ECF2" stroke-width="2" stroke-linecap="round"/></svg></span><span class="site-footer-logo-divider" aria-hidden="true"></span><span class="site-ticker-uts" role="img" aria-label="University of Technology Sarawak logo"></span></span></div>
 </footer>
 <div class="fixed inset-0 z-[85] hidden" id="authModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="authModalTitle" aria-describedby="authModalDescription">
 <div class="account-backdrop" id="authModalBackdrop"></div>
@@ -1540,7 +1552,6 @@
 </div>
 <script>
   const evaluateResumeBtn = document.getElementById("evaluateResumeBtn");
-  const footerEvaluateResumeBtn = document.getElementById("footerEvaluateResumeBtn");
   const uploadHint = document.getElementById("uploadHint");
   const evaluationModal = document.getElementById("evaluationModal");
   const evaluationModalBackdrop = document.getElementById("evaluationModalBackdrop");
@@ -2868,9 +2879,6 @@
       openEvaluationModal();
     });
   }
-  if (footerEvaluateResumeBtn && evaluateResumeBtn) {
-    footerEvaluateResumeBtn.addEventListener("click", () => evaluateResumeBtn.click());
-  }
 
   if (openAuthModalBtn) {
     openAuthModalBtn.addEventListener("click", () => {
@@ -3888,28 +3896,37 @@
 
   const sectionNav = document.querySelector(".career-nav");
   const sectionNavLinks = Array.from(document.querySelectorAll('.career-nav-links a[href^="#"]'));
-  const howSection = document.getElementById("how-it-works");
-  const sampleSection = document.getElementById("sample-results");
-  const writingSection = document.querySelector(".career-writing-section");
+  // Each header link lights up while its own section sits under the header.
+  const linkedSections = sectionNavLinks
+    .map((link) => document.getElementById(link.getAttribute("href").slice(1)))
+    .filter(Boolean);
   function setActiveSectionLink(id) {
     sectionNavLinks.forEach((link) => {
-      if (link.getAttribute("href") === "#" + id) {
+      const isActive = link.getAttribute("href") === "#" + id;
+      if (isActive) {
         link.setAttribute("aria-current", "location");
+        // On phones the links scroll sideways; keep the active one in view.
+        const row = link.parentElement;
+        if (row && row.scrollWidth > row.clientWidth) {
+          const linkBox = link.getBoundingClientRect();
+          const rowBox = row.getBoundingClientRect();
+          if (linkBox.left < rowBox.left || linkBox.right > rowBox.right) {
+            row.scrollTo({ left: row.scrollLeft + linkBox.left - rowBox.left - 16, behavior: "smooth" });
+          }
+        }
       } else {
         link.removeAttribute("aria-current");
       }
     });
   }
   function updateSectionNav() {
-    if (!sectionNav || !howSection || !sampleSection) return;
+    if (!sectionNav || !linkedSections.length) return;
     const marker = sectionNav.getBoundingClientRect().height + Math.min(96, window.innerHeight * 0.18);
-    const howTop = howSection.getBoundingClientRect().top;
-    const sampleTop = sampleSection.getBoundingClientRect().top;
-    const writingTop = writingSection ? writingSection.getBoundingClientRect().top : Infinity;
-    const activeId = sampleTop <= marker && writingTop > marker
-      ? "sample-results"
-      : howTop <= marker && sampleTop > marker ? "how-it-works" : "";
-    setActiveSectionLink(activeId);
+    const current = linkedSections.find((section) => {
+      const box = section.getBoundingClientRect();
+      return box.top <= marker && box.bottom > marker;
+    });
+    setActiveSectionLink(current ? current.id : "");
   }
   let sectionNavFrame = 0;
   function scheduleSectionNavUpdate() {
@@ -3922,6 +3939,19 @@
   sectionNavLinks.forEach((link) => {
     link.addEventListener("click", () => setActiveSectionLink(link.getAttribute("href").slice(1)));
   });
+  // Phones: the link row scrolls sideways; fade its edge only when it overflows.
+  const navLinkRow = document.querySelector(".career-nav-links");
+  function markScrollableNav() {
+    if (navLinkRow) navLinkRow.classList.toggle("is-scrollable", navLinkRow.scrollWidth > navLinkRow.clientWidth + 2);
+  }
+  if (navLinkRow) {
+    window.addEventListener("resize", markScrollableNav);
+    if ("ResizeObserver" in window) new ResizeObserver(markScrollableNav).observe(navLinkRow);
+    // `Your report` and `Admin insights` appear after sign-in checks, and the
+    // EN/BM switch changes the link text, so both can change the row width.
+    if ("MutationObserver" in window) new MutationObserver(markScrollableNav).observe(navLinkRow, { attributes: true, subtree: true, attributeFilter: ["class"], characterData: true, childList: true });
+    markScrollableNav();
+  }
   window.addEventListener("scroll", scheduleSectionNavUpdate, { passive: true });
   window.addEventListener("resize", scheduleSectionNavUpdate);
   window.addEventListener("hashchange", scheduleSectionNavUpdate);
