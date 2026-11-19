@@ -10,7 +10,9 @@ FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 class HistoryButtonWiringTests(unittest.TestCase):
     def test_guest_account_icon_offers_sign_in_and_sign_up_on_every_page(self):
         common_source = (FRONTEND_DIR / "app_common.js").read_text(encoding="utf-8")
-        self.assertIn('hasAccount ? ["info", "settings", "history"] : ["access"]', common_source)
+        # Guests can also open Settings (language and colours); the account cards stay hidden.
+        self.assertIn('hasAccount ? ["info", "settings", "history"] : ["access", "settings"]', common_source)
+        self.assertIn("securityCards.forEach((card) => { card.hidden = !hasAccount; });", common_source)
         self.assertIn('button.dataset.accountGo', common_source)
         for page_name in ("home_page.html", "analysis_result.html", "job_data_insights.html"):
             with self.subTest(page=page_name):

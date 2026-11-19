@@ -157,7 +157,10 @@
         .report-nav-links { display: flex; align-items: center; gap: 22px; }
         .report-nav-links a { display: inline-flex; align-items: center; min-height: 38px; padding: 7px 10px; border-radius: 9px; color: #526276; font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: color .2s ease, background-color .2s ease; }
         .report-nav-links a.hidden { display: none; }
-        .report-nav-links a:hover, .report-nav-links a:focus-visible { background: #eff7ff; color: #0064c8; }
+        .report-nav-links a:focus-visible { background: #eff7ff; color: #0064c8; }
+        @media (hover: hover) and (pointer: fine) {
+            .report-nav-links a:hover { background: #eff7ff; color: #0064c8; }
+        }
         .report-nav-links .report-nav-return { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border: 1px solid #cfe5fa; border-radius: 9px; background: #f3f9ff; color: #0064c8; font-size: 12px; font-weight: 800; }
         .report-nav-links .report-nav-return:hover, .report-nav-links .report-nav-return:focus-visible { border-color: #9bc9f2; background: #e4f2ff; }
         .report-nav-return svg { width: 15px; height: 15px; }
@@ -253,13 +256,6 @@
         .report-shell .priority-action-grid article { min-height: auto; }
         .career-footer { background: #122b3b; color: #fff; }
         .career-container { width: min(1200px, calc(100% - 48px)); margin-inline: auto; }
-        .career-footer-cta { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 32px; padding-block: clamp(42px, 6vw, 68px); border-bottom: 1px solid rgba(220,241,250,.18); }
-        .career-footer-kicker { margin: 0 0 12px; color: #9fe4eb; font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-        .career-footer-cta h2 { max-width: 670px; margin: 0; font-family: Manrope,Inter,sans-serif; font-size: clamp(27px, 3.3vw, 43px); font-weight: 800; letter-spacing: -.045em; line-height: 1.15; }
-        .career-footer-cta p:not(.career-footer-kicker) { max-width: 610px; margin: 14px 0 0; color: #bcd0da; font-size: 14px; line-height: 1.65; }
-        .career-footer-cta-button { min-height: 50px; display: inline-flex; align-items: center; justify-content: center; gap: 18px; padding: 12px 20px; border-radius: 12px; background: #fff; color: #075f83; font-size: 13px; font-weight: 800; text-decoration: none; white-space: nowrap; box-shadow: 0 10px 26px rgba(0,0,0,.13); transition: background-color .2s ease, transform .2s ease, box-shadow .2s ease; }
-        .career-footer-cta-button:hover { background: #e8f7fa; box-shadow: 0 14px 30px rgba(0,0,0,.18); transform: translateY(-2px); }
-        .career-footer-cta-button svg { width: 18px; height: 18px; }
         .career-footer-inner { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(130px, .55fr) minmax(160px, .65fr); gap: clamp(26px, 5vw, 72px); padding-block: 43px 48px; }
         .career-footer-identity { max-width: 410px; }
         .career-footer-lockup { display: inline-flex; align-items: center; gap: 11px; color: #fff; text-decoration: none; }
@@ -461,8 +457,6 @@
             .report-quick h2 { max-width: none; }
             .report-nav-inner { grid-template-columns: minmax(0, 1fr) auto auto; gap: 18px; }
             .report-nav-links { gap: 18px; }
-            .career-footer-cta { grid-template-columns: 1fr; gap: 23px; }
-            .career-footer-cta-button { justify-self: start; }
             .career-footer-inner { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 34px 24px; }
             .career-footer-identity { grid-column: 1 / -1; }
         }
@@ -491,8 +485,7 @@
         }
         @media (max-width: 600px) {
             .career-container { width: min(100% - 32px, 1200px); }
-            .career-footer-inner { grid-template-columns: 1fr; }
-            .career-footer-identity { grid-column: auto; }
+            .career-footer-inner { gap: 30px 18px; }
             /* One sticky row under the header that scrolls sideways; the active tab is kept in view. */
             .report-tabs { top: var(--report-nav-height, 5.5rem); gap: .25rem; overflow-x: auto; overscroll-behavior-x: contain; margin: 1.4rem 0 2rem; padding: .3rem; background: rgba(255,255,255,.97); box-shadow: 0 8px 18px rgba(22,35,56,.06); scrollbar-width: none; }
             .report-tabs::-webkit-scrollbar { display: none; }
@@ -598,14 +591,35 @@
         .priority-action-body > :first-child { margin-top: 0; }
         .priority-action-details[open] .priority-action-body { animation: priorityActionOpen .3s ease both; }
         @keyframes priorityActionOpen { from { opacity: 0; transform: translateY(-4px); } }
+        /* Top 3 role matches: number, role and score; tap a card for the evidence. */
+        .role-match-grid { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 1rem; }
+        @media (min-width: 1024px) { .role-match-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        .role-match { min-width: 0; overflow: hidden; }
+        .role-match-summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: .75rem; padding: 1rem; cursor: pointer; list-style: none; }
+        .role-match-summary::-webkit-details-marker { display: none; }
+        .role-match-summary::marker { content: ""; }
+        .role-match-summary:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: -3px; border-radius: inherit; }
+        .role-match-name { margin: 0; font-size: 1.02rem; font-weight: 800; line-height: 1.25; overflow-wrap: normal; }
+        .role-match-name small { display: block; margin-top: .25rem; color: var(--studio-muted); font-size: .62rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+        .role-match-score { font-size: .92rem; font-weight: 800; white-space: nowrap; }
+        .role-match-chevron { width: 18px; height: 18px; color: #8a98a8; transition: transform .25s ease; }
+        .role-match-details[open] .role-match-chevron { transform: rotate(180deg); }
+        .role-match-body { padding: 0 1rem 1rem; }
+        .role-match-details[open] .role-match-body { animation: priorityActionOpen .3s ease both; }
+        /* iPad: score parts and the assessment summary stack until 1024px. */
+        .report-overview-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; align-items: stretch; }
+        @media (min-width: 1024px) { .report-overview-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
+        @media (min-width: 1024px) and (max-width: 1279px) {
+            .report-overview-main article.items-center { flex-direction: column; align-items: flex-start; }
+        }
         /* One strategy card: keywords to add and the evidence that stays. */
         .report-strategy-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.5rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--studio-border); }
         .report-strategy-label { margin: 0 0 .55rem; color: var(--studio-muted); font-size: .7rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
-        /* Tick lists: each tick appears in turn, first to last. */
+        /* Lists that come in one item after another (01, 02, 03 and the ticks). */
         .tick-flow > li > .tick-mark { display: inline-grid; flex: none; place-items: center; width: 1.35rem; height: 1.35rem; margin-top: .05rem; border-radius: 999px; background: #e3f1fd; color: var(--studio-teal-dark); font-size: .72rem; font-weight: 800; line-height: 1; }
-        .tick-flow.tick-flow-ready > li { opacity: 0; }
-        .tick-flow.tick-flow-ready.is-flowing > li { animation: tickFlowIn .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--tick-index, 0) * 130ms); }
-        .tick-flow.tick-flow-ready.is-flowing > li > .tick-mark { animation: tickFlowPop .5s cubic-bezier(.3,1.5,.5,1) both; animation-delay: calc(var(--tick-index, 0) * 130ms + 150ms); }
+        .flow-list.flow-ready > * { opacity: 0; }
+        .flow-list.flow-ready.is-flowing > * { animation: tickFlowIn .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--flow-index, 0) * 130ms); }
+        .tick-flow.flow-ready.is-flowing > li > .tick-mark { animation: tickFlowPop .5s cubic-bezier(.3,1.5,.5,1) both; animation-delay: calc(var(--flow-index, 0) * 130ms + 150ms); }
         @keyframes tickFlowIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
         @keyframes tickFlowPop { from { opacity: 0; transform: scale(.2); } 70% { opacity: 1; transform: scale(1.2); } to { opacity: 1; transform: scale(1); } }
         @media (max-width: 700px) {
@@ -627,15 +641,228 @@
         @media (prefers-reduced-motion: reduce) {
             .report-collapse-toggle, .report-collapse-toggle svg, .priority-action-chevron { transition: none; }
             .priority-action-details[open] .priority-action-body { animation: none; }
-            .tick-flow.tick-flow-ready > li, .tick-flow.tick-flow-ready.is-flowing > li, .tick-flow.tick-flow-ready.is-flowing > li > .tick-mark { opacity: 1; animation: none; }
+            .flow-list.flow-ready > *, .flow-list.flow-ready.is-flowing > *, .tick-flow.flow-ready.is-flowing > li > .tick-mark { opacity: 1; animation: none; }
+            .role-match-chevron { transition: none; }
         }
         @media print {
             .report-hero::before, .report-hero::after { animation: none !important; }
             .report-reveal { opacity: 1 !important; filter: none !important; transform: none !important; }
             .report-collapse-toggle { display: none !important; }
-            .tick-flow > li, .tick-flow > li > .tick-mark { opacity: 1 !important; transform: none !important; animation: none !important; }
+            .flow-list > *, .tick-flow > li > .tick-mark { opacity: 1 !important; transform: none !important; animation: none !important; }
         }
     </style>
+<style id="darkThemeGenerated">
+@media screen{
+html[data-theme="dark"] body{background-color:#151a20;color:#d1d7de}
+html[data-theme="dark"] .app-toast{background-image:none;background-color:#1f252c;border-color:rgba(0, 37, 85, 0.14);color:#a7d2ff;box-shadow:0 18px 45px rgba(0, 37, 85, 0.16)}
+html[data-theme="dark"] .app-toast-success{border-left-color:#0f8a4b}
+html[data-theme="dark"] .app-toast-success .app-toast-icon{color:#5ac280}
+html[data-theme="dark"] .app-toast-error{border-left-color:#ba1a1a}
+html[data-theme="dark"] .app-toast-error .app-toast-icon{color:#ff7768}
+html[data-theme="dark"] .app-toast-info{border-left-color:#0060ac}
+html[data-theme="dark"] .app-toast-info .app-toast-icon{color:#69b8ff}
+html[data-theme="dark"] .evidence-ring{background-image:conic-gradient(#0060ac calc(var(--score) * 1%), #242930 0);background-color:transparent}
+html[data-theme="dark"] .evidence-ring::after{background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .evidence-ring span{color:#a7d2ff}
+html[data-theme="dark"] body{background-image:none;background-color:var(--studio-canvas);color:var(--studio-ink)}
+html[data-theme="dark"] .report-nav{border-bottom-color:var(--studio-border);background-image:none;background-color:rgba(31,37,44,.96)}
+html[data-theme="dark"] .report-brand{color:var(--studio-ink)}
+html[data-theme="dark"] .report-brand-mark{background-image:none;background-color:var(--studio-teal);color:#fff}
+html[data-theme="dark"] .report-brand-name small{color:#5db0ff}
+html[data-theme="dark"] .report-brand-name strong{color:var(--studio-ink)}
+html[data-theme="dark"] .report-nav-links a{color:#a2b4cb}
+html[data-theme="dark"] .report-nav-links a:focus-visible{background-image:none;background-color:#131d25;color:#5db0ff}
+@media (hover: hover) and (pointer: fine){
+html[data-theme="dark"] .report-nav-links a:hover{background-image:none;background-color:#131d25;color:#5db0ff}
+}
+html[data-theme="dark"] .report-nav-links .report-nav-return{border-color:#273f54;background-image:none;background-color:#161b21;color:#5db0ff}
+html[data-theme="dark"] .report-nav-links .report-nav-return:hover,html[data-theme="dark"] .report-nav-links .report-nav-return:focus-visible{border-color:#2c465d;background-image:none;background-color:#13212d}
+html[data-theme="dark"] .report-nav #openAuthModalBtn{background-image:none;background-color:#0064c8;color:#fff}
+html[data-theme="dark"] .report-nav #openAuthModalBtn:hover{background-image:none;background-color:#0055aa}
+html[data-theme="dark"] .report-empty{border-color:var(--studio-border);background-image:none;background-color:#1f252c;box-shadow:0 12px 36px rgba(22,35,56,.06)}
+html[data-theme="dark"] .report-empty-icon{background-image:none;background-color:#0f241e;color:var(--studio-teal-text, var(--studio-teal))}
+html[data-theme="dark"] .report-empty p{color:var(--studio-muted)}
+html[data-theme="dark"] .studio-button{background-image:none;background-color:var(--studio-teal-dark);color:white}
+html[data-theme="dark"] .studio-button:hover{background-image:none;background-color:#0055aa}
+html[data-theme="dark"] .report-shell{color:var(--studio-ink)}
+html[data-theme="dark"] .report-shell :is(.bg-surface-container-lowest, .bg-surface-container-low){background-color:#1f252c}
+html[data-theme="dark"] .report-shell :is(.bg-primary, .bg-primary-container){background-color:var(--studio-ink)}
+html[data-theme="dark"] .report-shell .bg-secondary{background-color:var(--studio-teal)}
+html[data-theme="dark"] .report-shell :is(.text-primary, .text-on-surface){color:var(--studio-ink)}
+html[data-theme="dark"] .report-shell .text-secondary{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-shell .text-on-surface-variant{color:var(--studio-muted)}
+html[data-theme="dark"] .report-shell .bg-gradient-to-r{background-image:none;background-color:var(--studio-teal)}
+html[data-theme="dark"] .report-shell :is(button, a, input):focus-visible,html[data-theme="dark"] .report-nav :is(button, a):focus-visible,html[data-theme="dark"] .report-empty a:focus-visible{outline-color:#176b89}
+html[data-theme="dark"] .report-hero{background-image:none;background-color:#1f252c;border-color:var(--studio-border);box-shadow:0 12px 36px rgba(22,35,56,.07)}
+html[data-theme="dark"] .report-eyebrow{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-hero-copy{color:var(--studio-muted)}
+html[data-theme="dark"] .report-score-card{background-image:none;background-color:#171c22;border-color:#2a4045}
+html[data-theme="dark"] .report-score-label{color:var(--studio-muted)}
+html[data-theme="dark"] .report-score-number{color:var(--studio-ink)}
+html[data-theme="dark"] .report-score-number span:last-child{color:var(--studio-muted)}
+html[data-theme="dark"] .report-score-note{color:var(--studio-muted)}
+html[data-theme="dark"] .report-quick{border-color:var(--studio-border);background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .report-quick a{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-quick-list article{border-color:var(--studio-border);background-image:none;background-color:#14191f}
+html[data-theme="dark"] .report-quick-list span{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-quick-list h3{color:var(--studio-ink)}
+html[data-theme="dark"] .report-quick-list p{color:var(--studio-muted)}
+html[data-theme="dark"] .report-progress{border-color:#273f54;background-image:linear-gradient(180deg,#161a21,#1f252c 70%);background-color:transparent}
+html[data-theme="dark"] .report-progress-meta{color:var(--studio-muted)}
+html[data-theme="dark"] .report-progress-score .progress-from{color:var(--studio-muted)}
+html[data-theme="dark"] .report-progress-score .progress-to{color:var(--studio-ink)}
+html[data-theme="dark"] .progress-delta[data-trend="improved"]{background-image:none;background-color:#11251d;color:#78ca9c}
+html[data-theme="dark"] .progress-delta[data-trend="declined"]{background-image:none;background-color:#2f1c1c;color:#ff8883}
+html[data-theme="dark"] .progress-delta[data-trend="unchanged"]{background-image:none;background-color:#1a1f25;color:#a7bbd3}
+html[data-theme="dark"] .report-progress-summary{color:var(--studio-muted)}
+html[data-theme="dark"] .report-progress-components{color:var(--studio-muted)}
+html[data-theme="dark"] .report-progress-components strong{color:var(--studio-ink)}
+html[data-theme="dark"] .report-progress-grid article{border-color:#2f3d49;background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .report-progress-grid h3{color:var(--studio-muted)}
+html[data-theme="dark"] .progress-chip{background-image:none;background-color:#191e24;color:#aecbe8}
+html[data-theme="dark"] .progress-chip[data-tone="good"]{background-image:none;background-color:#11251d;color:#78ca9c}
+html[data-theme="dark"] .progress-chip[data-tone="warn"]{background-image:none;background-color:#241c0c;color:#e0ab6f}
+html[data-theme="dark"] .progress-chip[data-tone="bad"]{background-image:none;background-color:#2f1c1c;color:#ff8883}
+html[data-theme="dark"] .progress-empty{color:var(--studio-muted)}
+html[data-theme="dark"] .action-progress-note{background-image:none;background-color:#241c0c;color:#e0ab6f}
+html[data-theme="dark"] .related-skill-list li{border-color:var(--studio-border);background-image:none;background-color:#14191f}
+html[data-theme="dark"] .related-skill-list strong{color:var(--studio-ink)}
+html[data-theme="dark"] .related-skill-list .related-skill-proof{color:var(--studio-muted)}
+html[data-theme="dark"] .related-skill-list small{color:var(--studio-muted)}
+html[data-theme="dark"] .report-tabs{border-color:var(--studio-border);background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .report-tabs a{color:var(--studio-muted)}
+html[data-theme="dark"] .report-tabs a:focus-visible{background-image:none;background-color:#1a1e25;color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+@media (hover: hover){
+html[data-theme="dark"] .report-tabs a:hover{background-image:none;background-color:#1a1e25;color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+}
+html[data-theme="dark"] .report-tabs a[aria-current="location"],html[data-theme="dark"] .report-tabs a[aria-current="location"]:hover{background-image:none;background-color:#13202d;color:#5eb1ff;box-shadow:inset 0 -2px 0 #0877de}
+html[data-theme="dark"] .report-sample-banner{border-color:#2d3f45;background-image:none;background-color:#181d23;color:#88c6e3}
+html[data-theme="dark"] .report-shell section > div:is(.bg-surface-container-lowest,.bg-surface-container-high){border-color:var(--studio-border);box-shadow:0 12px 36px rgba(22,35,56,.04)}
+html[data-theme="dark"] .report-shell .evidence-ring{background-image:conic-gradient(var(--studio-teal) calc(var(--score) * 1%), #222830 0);background-color:transparent}
+html[data-theme="dark"] .report-shell .evidence-ring span{color:var(--studio-ink)}
+html[data-theme="dark"] .career-footer{background-image:none;background-color:#122b3b;color:#fff}
+html[data-theme="dark"] .career-footer-lockup{color:#fff}
+html[data-theme="dark"] .career-footer-mark{border-color:rgba(179,234,242,.3);background-image:none;background-color:var(--studio-teal)}
+html[data-theme="dark"] .career-footer-brand small{color:#9fe4eb}
+html[data-theme="dark"] .career-footer-copy{color:#b7cbd4}
+html[data-theme="dark"] .career-footer-group h3{color:#fff}
+html[data-theme="dark"] .career-footer-links a,html[data-theme="dark"] .career-footer-links button{border-color:currentcolor;background-image:none;background-color:transparent;color:#b7cbd4}
+html[data-theme="dark"] .career-footer-links a:hover,html[data-theme="dark"] .career-footer-links button:hover{color:#fff}
+html[data-theme="dark"] .career-footer-bottom{border-top-color:rgba(255,255,255,.13);color:#a8c0cc}
+html[data-theme="dark"] .report-nav{box-shadow:none}
+html[data-theme="dark"] .report-hero{background-image:none;background-color:#15191f;border-color:#2f3b47;box-shadow:none}
+html[data-theme="dark"] .report-hero::before{background-image:radial-gradient(circle, rgba(8,127,236,.09), rgba(8,127,236,.035) 45%, transparent 72%);background-color:transparent}
+html[data-theme="dark"] .report-hero::after{border-color:rgba(8,127,236,.18)}
+html[data-theme="dark"] .report-hero-copy + .report-hero-copy{border-top-color:#2f3d49}
+html[data-theme="dark"] .report-hero-copy strong{color:var(--studio-ink)}
+html[data-theme="dark"] .report-score-card{background-image:none;background-color:transparent;border-color:currentcolor;border-left-color:#2e404e;box-shadow:none}
+html[data-theme="dark"] .report-score-number #overallScore{color:var(--studio-teal-text, var(--studio-teal))}
+html[data-theme="dark"] .report-quick{border-color:#2f3b47;background-image:none;background-color:#1f252c;box-shadow:0 12px 36px rgba(22,35,56,.05)}
+html[data-theme="dark"] .report-quick-list article{border-color:#2f3d49;background-image:none;background-color:#14191f}
+html[data-theme="dark"] .quick-keywords li{background-image:none;background-color:#16202b;color:#a1ccf5}
+html[data-theme="dark"] .report-tabs{box-shadow:none}
+html[data-theme="dark"] .report-sample-banner{border-color:#264157;background-image:none;background-color:#111e2a;color:#94c6f6}
+html[data-theme="dark"] .report-shell section > div:is(.bg-surface-container-lowest,.bg-surface-container-high){box-shadow:none}
+html[data-theme="dark"] .report-shell #overview > .grid > div:first-child > div:first-child,html[data-theme="dark"] .report-shell #job-match > div,html[data-theme="dark"] .report-shell #ats-checks > div{border-color:var(--studio-border);background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .report-shell #overview > .grid > div:first-child > .grid article{border-color:var(--studio-border);background-image:none;background-color:#14191f;box-shadow:none}
+html[data-theme="dark"] .report-shell #overview > .grid > div:last-child{background-image:none;background-color:#172b3e;border-color:#172b3e}
+html[data-theme="dark"] .metric-row > span:nth-child(2){color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .priority-action-grid article{border-color:var(--studio-border);box-shadow:0 6px 20px rgba(23,43,56,.035)}
+html[data-theme="dark"] .report-workspace-intro > p:last-child{color:var(--studio-muted)}
+html[data-theme="dark"] .submission-card,html[data-theme="dark"] .report-work-card,html[data-theme="dark"] .generated-resume-panel{border-color:var(--studio-border);background-image:none;background-color:#1f252c;box-shadow:0 8px 28px rgba(23,43,56,.045)}
+html[data-theme="dark"] .submission-card h3,html[data-theme="dark"] .report-work-card h3{color:var(--studio-ink)}
+html[data-theme="dark"] .submission-meta{border-color:var(--studio-border)}
+html[data-theme="dark"] .submission-meta-item{background-image:none;background-color:#151a20}
+html[data-theme="dark"] .submission-meta-item + .submission-meta-item{border-left-color:var(--studio-border)}
+html[data-theme="dark"] .submission-meta-item p:first-child{color:var(--studio-muted)}
+html[data-theme="dark"] .report-work-card p:not(.report-eyebrow){color:var(--studio-muted)}
+html[data-theme="dark"] .report-work-card input{border-color:var(--studio-border);background-image:none;background-color:#151a20}
+html[data-theme="dark"] .report-work-card input:focus{background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .report-export-card{background-image:linear-gradient(145deg, #173e55, #172f45);background-color:transparent;border-color:#173e55;color:#fff}
+html[data-theme="dark"] .report-export-card h3{color:#fff}
+html[data-theme="dark"] .report-export-card .report-eyebrow{color:#acd8e5}
+html[data-theme="dark"] .report-export-card p:not(.report-eyebrow){color:#d8eaf0}
+html[data-theme="dark"] .report-action{border-color:transparent}
+html[data-theme="dark"] .report-action-primary{background-image:none;background-color:var(--studio-teal-dark);color:#fff;box-shadow:0 8px 19px rgba(23,107,137,.17)}
+html[data-theme="dark"] .report-action-primary:hover:not(:disabled){background-image:none;background-color:#0055aa;box-shadow:0 12px 24px rgba(23,107,137,.22)}
+html[data-theme="dark"] .report-action-light{background-image:none;background-color:#1f252c;color:#a2cce8}
+html[data-theme="dark"] .report-action-light:hover:not(:disabled){background-image:none;background-color:#132126}
+html[data-theme="dark"] .report-action-outline{border-color:var(--studio-border);background-image:none;background-color:#1f252c;color:var(--studio-ink)}
+html[data-theme="dark"] .report-action-outline:hover:not(:disabled){border-color:var(--studio-teal);background-image:none;background-color:#171c22}
+html[data-theme="dark"] .report-export-card .report-action-outline{border-color:rgba(255,255,255,.36);background-image:none;background-color:transparent;color:#fff}
+html[data-theme="dark"] .report-export-card .report-action-outline:hover:not(:disabled){background-image:none;background-color:rgba(255,255,255,.1)}
+html[data-theme="dark"] .report-preview-dialog{border-color:#2f414b;background-image:none;background-color:#1f252c;color:#bad3e4;box-shadow:0 28px 90px rgba(9,32,47,.32)}
+html[data-theme="dark"] .report-preview-dialog::backdrop{background-image:none;background-color:rgba(9,27,42,.7)}
+html[data-theme="dark"] .report-preview-header{border-bottom-color:#333d43;background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .report-preview-title{color:#bad3e4}
+html[data-theme="dark"] .report-preview-description{color:#9db4c4}
+html[data-theme="dark"] .report-preview-close{border-color:#333d43;background-image:none;background-color:#161b21;color:#a3cce9}
+html[data-theme="dark"] .report-preview-close:hover,html[data-theme="dark"] .report-preview-close:focus-visible{border-color:#176b89;background-image:none;background-color:#132228}
+html[data-theme="dark"] .report-preview-frame{border-color:currentcolor;background-image:none;background-color:#191e24}
+html[data-theme="dark"] .report-back-link{color:#d8eaf0}
+html[data-theme="dark"] .report-back-link:hover{color:#fff}
+html[data-theme="dark"] .generated-resume-frame{border-color:var(--studio-border);background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .role-examples{border-top-color:var(--studio-border)}
+html[data-theme="dark"] .role-examples-note{background-image:none;background-color:#211909;color:#e1b27a}
+html[data-theme="dark"] .role-example-tab{border-color:var(--studio-border);background-image:none;background-color:#1f252c;color:#b2d1e2}
+html[data-theme="dark"] .role-example-tab span{color:#98aab5}
+html[data-theme="dark"] .role-example-tab[aria-selected="true"]{border-color:#176b89;background-image:none;background-color:#176b89;color:#fff}
+html[data-theme="dark"] .role-example-tab[aria-selected="true"] span{color:#d8eef6}
+@media (max-width: 850px){
+html[data-theme="dark"] .submission-meta-item:nth-child(3){border-left-color:currentcolor}
+html[data-theme="dark"] .submission-meta-item:nth-child(n+3){border-top-color:var(--studio-border)}
+}
+@media (max-width: 700px){
+html[data-theme="dark"] .report-score-card{border-left-color:currentcolor;border-top-color:#2e404e}
+}
+@media (max-width: 600px){
+html[data-theme="dark"] .report-tabs{background-image:none;background-color:rgba(31,37,44,.97);box-shadow:0 8px 18px rgba(22,35,56,.06)}
+}
+@media (max-width: 480px){
+html[data-theme="dark"] .submission-meta-item + .submission-meta-item{border-left-color:currentcolor;border-top-color:var(--studio-border)}
+}
+html[data-theme="dark"] .sample-preview-card{border-color:#313e49;background-image:none;background-color:#161a20}
+html[data-theme="dark"] .sample-preview-heading{color:#69b8ff}
+html[data-theme="dark"] .sample-preview-intro{color:#a4b4ca}
+html[data-theme="dark"] .sample-preview-choices button{border-color:#2f414f;background-image:none;background-color:#1f252c;color:#a0beda}
+html[data-theme="dark"] .sample-preview-choices button[aria-pressed="true"]{border-color:#0064c8;background-image:none;background-color:#131f2c;color:#7abdff;box-shadow:inset 0 0 0 1px #0064c8}
+html[data-theme="dark"] .sample-preview-choices button:focus-visible{outline-color:#2e485f}
+html[data-theme="dark"] .sample-preview-paper-wrap{border-color:#353f4a;background-image:none;background-color:#1d2228}
+html[data-theme="dark"] .sample-resume-sheet{background-image:none;background-color:#fff;color:#1d2b3a;box-shadow:0 8px 26px rgba(31,54,77,.12)}
+html[data-theme="dark"] .sample-resume-sheet .sample-resume-kicker{color:#0060ac}
+html[data-theme="dark"] .sample-resume-sheet h3{color:#172535}
+html[data-theme="dark"] .sample-resume-sheet .sample-resume-role{color:#567086}
+html[data-theme="dark"] .sample-resume-sheet h4{border-bottom-color:#dce5ee;color:#005eac}
+html[data-theme="dark"] .sample-resume-sheet ul{color:#26394c}
+html[data-theme="dark"] .sample-preview-note{color:#a4b4ca}
+html[data-theme="dark"] .report-collapse-toggle{border-color:#284156;background-image:none;background-color:#1f252c;color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-collapse-toggle:hover{border-color:var(--studio-teal);background-image:none;background-color:#151a20}
+html[data-theme="dark"] .report-collapse-toggle:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .priority-action-summary:hover .priority-action-chevron{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .priority-action-summary:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .priority-action-title small{color:var(--studio-muted)}
+html[data-theme="dark"] .priority-action-chevron{color:#8a98a8}
+html[data-theme="dark"] .role-match-summary:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .role-match-name small{color:var(--studio-muted)}
+html[data-theme="dark"] .role-match-chevron{color:#8a98a8}
+html[data-theme="dark"] .report-strategy-groups{border-top-color:var(--studio-border)}
+html[data-theme="dark"] .report-strategy-label{color:var(--studio-muted)}
+html[data-theme="dark"] .tick-flow > li > .tick-mark{background-image:none;background-color:#13212d;color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+}
+</style>
+<style id="darkThemeTweaks">
+/* Dark theme: hand-tuned rules for this page (tools/build_dark_theme.py never changes this block). */
+@media screen {
+  html[data-theme="dark"] {
+    --studio-canvas: #1f252c; --studio-ink: #e3eaf3; --studio-muted: #a2b4cb; --studio-border: #323d48;
+    --studio-teal: #2f8ff0; --studio-teal-text: #66b2ff;
+    --studio-teal-dark: #0d6fd6; --studio-teal-dark-text: #66b2ff;
+  }
+  /* The light theme paints these with the ink colour, which is light here. */
+  html[data-theme="dark"] .report-shell :is(.priority-action-number, .role-match-rank, .role-match-badge).bg-primary { background-color: #0d6fd6; color: #fff; }
+  html[data-theme="dark"] .tick-flow > li > .tick-mark { background: #183252; color: #8cc4ff; }
+}
+</style>
 </head>
 <body class="min-h-screen bg-background text-on-background">
 <!-- TopNavBar Shell -->
@@ -687,7 +914,7 @@
 </section>
 <section class="report-quick" aria-labelledby="quickActionsTitle">
 <div class="report-quick-head"><div><span class="report-eyebrow">Start here</span><h2 id="quickActionsTitle">Your next three edits</h2></div><a href="#improve">Read the full improvement plan</a></div>
-<div class="report-quick-list" id="quickActionList" aria-live="polite"></div>
+<div class="report-quick-list flow-list" id="quickActionList" aria-live="polite"></div>
 </section>
 <nav class="report-tabs" aria-label="Report sections">
 <a href="#overview">Overview</a><a href="#job-match">Job match</a><a href="#improve">Improve</a><a href="#ats-checks">ATS checks</a><a href="#resume-draft">Resume draft</a>
@@ -695,9 +922,9 @@
 <section class="report-section mb-12" id="overview">
 <p class="report-eyebrow mb-2">Understand your result</p><h2 class="report-section-title">What the analysis found</h2>
 <!-- Evidence and score detail -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+<div class="report-overview-grid">
 <!-- Score Breakdown -->
-<div class="md:col-span-2 h-full flex flex-col space-y-4">
+<div class="report-overview-main h-full flex flex-col space-y-4">
 <div class="bg-surface-container-lowest p-6 sm:p-8 rounded-xl">
 <div>
 <h3 class="text-xl font-bold text-primary mb-6">Score Components</h3>
@@ -787,7 +1014,7 @@
 <span class="self-start px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed text-xs font-bold" id="roleDecisionBadge">Database comparison</span>
 </div>
 <div class="grid grid-cols-1 gap-4">
-<div class="rounded-xl border border-outline-variant/70 bg-surface-container-low p-5">
+<div class="rounded-xl border border-outline-variant/70 bg-surface-container-low p-5" id="selectedRoleCard">
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-2">Current selected role</p>
 <h3 class="text-xl font-bold text-primary" id="selectedChoiceDisplay">No role selected.</h3>
 <p class="text-sm text-on-surface-variant mt-2" id="selectedDatabaseRoleDisplay">Database mapping will appear here.</p>
@@ -800,9 +1027,9 @@
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-1">Top Database Matches</p>
 <h3 class="text-xl font-bold text-primary" id="topRoleMatchesTitle">Top 3 Role Matches</h3>
 </div>
-<span class="self-start px-3 py-1 rounded-full bg-surface-container-high text-primary text-xs font-bold" id="topRoleMatchesBadge">Resume evidence ranking</span>
+<div class="report-plan-tools"><span class="px-3 py-1 rounded-full bg-surface-container-high text-primary text-xs font-bold" id="topRoleMatchesBadge">Resume evidence ranking</span><button class="report-collapse-toggle" type="button" data-collapse-toggle="roles" data-collapse-mode="items" data-collapse-default="stacked" aria-controls="topRoleMatchesList" aria-expanded="true" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span data-collapse-label>Minimize</span></button></div>
 </div>
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-4" id="topRoleMatchesList">
+<div class="role-match-grid flow-list" id="topRoleMatchesList">
 <div class="rounded-xl border border-outline-variant/60 bg-surface-container-low p-4 text-sm text-on-surface-variant">
 Top role matches will appear after analysis.
 </div>
@@ -823,7 +1050,7 @@ Top role matches will appear after analysis.
 <h2 class="text-2xl sm:text-3xl font-extrabold text-primary tracking-tight">Priority Improvement Plan</h2>
 <p class="text-sm sm:text-base text-on-surface-variant mt-3 leading-relaxed" id="recommendationPlanSummary">Run an analysis to see the recommended next actions for the selected role.</p>
 </div>
-<div class="report-plan-tools"><span class="px-3 py-1 rounded-full bg-surface-container-high text-primary text-xs font-bold" id="recommendationPlanBadge">Waiting for analysis</span><button class="report-collapse-toggle" type="button" data-collapse-toggle="plan" data-collapse-default="always" aria-controls="priorityActionList" aria-expanded="true" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span data-collapse-label>Minimize</span></button></div>
+<div class="report-plan-tools"><span class="px-3 py-1 rounded-full bg-surface-container-high text-primary text-xs font-bold" id="recommendationPlanBadge">Waiting for analysis</span><button class="report-collapse-toggle" type="button" data-collapse-toggle="plan" data-collapse-mode="items" data-collapse-default="always" aria-controls="priorityActionList" aria-expanded="true" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span data-collapse-label>Minimize</span></button></div>
 </div>
 <div class="priority-action-grid" id="priorityActionList">
 <article class="rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-5 text-sm text-on-surface-variant">
@@ -877,7 +1104,7 @@ Recommendation actions will appear after analysis.
 </div>
 <button class="report-collapse-toggle" type="button" data-collapse-toggle="feedback" data-collapse-default="phone" aria-controls="structuredFeedbackList" aria-expanded="true" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span data-collapse-label>Minimize</span></button>
 </div>
-<ul class="tick-flow grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-on-surface-variant leading-relaxed" id="structuredFeedbackList">
+<ul class="flow-list tick-flow grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-on-surface-variant leading-relaxed" id="structuredFeedbackList">
 <li>Feedback will appear here after analysis.</li>
 </ul>
 </div>
@@ -972,7 +1199,7 @@ Download PDF
 </div>
 <iframe class="generated-resume-frame" id="generatedResumePreview" title="Generated ATS resume preview"></iframe>
 <p class="mt-5 text-xs uppercase tracking-[0.16em] font-bold text-secondary">Improvement advice shown here only, not included in the PDF download</p>
-<ul class="tick-flow mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-on-surface-variant" id="generatedResumeNotesList"></ul>
+<ul class="flow-list tick-flow mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-on-surface-variant" id="generatedResumeNotesList"></ul>
 <section class="role-examples hidden" id="roleExamplesPanel" aria-labelledby="roleExamplesTitle">
 <p class="text-xs uppercase tracking-widest font-bold text-secondary mb-2">Learning examples</p>
 <h3 class="text-xl font-extrabold text-primary tracking-tight" id="roleExamplesTitle">Example resumes for your recommended roles</h3>
@@ -985,14 +1212,6 @@ Download PDF
 </div>
 </main>
 <footer class="career-footer">
-  <div class="career-container career-footer-cta">
-    <div>
-      <p class="career-footer-kicker">Your next draft starts here</p>
-      <h2>Turn resume feedback into a clearer next step.</h2>
-      <p>Choose a role, upload your resume, and see the evidence and improvements in your report.</p>
-    </div>
-    <a class="career-footer-cta-button" href="home_page.html?open_evaluation=1">Check my resume <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></a>
-  </div>
   <div class="career-container career-footer-inner">
     <div class="career-footer-identity">
       <a class="career-footer-lockup" href="home_page.html" aria-label="UTS CS Career Navigator home">
@@ -2232,9 +2451,12 @@ Download PDF
                 '<div class="rounded-xl border border-outline-variant/60 bg-surface-container-low p-4 text-sm text-on-surface-variant">' +
                     'No alternative database role matches were returned for this analysis.' +
                 '</div>';
+            syncCollapseToggle("topRoleMatchesList", false);
             return;
         }
 
+        // Cards start closed (number, role and score) on phones and tablets.
+        const openAttribute = isCollapseTargetOpen("topRoleMatchesList") ? " open" : "";
         container.innerHTML = cleanMatches.map((item, index) => {
             const rawScore = item.score === null || item.score === undefined || item.score === "" ? Number.NaN : Number(item.score);
             const score = Number.isFinite(rawScore) ? clampPercent(rawScore) : 0;
@@ -2260,7 +2482,7 @@ Download PDF
                 : "bg-surface-container-high text-primary";
             const badges = [
                 isFinal
-                    ? '<span class="px-2.5 py-1 rounded-full bg-primary text-on-primary text-[11px] font-bold">' +
+                    ? '<span class="role-match-badge px-2.5 py-1 rounded-full bg-primary text-on-primary text-[11px] font-bold">' +
                         (safeContext.mode === "autoNoSuitableRole" ? "Closest evidence only" : "Used for ATS score") +
                       '</span>'
                     : "",
@@ -2276,16 +2498,16 @@ Download PDF
                 : '<p class="mt-3 text-xs text-on-surface-variant">No major missing keyword gaps for this role.</p>';
 
             return (
-                '<article class="rounded-xl border ' + cardClass + ' p-4 min-h-[220px] flex flex-col">' +
-                    '<div class="flex items-start justify-between gap-3">' +
-                        '<span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-extrabold ' + rankClass + '">' + escapeHtml(rank) + '</span>' +
-                        '<div class="text-right">' +
-                            '<p class="text-sm font-extrabold text-primary">' + escapeHtml(scoreLabel) + '</p>' +
-                            '<p class="text-[11px] uppercase tracking-widest text-on-surface-variant">' + escapeHtml(confidenceLabel) + '</p>' +
-                        '</div>' +
-                    '</div>' +
-                    '<h4 class="mt-4 text-lg font-extrabold text-primary leading-tight">' + escapeHtml(roleName) + '</h4>' +
-                    '<div class="mt-2 flex flex-wrap gap-1.5 min-h-[24px]">' + badges + '</div>' +
+                '<article class="role-match rounded-xl border ' + cardClass + '">' +
+                    '<details class="role-match-details report-collapse-item"' + openAttribute + '>' +
+                    '<summary class="role-match-summary">' +
+                        '<span class="role-match-rank inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-extrabold ' + rankClass + '">' + escapeHtml(rank) + '</span>' +
+                        '<h4 class="role-match-name text-primary">' + escapeHtml(roleName) + '<small>' + escapeHtml(confidenceLabel) + '</small></h4>' +
+                        '<strong class="role-match-score text-primary">' + escapeHtml(scoreLabel) + '</strong>' +
+                        '<svg class="role-match-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
+                    '</summary>' +
+                    '<div class="role-match-body">' +
+                    (badges ? '<div class="flex flex-wrap gap-1.5">' + badges + '</div>' : "") +
                     '<p class="mt-3 text-xs text-on-surface-variant leading-relaxed">' + escapeHtml(reasonText) + '</p>' +
                     '<div class="mt-4 h-1.5 rounded-full bg-surface-container-high overflow-hidden" aria-hidden="true">' +
                         '<div class="h-full rounded-full bg-secondary" style="width:' + score + '%"></div>' +
@@ -2295,9 +2517,13 @@ Download PDF
                         '<div class="flex flex-wrap gap-1.5">' + matchedMarkup + '</div>' +
                     '</div>' +
                     missingMarkup +
+                    '</div>' +
+                    '</details>' +
                 '</article>'
             );
         }).join("");
+        syncCollapseToggle("topRoleMatchesList", true);
+        playFlowList(container);
     }
 
     function renderFeedbackList(id, items, fallbackText) {
@@ -2313,12 +2539,17 @@ Download PDF
         list.innerHTML = cleanItems.map((item) => (
             '<li class="flex gap-3"><span class="tick-mark" aria-hidden="true">✓</span><span>' + escapeHtml(item) + '</span></li>'
         )).join("");
-        playTickFlow(list);
+        playFlowList(list);
         syncCollapseToggle(id, list.querySelectorAll(".tick-mark").length > 0);
     }
 
-    // "Show details" / "Minimize" buttons. data-collapse-default="phone" starts
-    // minimized on phones only; "always" starts minimized on every screen.
+    // "Show details" / "Minimize" buttons. data-collapse-default says when a block
+    // starts minimized: "phone" (up to 700px wide), "stacked" (up to 1023px, where
+    // the cards sit in one column) or "always". With data-collapse-mode="items" the
+    // button opens or closes every <details class="report-collapse-item"> inside,
+    // and each item can still be opened on its own.
+    const COLLAPSE_WIDTHS = { phone: "(max-width: 700px)", stacked: "(max-width: 1023px)" };
+
     function getCollapseToggle(targetId) {
         return document.querySelector('[data-collapse-toggle][aria-controls="' + targetId + '"]');
     }
@@ -2328,14 +2559,18 @@ Download PDF
         return !toggle || toggle.getAttribute("aria-expanded") === "true";
     }
 
-    function setCollapseState(toggle, expanded) {
-        const target = document.getElementById(toggle.getAttribute("aria-controls"));
+    function setCollapseLabel(toggle, expanded) {
         toggle.setAttribute("aria-expanded", String(expanded));
         const label = toggle.querySelector("[data-collapse-label]");
         if (label) label.textContent = expanded ? "Minimize" : "Show details";
+    }
+
+    function setCollapseState(toggle, expanded) {
+        const target = document.getElementById(toggle.getAttribute("aria-controls"));
+        setCollapseLabel(toggle, expanded);
         if (!target) return;
-        if (toggle.dataset.collapseToggle === "plan") {
-            target.querySelectorAll(".priority-action-details").forEach((item) => { item.open = expanded; });
+        if (toggle.dataset.collapseMode === "items") {
+            target.querySelectorAll("details.report-collapse-item").forEach((item) => { item.open = expanded; });
         } else {
             target.classList.toggle("is-collapsed", !expanded);
         }
@@ -2347,67 +2582,63 @@ Download PDF
     }
 
     function initReportCollapsibles() {
-        const phone = window.matchMedia && window.matchMedia("(max-width: 700px)").matches;
         document.querySelectorAll("[data-collapse-toggle]").forEach((toggle) => {
             if (toggle.dataset.collapseBound === "true") return;
             toggle.dataset.collapseBound = "true";
             const start = toggle.dataset.collapseDefault;
-            setCollapseState(toggle, !(start === "always" || (start === "phone" && phone)));
+            const query = COLLAPSE_WIDTHS[start];
+            const startCollapsed = start === "always" || Boolean(query && window.matchMedia && window.matchMedia(query).matches);
+            setCollapseState(toggle, !startCollapsed);
             toggle.addEventListener("click", () => {
                 setCollapseState(toggle, toggle.getAttribute("aria-expanded") !== "true");
             });
+            const target = document.getElementById(toggle.getAttribute("aria-controls"));
+            if (target && toggle.dataset.collapseMode === "items") {
+                // Opening or closing one card keeps the button in step: it says
+                // "Minimize" only while every card is open.
+                target.addEventListener("toggle", () => {
+                    const items = Array.from(target.querySelectorAll("details.report-collapse-item"));
+                    if (items.length) setCollapseLabel(toggle, items.every((item) => item.open));
+                }, true);
+            }
         });
-        const plan = document.getElementById("priorityActionList");
-        if (plan && plan.dataset.toggleBound !== "true") {
-            plan.dataset.toggleBound = "true";
-            // Opening or closing one row keeps the plan button in step: it says
-            // "Minimize" only while every row is open.
-            plan.addEventListener("toggle", () => {
-                const toggle = getCollapseToggle("priorityActionList");
-                const items = Array.from(plan.querySelectorAll(".priority-action-details"));
-                if (!toggle || !items.length) return;
-                const allOpen = items.every((item) => item.open);
-                toggle.setAttribute("aria-expanded", String(allOpen));
-                const label = toggle.querySelector("[data-collapse-label]");
-                if (label) label.textContent = allOpen ? "Minimize" : "Show details";
-            }, true);
-        }
-        // Print every plan row in full, then restore what was open.
+        // Print every card in full, then restore what was open.
         window.addEventListener("beforeprint", () => {
-            document.querySelectorAll(".priority-action-details").forEach((item) => {
+            document.querySelectorAll("details.report-collapse-item").forEach((item) => {
                 item.dataset.openBeforePrint = String(item.open);
                 item.open = true;
             });
         });
         window.addEventListener("afterprint", () => {
-            document.querySelectorAll(".priority-action-details").forEach((item) => {
+            document.querySelectorAll("details.report-collapse-item").forEach((item) => {
                 if (item.dataset.openBeforePrint) item.open = item.dataset.openBeforePrint === "true";
                 delete item.dataset.openBeforePrint;
             });
         });
     }
 
-    // Tick lists: the ticks come in one after another when the list scrolls into view.
-    let tickFlowObserver = null;
-    function playTickFlow(list) {
+    // Flowing lists: items (01, 02, 03 or the ticks) come in one after another
+    // when the list scrolls into view.
+    let flowListObserver = null;
+    function playFlowList(list) {
         if (!list) return;
-        Array.from(list.children).forEach((item, index) => item.style.setProperty("--tick-index", String(index)));
+        Array.from(list.children).forEach((item, index) => item.style.setProperty("--flow-index", String(index)));
         const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         if (!window.IntersectionObserver || reduceMotion) return;
-        if (!tickFlowObserver) {
-            tickFlowObserver = new IntersectionObserver((entries) => {
+        if (!flowListObserver) {
+            flowListObserver = new IntersectionObserver((entries) => {
                 entries.forEach((entry) => {
                     if (!entry.isIntersecting) return;
                     entry.target.classList.add("is-flowing");
-                    tickFlowObserver.unobserve(entry.target);
+                    flowListObserver.unobserve(entry.target);
                 });
             }, { threshold: 0, rootMargin: "0px 0px -12% 0px" });
         }
-        tickFlowObserver.unobserve(list);
+        flowListObserver.unobserve(list);
         list.classList.remove("is-flowing");
-        list.classList.add("tick-flow-ready");
+        list.classList.add("flow-ready");
         void list.offsetWidth; // restart the animation when the list is filled again
-        tickFlowObserver.observe(list);
+        flowListObserver.observe(list);
     }
 
     function buildFallbackRecommendationActions(context = {}) {
@@ -2542,7 +2773,7 @@ Download PDF
                 : "";
             return (
                 '<article class="priority-action rounded-xl border border-outline-variant/60 bg-surface-container-lowest">' +
-                    '<details class="priority-action-details"' + openAttribute + '>' +
+                    '<details class="priority-action-details report-collapse-item"' + openAttribute + '>' +
                         '<summary class="priority-action-summary">' +
                             '<span class="priority-action-number bg-primary text-on-primary">' + escapeHtml(priority) + '</span>' +
                             '<h3 class="priority-action-title text-primary"><small>' + escapeHtml(category) + '</small><span>' + escapeHtml(item.title || "Recommendation action") + '</span></h3>' +
@@ -2713,6 +2944,7 @@ Download PDF
                 : "") +
             '</article>'
         )).join("");
+        playFlowList(list);
         const heading = document.getElementById("quickActionsTitle");
         if (heading) heading.textContent = quickActions.length === 1 ? "Your next edit" : "Your next " + quickActions.length + " edits";
     }
@@ -3755,7 +3987,7 @@ Download PDF
                     '<li class="flex gap-3"><span class="tick-mark" aria-hidden="true">✓</span><span>' + escapeHtml(note) + '</span></li>'
                 )).join("")
                 : '<li class="text-on-surface-variant">No extra ATS notes returned.</li>';
-            playTickFlow(notesList);
+            playFlowList(notesList);
         }
         renderRoleExamples(isExample ? null : draft.role_examples);
     }
@@ -4388,7 +4620,15 @@ Download PDF
             setText("topRoleMatchesBadge", "Resume evidence ranking");
         }
         setText("selectedChoiceDisplay", selectedRole || "No role selected");
-        setText("selectedDatabaseRoleDisplay", selectedDatabaseRole ? "Database role: " + selectedDatabaseRole : "No selected database role was used.");
+        setText("selectedDatabaseRoleDisplay", selectedDatabaseRole ? "Database role: " + selectedDatabaseRole : "Custom role typed by user.");
+        // When the role you chose is the recommended role, the headline and badge
+        // already say so; the "Current selected role" box would only repeat it.
+        const selectedRoleCard = document.getElementById("selectedRoleCard");
+        if (selectedRoleCard) {
+            const sameRole = Boolean(selectedRole) && selectedRole.trim().toLowerCase() === String(recommendedRole || "").trim().toLowerCase();
+            selectedRoleCard.hidden = sameRole && !roleIsDifferent && !humanReviewRequired &&
+                !["autoNoSuitableRole", "autoDetectedRole"].includes(guidanceContext.mode);
+        }
         setText("recommendedRoleDisplay", matchStatus === "no suitable role" ? "No suitable role confirmed" : recommendedRole);
         setText(
             "recommendedRoleReasonDisplay",
@@ -4407,7 +4647,7 @@ Download PDF
             setText("recommendedRoleReasonDisplay", "Used for the final ATS score because the resume evidence matches this database role more strongly.");
             setText("recommendedRoleScoreDisplay", "Final comparison role used in this result.");
         } else {
-            setText("selectedRoleScoreDisplay", selectedDatabaseRole ? "Selected role confirmed as the database match. The Top 3 list below shows nearby alternatives." : "Custom role typed by user. The Top 3 list below shows the closest database roles.");
+            setText("selectedRoleScoreDisplay", selectedDatabaseRole ? "Selected role confirmed as the database match. The Top 3 list below shows nearby alternatives." : "The Top 3 list below shows the closest database roles.");
             setText("recommendedRoleReasonDisplay", "Used for the final ATS score because it matches the selected role and resume evidence.");
             setText("recommendedRoleScoreDisplay", "Final comparison role used in this result.");
         }
