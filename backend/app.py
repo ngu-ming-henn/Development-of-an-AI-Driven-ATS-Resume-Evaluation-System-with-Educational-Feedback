@@ -2613,7 +2613,7 @@ OCR_RESUME_WORDS = frozenset(
     pinang politeknik polytechnic present presenter professional proficient projects provided pulau putrajaya
     recipient references research sabah safety sarawak scholarship sekolah selangor sembilan september seremban
     shah sibu sintok skills skudai society subang summary symposium teknikal teknologi terengganu universiti
-    university volunteer workshop workshops curricular extracurricular curriculum
+    university volunteer workshop workshops curricular extracurricular curriculum college colleges
     """.split()
 )
 # Real words and tech names missing from the word list, so they are never "corrected".
@@ -2641,6 +2641,13 @@ OCR_PHRASE_FIXES = (
     (re.compile(r"(linkedin\.com/in)[f'’|l1!](?=[a-z0-9])", re.I), r"\1/"),
     # `COPA: 3.75` / `OGPA 3.5`: a misread CGPA in front of a grade.
     (re.compile(r"\b[CO0G][GOC0Q][PF][A4](?=\s*[:=]?\s*\d)"), "CGPA"),
+    # `CGPA: 348/4,00`: the decimal points of a grade out of 4 were lost.
+    (re.compile(r"\b((?:C?GPA|CPA)\s*[:=]?\s*)([0-4])(\d{2})(\s*/\s*4)[.,]?(0{0,2})(?!\d)"), r"\1\2.\3\4.00"),
+    # `CGPA: 3:76`: the decimal point read as a colon.
+    (re.compile(r"\b((?:C?GPA|CPA)\s*[:=]?\s*)([0-4]):(\d{1,2})(?!\d)"), r"\1\2.\3"),
+    # `(Oct 2022 - Present}` / `{May 2023 - May 2024)`: a bracket read as a brace.
+    (re.compile(r"\(([^(){}]{1,80})\}"), r"(\1)"),
+    (re.compile(r"\{([^(){}]{1,80})\)"), r"(\1)"),
     # `MUET Band 35`: the decimal point of the band was lost.
     (re.compile(r"\b(Band\s*:?\s*)([1-6])([05])\b"), r"\1\2.\3"),
     (re.compile(r"\bA(?:U|I/|1/|l/|\|/)ML\b"), "AI/ML"),
@@ -7924,8 +7931,10 @@ EDUCATION_INSTITUTION_PATTERN = re.compile(
     r"smk|sjk|academy|akademi|campus|kampus)\b",
     re.I,
 )
+# `CGPA: 3.21`, `CGPA - 3 . 17` (letter-spaced PDFs), `GPA: 3.6/4.0`, `CGPA:3.25`.
+# A grade glued to more digits (`CGPA: 348/4,00`, an OCR misread) is not a grade.
 EDUCATION_GRADE_PATTERN = re.compile(
-    r"\b(c?gpa|cpa)\s*[:\-]?\s*(\d(?:\.\s?\d{1,2})?)(?:\s*/\s*(\d(?:\.\s?\d{1,2})?))?",
+    r"\b(c?gpa|cpa)\s*[:\-=]?\s*(\d(?:\s?\.\s?\d{1,2})?)(?!\d)(?:\s*/\s*(\d(?:\s?\.\s?\d{1,2})?))?",
     re.I,
 )
 EDUCATION_DETAIL_PATTERN = re.compile(
@@ -7936,7 +7945,8 @@ EDUCATION_DETAIL_PATTERN = re.compile(
 )
 # `Expected Graduation: 2027`, `Expected graduation May 2027`, `Graduation date: 2026`.
 EDUCATION_EXPECTED_GRADUATION_PATTERN = re.compile(
-    rf"\b(expected\s+)?(?:graduation|completion)(?:\s+date)?\s*:?\s*"
+    # The separator may be an OCR'd arrow or dash: `Expected Graduation « Nov 2026`.
+    rf"\b(expected\s+)?(?:graduation|completion)(?:\s+date)?\s*[:«»=~\-–]?\s*"
     rf"(?P<date>(?:{RESUME_MONTH_PATTERN}\.?\s*)?(?:19|20)\d{{2}})\b",
     re.I,
 )
@@ -8541,12 +8551,20 @@ def parse_structured_education_entries(lines: list[str], document_words: set[str
             if grade_match.group(3):
                 grade += f" / {grade_match.group(3).replace(' ', '')}"
             text = normalize_text(text[: grade_match.start()] + " " + text[grade_match.end():])
+            # `SMK Example, Town, CGPA: 3.75.` leaves `, .` behind, and `Current CGPA: 3.76`
+            # leaves `Current`; neither is a detail.
+            text = re.sub(r"[\s,;:|-]+\.?$", "", text)
+            text = re.sub(r"(?:^|\s)(?:current|latest|overall|cumulative|final)\s*$", "", text, flags=re.I).strip()
         expected_graduation = ""
         expected_match = EDUCATION_EXPECTED_GRADUATION_PATTERN.search(text)
         if expected_match:
             label = "Expected graduation" if expected_match.group(1) else "Graduation"
             expected_graduation = f"{label}: {format_resume_date_text(expected_match.group('date'))}"
             text = normalize_text(text[: expected_match.start()] + " | " + text[expected_match.end():]).strip(" |,;:-")
+            # `S (Expected Graduation: Nov 2026)` leaves empty brackets and OCR crumbs.
+            text = normalize_text(re.sub(r"\(\s*\|?\s*\)", " ", text)).strip(" |,;:-")
+            if len(re.sub(r"[^A-Za-z]", "", text)) < 3:
+                text = ""
         date_match = (
             RESUME_DATE_RANGE_PATTERN.search(text)
             or RESUME_SINGLE_DATE_PATTERN.search(text)
@@ -8576,10 +8594,13 @@ def parse_structured_education_entries(lines: list[str], document_words: set[str
         credential, institution, leftovers = split_education_line_parts(text)
         if not credential and not institution:
             if logical_line["marker"] and current is not None and not dates:
-                # A bullet under a qualification (`* Participation in SCI committee`)
-                # describes it; it is not another school or a stray column.
-                if len(current["details"]) < 2:
-                    current["details"].append(polish_structured_resume_text(text, document_words))
+                # A bullet under a qualification (`* Participation in SCI committee`,
+                # `* GPA: 3.6/4.0`) describes it; it is not another school or a stray column.
+                if grade and not current["grade"]:
+                    current["grade"] = grade
+                detail = polish_structured_resume_text(text, document_words) if text.strip(" |,;:-.") else ""
+                if detail and len(current["details"]) < 2:
+                    current["details"].append(detail)
                 continue
             if EDUCATION_DETAIL_PATTERN.search(text):
                 if current is None:
@@ -8758,6 +8779,67 @@ def parse_structured_resume_sections(resume_text: str) -> dict[str, Any]:
         # from "a Projects section the parser could not read".
         "section_names": [name for name in sections if name != "header"],
     }
+
+
+TERTIARY_QUALIFICATION_PATTERN = re.compile(r"\b(?:bachelor|master|diploma|degree|doctor|ph\.?\s?d|foundation)\b", re.I)
+
+
+def attach_grades_to_education_lines(education_lines: list[str], resume_text: str) -> list[str]:
+    """Add the resume's own CGPA/GPA to education lines found without the section parser.
+
+    A grade joins the qualification printed on the same line or up to four lines
+    above it. Otherwise one grade and one degree-level qualification belong
+    together (`Latest CGPA: 3 . 20` in a sidebar). When it is unclear which
+    qualification a grade belongs to, it is left out rather than shown under the
+    wrong one.
+    """
+
+    if not education_lines:
+        return education_lines
+    source_lines = [normalize_text(line) for line in clean_resume_source_text(resume_text).splitlines()]
+    grades: list[tuple[int, str]] = []
+    for index, line in enumerate(source_lines):
+        for match in EDUCATION_GRADE_PATTERN.finditer(line):
+            value = match.group(2).replace(" ", "")
+            if not re.fullmatch(r"[0-4](?:\.\d{1,2})?", value):
+                continue
+            grade = f"{match.group(1).upper()}: {value}"
+            if match.group(3):
+                grade += f" / {match.group(3).replace(' ', '')}"
+            grades.append((index, grade))
+    if not grades:
+        return education_lines
+
+    lines = list(education_lines)
+    used: set[int] = set()
+
+    def add_grade(position: int, grade: str) -> None:
+        lines[position] = f"{lines[position].rstrip(' .')} | {grade}."
+
+    for position, line in enumerate(lines):
+        if EDUCATION_GRADE_PATTERN.search(line):
+            continue
+        key = " ".join(normalize_match_text(line.split(" - ")[0]).split()[:4])
+        if len(key.split()) < 2:
+            continue
+        # The qualification can appear twice (summary and Education); look near each.
+        anchors = [index for index, source in enumerate(source_lines) if key in normalize_match_text(source)]
+        nearby = [
+            (grade_index - anchor, grade_index, grade)
+            for anchor in anchors
+            for grade_index, grade in grades
+            if grade_index not in used and 0 <= grade_index - anchor <= 4
+        ]
+        if nearby:
+            _, grade_index, grade = min(nearby)
+            used.add(grade_index)
+            add_grade(position, grade)
+
+    if not used and len(grades) == 1:
+        degree_positions = [position for position, line in enumerate(lines) if TERTIARY_QUALIFICATION_PATTERN.search(line)]
+        if len(degree_positions) == 1:
+            add_grade(degree_positions[0], grades[0][1])
+    return lines
 
 
 def format_structured_education_line(entry: dict[str, Any]) -> str:
@@ -11056,7 +11138,10 @@ def build_generated_resume_payload(
     if education_entries:
         education_lines = [format_structured_education_line(entry) for entry in education_entries]
     else:
-        education_lines = extract_education_lines(resume_source, list(resume_summary.get("education_markers") or []))
+        education_lines = attach_grades_to_education_lines(
+            extract_education_lines(resume_source, list(resume_summary.get("education_markers") or [])),
+            resume_source,
+        )
     evidence_bullets = extract_resume_evidence_sentences(
         evidence_source,
         skills + matched_signals + important_keywords,
