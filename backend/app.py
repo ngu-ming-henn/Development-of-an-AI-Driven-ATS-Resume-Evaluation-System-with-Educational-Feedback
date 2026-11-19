@@ -2569,6 +2569,14 @@ WINDOWS_TESSERACT_PATHS = (
 # Small or phone-sized resume images are enlarged to about this width before
 # OCR: Tesseract reads text best when letters are roughly 20-30 pixels tall.
 OCR_TARGET_WIDTH = 2000
+# Enlarging is what makes OCR slow on a small server, so it is sized to the image:
+# below OCR_SMALL_IMAGE_WIDTH the text is tiny and needs the full target width,
+# mid-size images read as well at OCR_MEDIUM_TARGET_WIDTH, and from
+# OCR_NATIVE_WIDTH upwards the original size already reads as well (tested on the
+# real image resumes in Resume_template/real_resume).
+OCR_SMALL_IMAGE_WIDTH = 700
+OCR_MEDIUM_TARGET_WIDTH = 1600
+OCR_NATIVE_WIDTH = 1100
 OCR_MAX_UPSCALE = 5.0
 # Bounds the memory and time of one OCR pass (about a 2400 x 3300 page), which
 # matters on a 512 MB hosting plan.
@@ -2622,9 +2630,15 @@ def prepare_image_for_ocr(image: Any) -> Any:
     image = image.convert("L")
 
     width, height = image.size
+    if width < OCR_SMALL_IMAGE_WIDTH:
+        target_width = OCR_TARGET_WIDTH
+    elif width < OCR_NATIVE_WIDTH:
+        target_width = OCR_MEDIUM_TARGET_WIDTH
+    else:
+        target_width = width
     scale = 1.0
-    if width < OCR_TARGET_WIDTH:
-        scale = min(OCR_MAX_UPSCALE, OCR_TARGET_WIDTH / max(1, width))
+    if width < target_width:
+        scale = min(OCR_MAX_UPSCALE, target_width / max(1, width))
     if width * height * scale * scale > OCR_MAX_PIXELS:
         scale = math.sqrt(OCR_MAX_PIXELS / max(1, width * height))
     if abs(scale - 1.0) > 0.01:
