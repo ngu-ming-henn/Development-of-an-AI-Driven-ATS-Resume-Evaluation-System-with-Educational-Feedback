@@ -550,12 +550,18 @@ def update_shared_css() -> int:
         updated = original[:start] + block + original[end + len(CSS_END):]
     else:
         updated = original.rstrip("\n") + "\n\n" + block + "\n"
-    SHARED_CSS.write_text(updated, encoding="utf-8", newline="")
+    write_if_changed(SHARED_CSS, original, updated)
     return len(block)
 
 
+def write_if_changed(path: Path, original: str, updated: str) -> None:
+    """Leave unchanged files alone, so Git on Windows does not show line-ending-only edits."""
+    if updated != original:
+        path.write_text(updated, encoding="utf-8", newline="")
+
+
 def update_page(path: Path) -> int:
-    html = path.read_text(encoding="utf-8")
+    html = original = path.read_text(encoding="utf-8")
     match = re.search(r"<style>(.*?)</style>", html, re.S)
     if not match:
         raise SystemExit(f"{path.name}: no <style> block")
@@ -565,7 +571,7 @@ def update_page(path: Path) -> int:
         html = html[:existing.start()] + block + html[existing.end():]
     else:
         html = html[:match.end()] + "\n" + block + html[match.end():]
-    path.write_text(html, encoding="utf-8", newline="")
+    write_if_changed(path, original, html)
     return len(block)
 
 
