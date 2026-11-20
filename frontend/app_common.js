@@ -107,6 +107,34 @@
     }
   }
 
+  // The latest report this browser keeps. It powers "Your report" and the report page.
+  const LATEST_REPORT_KEYS = ["analysisResult", "analysisOwner", "pipelineStatus", "uploadedResumeName", "selectedJobRole", "selectedJobDescription", "analysisStartedAt"];
+  const REPORT_PREVIEW_KEYS = ["resumeVisualPreviewDataUrl", "resumeVisualPreviewType", "resumeVisualPreviewName", "resumeVisualPreviewResultKey", "resumeRenderedPreviewDataUrl", "resumeRenderedPreviewName", "resumeRenderedPreviewResultKey"];
+
+  // Forget the latest report: always, or only when it is the given saved report.
+  // The page hears "career-navigator-report-cleared" and hides "Your report" and
+  // an open report straight away.
+  function forgetLatestReport(only) {
+    try {
+      if (only) {
+        const stored = JSON.parse(localStorage.getItem("analysisResult") || "null");
+        if (!stored) return false;
+        const sameId = Boolean(only.analysisId) && Number(stored.analysis_id) === Number(only.analysisId);
+        const sameKey = Boolean(only.historyKey) && getAnalysisHistoryKey(stored, localStorage.getItem("selectedJobRole") || "") === only.historyKey;
+        if (!sameId && !sameKey) return false;
+      }
+      LATEST_REPORT_KEYS.forEach((key) => localStorage.removeItem(key));
+      REPORT_PREVIEW_KEYS.forEach((key) => {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+      });
+    } catch (error) {
+      return false;
+    }
+    window.dispatchEvent(new CustomEvent("career-navigator-report-cleared"));
+    return true;
+  }
+
   function hasCurrentUserReport() {
     if (!authSessionVerified) return false;
     try {
@@ -2135,13 +2163,11 @@
     function clearDeletedAccountStorage(email) {
       try {
         localStorage.removeItem("analysisHistory_" + String(email || "").toLowerCase());
-        ["analysisResult", "analysisOwner", "pipelineStatus", "uploadedResumeName", "selectedJobRole", "selectedJobDescription", "analysisStartedAt"]
-          .forEach((key) => localStorage.removeItem(key));
-        ["resumeVisualPreviewDataUrl", "resumeVisualPreviewType", "resumeVisualPreviewName", "resumeVisualPreviewResultKey", "resumeRenderedPreviewDataUrl", "resumeRenderedPreviewName", "resumeRenderedPreviewResultKey"]
-          .forEach((key) => {
-            localStorage.removeItem(key);
-            sessionStorage.removeItem(key);
-          });
+        LATEST_REPORT_KEYS.forEach((key) => localStorage.removeItem(key));
+        REPORT_PREVIEW_KEYS.forEach((key) => {
+          localStorage.removeItem(key);
+          sessionStorage.removeItem(key);
+        });
         sessionStorage.removeItem(PIN_COOLDOWN_STORAGE_KEY);
       } catch (error) {
         // Storage can be unavailable in private browsing; the server data is already gone.
@@ -2627,6 +2653,8 @@
           try {
             if (id) await requestHistory("/analyses/" + id, "DELETE");
             removeLocalHistoryItem(item);
+            // Deleting the latest report also removes it from "Your report".
+            forgetLatestReport({ analysisId: id, historyKey: item.history_key });
             render();
           } catch (error) {
             showHistoryMessage("Could not delete this report.", true);
@@ -2693,6 +2721,8 @@
         try {
           await requestHistory("/analyses", "DELETE");
           saveHistory([]);
+          // The latest report is one of the cleared reports, so forget it too.
+          forgetLatestReport();
           render();
         } catch (error) {
           showHistoryMessage("Could not clear saved reports.", true);

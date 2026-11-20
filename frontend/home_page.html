@@ -2026,6 +2026,7 @@ html[data-theme="dark"] .career-report-preview-overview .career-ui-metric{border
   }
 
   window.addEventListener("career-navigator-auth-changed", updateAuthUi);
+  window.addEventListener("career-navigator-report-cleared", updateLatestReportReturn);
   window.addEventListener("storage", (event) => {
     if (["analysisResult", "analysisOwner", "authUser"].includes(event.key)) updateLatestReportReturn();
   });
