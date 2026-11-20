@@ -590,13 +590,28 @@
         .career-writing-before .career-writing-quote { color: #5b6878; }
         .career-writing-vague { text-decoration: underline wavy #e0676c; text-decoration-thickness: 1.5px; text-underline-offset: 5px; }
         .career-writing-missing { margin: 8px 0 0; color: #8a5a5d; font-size: 12px; font-weight: 600; }
-        .career-writing-quote mark { padding: .12em .34em; border-radius: 6px; color: inherit; font-weight: 600; background-color: transparent; background-repeat: no-repeat; background-size: 100% 100%; -webkit-box-decoration-break: clone; box-decoration-break: clone; transition: opacity .2s ease, background-size .55s cubic-bezier(.2,.8,.2,1); transition-delay: 0s, calc(.35s + var(--i, 0) * .16s); }
+        .career-writing-quote mark { padding: .12em .34em; border-radius: 6px; color: inherit; font-weight: 600; background-color: transparent; background-repeat: no-repeat; background-size: 100% 100%; -webkit-box-decoration-break: clone; box-decoration-break: clone; transition: opacity .2s ease, background-size .45s cubic-bezier(.2,.8,.2,1); }
         .career-writing-quote mark[data-part="action"] { background-image: linear-gradient(#dfeeff, #dfeeff); box-shadow: inset 0 -2px 0 #4c9cf2; }
         .career-writing-quote mark[data-part="tool"] { background-image: linear-gradient(#d9f4e7, #d9f4e7); box-shadow: inset 0 -2px 0 #2fa874; }
         .career-writing-quote mark[data-part="scope"] { background-image: linear-gradient(#ffefd2, #ffefd2); box-shadow: inset 0 -2px 0 #e39a3b; }
         .career-writing-quote mark[data-part="purpose"] { background-image: linear-gradient(#efe8ff, #efe8ff); box-shadow: inset 0 -2px 0 #8f6ef0; }
-        /* The colours sweep in after the card slides into view. */
-        body.motion-ready .career-writing-examples:not(.is-visible) .career-writing-quote mark { background-size: 0% 100%; }
+        /* Typewriter: while .is-typing, untyped letters are invisible (they keep their
+           space, so nothing moves), each coloured part sweeps in once the typing
+           reaches it, and the note, arrow, After label and legend appear in turn. */
+        .career-writing-card.is-typing .tw-char:not(.is-shown) { opacity: 0; }
+        .career-writing-card.is-typing .career-writing-quote mark:not(.is-typed) { background-size: 0% 100%; box-shadow: none; }
+        .tw-caret { box-shadow: 2px 0 0 var(--career-teal-deep); }
+        .career-writing-card.is-blinking .tw-caret { animation: careerTypeCaret .8s steps(1) infinite; }
+        @keyframes careerTypeCaret { 50% { box-shadow: none; } }
+        .career-writing-missing, .career-writing-after .career-writing-label, .career-writing-legend { transition: opacity .4s ease, transform .4s ease; }
+        /* The red squiggle marks the vague words once their sentence is typed. */
+        .career-writing-vague { transition: text-decoration-color .45s ease; }
+        .career-writing-card.is-typing:not(.show-missing) .career-writing-vague { text-decoration-color: transparent; }
+        .career-writing-arrow { transition: opacity .35s ease, transform .45s cubic-bezier(.3,1.5,.5,1); }
+        .career-writing-card.is-typing:not(.show-missing) .career-writing-missing,
+        .career-writing-card.is-typing:not(.show-after) .career-writing-after .career-writing-label,
+        .career-writing-card.is-typing:not(.show-legend) .career-writing-legend { opacity: 0; transform: translateY(6px); }
+        .career-writing-card.is-typing:not(.show-after) .career-writing-arrow { opacity: 0; transform: translate(-50%, -50%) scale(.5); }
         .career-writing-legend { margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--career-line); }
         .career-writing-legend p { margin: 0 0 10px; color: var(--career-muted); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
         .career-writing-chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -632,7 +647,8 @@
             .career-writing-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (prefers-reduced-motion: reduce) {
-            .career-writing-quote mark, .career-writing-chips button { transition: none; }
+            .career-writing-quote mark, .career-writing-chips button, .career-writing-missing, .career-writing-arrow, .career-writing-after .career-writing-label, .career-writing-legend { transition: none; }
+            .career-writing-card.is-blinking .tw-caret { animation: none; }
         }
         /* Resume draft: what the generated ATS resume looks like (fictional). */
         .career-draft-section { background: #f7fbff; }
@@ -1095,6 +1111,9 @@ html[data-theme="dark"] .career-writing-quote mark[data-part="action"]{backgroun
 html[data-theme="dark"] .career-writing-quote mark[data-part="tool"]{background-image:linear-gradient(#13261e, #13261e);box-shadow:inset 0 -2px 0 #385a48}
 html[data-theme="dark"] .career-writing-quote mark[data-part="scope"]{background-image:linear-gradient(#261d0d, #261d0d);box-shadow:inset 0 -2px 0 #5b452b}
 html[data-theme="dark"] .career-writing-quote mark[data-part="purpose"]{background-image:linear-gradient(#231e2e, #231e2e);box-shadow:inset 0 -2px 0 #534e6c}
+html[data-theme="dark"] .career-writing-card.is-typing .career-writing-quote mark:not(.is-typed){box-shadow:none}
+html[data-theme="dark"] .tw-caret{box-shadow:2px 0 0 var(--career-teal-deep)}
+html[data-theme="dark"] .career-writing-card.is-typing:not(.show-missing) .career-writing-vague{text-decoration-color:transparent}
 html[data-theme="dark"] .career-writing-legend{border-top-color:var(--career-line)}
 html[data-theme="dark"] .career-writing-legend p{color:var(--career-muted)}
 html[data-theme="dark"] .career-writing-chips button{border-color:var(--career-line);background-image:none;background-color:#1f252c;color:var(--career-ink)}
@@ -1508,7 +1527,7 @@ html[data-theme="dark"] .career-report-preview-overview .career-ui-metric{border
           <div class="career-writing-after">
             <span class="career-writing-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg></span>
             <p class="career-writing-label"><span class="career-writing-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><span>After · specific</span></p>
-            <p class="career-writing-quote">“<mark data-part="action" style="--i:0">Built</mark> a <mark data-part="tool" style="--i:1">Flask</mark> web application with <mark data-part="tool" style="--i:2">PostgreSQL</mark> and <mark data-part="scope" style="--i:3">three API endpoints</mark> for <mark data-part="purpose" style="--i:4">campus timetable search</mark>.”</p>
+            <p class="career-writing-quote">“<mark data-part="action">Built</mark> a <mark data-part="tool">Flask</mark> web application with <mark data-part="tool">PostgreSQL</mark> and <mark data-part="scope">three API endpoints</mark> for <mark data-part="purpose">campus timetable search</mark>.”</p>
             <div class="career-writing-legend">
               <p>What makes it specific</p>
               <div class="career-writing-chips">
@@ -4059,6 +4078,96 @@ html[data-theme="dark"] .career-report-preview-overview .career-ui-metric{border
       });
     }
   }
+
+  // "Write with evidence" card types itself out when it comes into view: the vague
+  // bullet, then the stronger one, colouring each part as the typing reaches it.
+  // Every letter keeps its space while hidden, so the card never changes size.
+  // Tapping the card skips to the end; reduced motion shows the text at once.
+  (() => {
+    const card = document.querySelector(".career-writing-card");
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (!card || !("IntersectionObserver" in window) || reduceMotion.matches) return;
+    const quotes = Array.from(card.querySelectorAll(".career-writing-quote"));
+    const originals = quotes.map((quote) => quote.innerHTML);
+    // One span per letter, inside the same marks, so line breaks match the final text.
+    const letters = quotes.map((quote) => {
+      const list = [];
+      const split = (node) => {
+        Array.from(node.childNodes).forEach((child) => {
+          if (child.nodeType === Node.ELEMENT_NODE) {
+            split(child);
+            return;
+          }
+          if (child.nodeType !== Node.TEXT_NODE) return;
+          const fragment = document.createDocumentFragment();
+          Array.from(child.nodeValue).forEach((character) => {
+            const span = document.createElement("span");
+            span.className = "tw-char";
+            span.textContent = character;
+            fragment.appendChild(span);
+            list.push(span);
+          });
+          child.replaceWith(fragment);
+        });
+      };
+      split(quote);
+      return list;
+    });
+    card.classList.add("is-typing");
+    let timer = 0;
+    let finished = false;
+    const wait = (ms, next) => { timer = window.setTimeout(next, ms); };
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      window.clearTimeout(timer);
+      observer.disconnect();
+      // Put the plain text back, so screen readers and copy/paste see whole words.
+      quotes.forEach((quote, index) => { quote.innerHTML = originals[index]; });
+      card.classList.remove("is-typing", "is-blinking", "show-missing", "show-after", "show-legend");
+    };
+    const type = (list, speed, next) => {
+      card.classList.remove("is-blinking");
+      card.querySelectorAll(".tw-caret").forEach((span) => span.classList.remove("tw-caret"));
+      let index = 0;
+      const step = () => {
+        if (finished) return;
+        if (index >= list.length) {
+          card.classList.add("is-blinking"); // the caret blinks at the end of the line
+          next();
+          return;
+        }
+        if (index > 0) list[index - 1].classList.remove("tw-caret");
+        const span = list[index];
+        span.classList.add("is-shown", "tw-caret");
+        const mark = span.closest("mark");
+        if (mark) mark.classList.add("is-typed");
+        index += 1;
+        wait(span.textContent === " " ? speed / 2 : speed, step);
+      };
+      step();
+    };
+    const play = () => type(letters[0], 28, () => {
+      // The vague sentence is done: plain text again (one unbroken squiggle).
+      quotes[0].innerHTML = originals[0];
+      card.classList.add("show-missing");
+      wait(650, () => {
+        card.classList.add("show-after");
+        wait(450, () => type(letters[1], 30, () => {
+          card.classList.add("show-legend");
+          wait(1400, finish);
+        }));
+      });
+    });
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      wait(450, play);
+    }, { threshold: 0.4 });
+    observer.observe(card);
+    card.addEventListener("click", finish);
+    reduceMotion.addEventListener("change", (event) => { if (event.matches) finish(); });
+  })();
 
   // "Write with evidence" card: a legend chip lights up its words in the stronger
   // bullet. Tap pins it (tap again to clear); hovering with a mouse previews it.
