@@ -650,11 +650,194 @@
             .flow-list.flow-ready > *, .flow-list.flow-ready.is-flowing > *, .tick-flow.flow-ready.is-flowing > li > .tick-mark { opacity: 1; animation: none; }
             .role-match-chevron { transition: none; }
         }
+        /* Hero score: counts up with a bar and a band chip. Tapping it replays the
+           count and opens the parts that make up the score (open on wide screens,
+           closed on phones). */
+        .report-score-button { display: grid; justify-items: start; gap: .6rem; width: 100%; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .report-score-button:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: 6px; border-radius: 12px; }
+        .report-score-button .report-score-number { margin: 1rem 0 .2rem; }
+        .report-score-number #overallScore { display: inline-block; font-variant-numeric: tabular-nums; transform-origin: left bottom; }
+        .report-score-button.is-bumped #overallScore { animation: reportScorePop .55s cubic-bezier(.3,1.5,.5,1); }
+        @keyframes reportScorePop { 35% { transform: scale(1.08); } }
+        .report-score-meter { display: block; width: min(100%, 15rem); height: .45rem; overflow: hidden; border-radius: 999px; background: #dfeaf5; }
+        .report-score-meter > span { display: block; width: 0; height: 100%; border-radius: inherit; background: #087fec; transition: width 1s cubic-bezier(.22,1,.36,1); }
+        .report-score-band { display: inline-flex; align-items: center; gap: .45rem; padding: .32rem .75rem; border-radius: 999px; background: #e5f2ff; color: #0058b0; font-size: .76rem; font-weight: 800; line-height: 1.3; }
+        .report-score-band::before { content: ""; flex: none; width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; }
+        .report-score-band[data-band="low"] { background: #fde5e5; color: #a1262b; }
+        .report-score-band[data-band="needs"] { background: #fff1d6; color: #7a4b00; }
+        .report-score-band[data-band="strong"] { background: #dcf5ea; color: #0b6b43; }
+        .report-score-hint { display: inline-flex; align-items: center; gap: .35rem; color: var(--studio-teal-dark); font-size: .78rem; font-weight: 800; }
+        .report-score-hint svg { width: 16px; height: 16px; flex: none; transition: transform .25s ease; }
+        .report-score-button[aria-expanded="true"] .report-score-hint svg { transform: rotate(180deg); }
+        .report-score-parts { margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid #dbe8f4; }
+        .report-score-parts ul { display: grid; gap: .7rem; margin: 0; padding: 0; list-style: none; }
+        .score-part { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: .3rem .75rem; font-size: .82rem; }
+        .score-part-label { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .45rem; color: var(--studio-ink); font-weight: 700; }
+        .score-part-label em { padding: .05rem .5rem; border-radius: 999px; background: #fff1d6; color: #7a4b00; font-size: .66rem; font-style: normal; font-weight: 800; }
+        .score-part strong { color: var(--studio-ink); font-variant-numeric: tabular-nums; }
+        .score-part-track { grid-column: 1 / -1; display: block; height: .4rem; overflow: hidden; border-radius: 999px; background: #e3ebf3; }
+        .score-part-track > span { display: block; width: calc(var(--part, 0) * 1%); height: 100%; border-radius: inherit; background: #087fec; transform-origin: left center; }
+        .score-part[data-weakest="true"] .score-part-track > span { background: #e08a1e; }
+        .report-score-parts.is-playing .score-part-track > span { animation: reportBarFill .8s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(var(--flow-index, 0) * 110ms); }
+        @keyframes reportBarFill { from { transform: scaleX(0); } }
+        .report-score-parts .report-score-note { max-width: none; margin-top: .85rem; font-size: .76rem; }
+        /* Assessment summary: the verdict, three short points, and the method on tap. */
+        .report-summary-card { border: 1px solid #172b3e; background: #172b3e; color: #fff; }
+        .report-summary-mark { color: #8fc8ff; }
+        .report-summary-eyebrow { color: rgba(255,255,255,.62); font-size: .75rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        .report-summary-band { margin: 0 0 1.1rem; color: #fff; font-family: Manrope,Inter,sans-serif; font-size: clamp(1.3rem,2.4vw,1.6rem); font-weight: 800; letter-spacing: -.025em; line-height: 1.2; }
+        .report-summary-points { display: grid; gap: .85rem; margin: 0; padding: 0; list-style: none; }
+        .report-summary-points li { display: grid; grid-template-columns: 2rem minmax(0,1fr); align-items: start; gap: .75rem; color: rgba(255,255,255,.88); font-size: .9rem; line-height: 1.5; }
+        .report-summary-points svg { width: 2rem; height: 2rem; padding: .42rem; border-radius: 10px; background: rgba(143,200,255,.13); color: #8fc8ff; }
+        .report-summary-points li > span { padding-top: .2rem; overflow-wrap: anywhere; }
+        .report-summary-more { margin-top: auto; padding-top: 1.25rem; }
+        .report-summary-more > summary { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,.12); color: #b9dcff; font-size: .82rem; font-weight: 800; cursor: pointer; list-style: none; }
+        .report-summary-more > summary::-webkit-details-marker { display: none; }
+        .report-summary-more > summary::marker { content: ""; }
+        .report-summary-more > summary:focus-visible { outline: 3px solid rgba(143,200,255,.45); outline-offset: 3px; border-radius: 6px; }
+        .report-summary-more > summary svg { width: 16px; height: 16px; flex: none; transition: transform .25s ease; }
+        .report-summary-more[open] > summary svg { transform: rotate(180deg); }
+        .report-summary-more p { margin: .75rem 0 0; color: rgba(255,255,255,.74); font-size: .8rem; line-height: 1.6; }
+        .report-summary-weights { display: grid; gap: .4rem; margin: .8rem 0 0; padding: 0; list-style: none; font-size: .78rem; }
+        .report-summary-weights li { display: flex; justify-content: space-between; gap: .75rem; padding-bottom: .4rem; border-bottom: 1px dashed rgba(255,255,255,.14); color: rgba(255,255,255,.82); }
+        .report-summary-weights small { color: rgba(255,255,255,.55); font-size: .72rem; }
+        .report-summary-weights strong { color: #fff; white-space: nowrap; }
+        .report-summary-more[open] > :not(summary) { animation: priorityActionOpen .3s ease both; }
+        /* "Your next 3 edits": number and title; tap a row (or Show details) for the how-to. */
+        .report-quick-list article { display: block; padding: 0; overflow: hidden; }
+        .quick-edit-summary { display: grid; grid-template-columns: 5.5rem minmax(0,1fr) auto; align-items: center; gap: .15rem 1.3rem; padding: 1.1rem 1.3rem; cursor: pointer; list-style: none; }
+        .quick-edit-summary::-webkit-details-marker { display: none; }
+        .quick-edit-summary::marker { content: ""; }
+        .quick-edit-summary:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: -3px; border-radius: inherit; }
+        .report-quick-list .quick-edit-number { grid-row: auto; padding-top: 0; }
+        .quick-edit-chevron { width: 18px; height: 18px; color: #8a98a8; transition: transform .25s ease; }
+        .quick-edit-details[open] .quick-edit-chevron { transform: rotate(180deg); }
+        .quick-edit-body { padding: 0 1.3rem 1.1rem calc(5.5rem + 2.6rem); }
+        .quick-edit-details[open] .quick-edit-body { animation: priorityActionOpen .3s ease both; }
+        .report-quick-head .report-collapse-toggle { display: flex; width: max-content; margin-top: .9rem; }
+        /* Related-skill evidence: a tick, the skill and the tools that prove it; tap a
+           row to see what the job asks for. */
+        .related-skill-list li { padding: 0; overflow: hidden; }
+        .related-skill-summary { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: .75rem; padding: .75rem .9rem; list-style: none; }
+        details > .related-skill-summary { cursor: pointer; }
+        div.related-skill-summary { grid-template-columns: auto minmax(0,1fr); }
+        .related-skill-summary::-webkit-details-marker { display: none; }
+        .related-skill-summary::marker { content: ""; }
+        .related-skill-summary:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: -3px; border-radius: inherit; }
+        .related-skill-check { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 999px; background: #dcf5ea; color: #0b6b43; }
+        .related-skill-check svg { width: 15px; height: 15px; }
+        .related-skill-main { display: grid; gap: .35rem; min-width: 0; }
+        .related-skill-main strong { font-size: .92rem; line-height: 1.3; }
+        .related-skill-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+        .related-skill-list .related-skill-proof { font-size: .74rem; }
+        .related-skill-tool { padding: .12rem .55rem; border-radius: 999px; background: #e8f1fa; color: #123a5c; font-size: .74rem; font-weight: 700; }
+        .related-skill-chevron { width: 18px; height: 18px; color: #8a98a8; transition: transform .25s ease; }
+        .related-skill[open] .related-skill-chevron { transform: rotate(180deg); }
+        .related-skill-ask { margin: 0; padding: 0 .9rem .85rem calc(.9rem + 1.75rem + .75rem); color: var(--studio-muted); font-size: .8rem; line-height: 1.55; }
+        .related-skill-ask span { color: var(--studio-ink); font-weight: 800; }
+        .related-skill[open] .related-skill-ask { animation: priorityActionOpen .3s ease both; }
+        /* ATS checks: a quality meter, the method behind an info fold, and issues shown
+           as category icons that open for the fix. */
+        .ats-meter { max-width: 34rem; margin-top: 1.1rem; }
+        .ats-meter-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem .8rem; }
+        .ats-meter-row strong { color: var(--studio-ink); font-size: .92rem; font-weight: 800; }
+        .ats-risk { padding: .22rem .65rem; border-radius: 999px; background: #e5f2ff; color: #0058b0; font-size: .72rem; font-weight: 800; }
+        .ats-risk[data-risk="low"] { background: #dcf5ea; color: #0b6b43; }
+        .ats-risk[data-risk="medium"] { background: #fff1d6; color: #7a4b00; }
+        .ats-risk[data-risk="high"] { background: #fde5e5; color: #a1262b; }
+        .ats-meter-track { display: block; height: .55rem; margin-top: .55rem; overflow: hidden; border-radius: 999px; background: #e3ebf3; }
+        .ats-meter-track > span { display: block; width: 0; height: 100%; border-radius: inherit; background: #087fec; transform-origin: left center; }
+        .ats-meter[data-risk="low"] .ats-meter-track > span { background: #1f9d63; }
+        .ats-meter[data-risk="medium"] .ats-meter-track > span { background: #e08a1e; }
+        .ats-meter[data-risk="high"] .ats-meter-track > span { background: #d0393f; }
+        .ats-meter.flow-ready .ats-meter-track > span { transform: scaleX(0); }
+        .ats-meter.flow-ready.is-flowing .ats-meter-track > span { transform: none; animation: reportBarFill 1s cubic-bezier(.22,1,.36,1) .15s both; }
+        .ats-how { max-width: 46rem; margin-top: .9rem; }
+        .ats-how > summary { display: inline-flex; align-items: center; gap: .4rem; color: var(--studio-teal-dark); font-size: .82rem; font-weight: 800; cursor: pointer; list-style: none; }
+        .ats-how > summary::-webkit-details-marker { display: none; }
+        .ats-how > summary::marker { content: ""; }
+        .ats-how > summary:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: 3px; border-radius: 6px; }
+        .ats-how > summary svg { width: 16px; height: 16px; flex: none; }
+        .ats-how-chevron { transition: transform .25s ease; }
+        .ats-how[open] .ats-how-chevron { transform: rotate(180deg); }
+        .ats-how p { margin: .6rem 0 0; padding: .8rem .95rem; border-radius: 12px; background: #f4f8fc; color: var(--studio-muted); font-size: .84rem; line-height: 1.6; }
+        .ats-how[open] p { animation: priorityActionOpen .3s ease both; }
+        .ats-issue-list { display: grid; gap: .6rem; margin: 0; padding: 0; list-style: none; }
+        .ats-issue { overflow: hidden; border: 1px solid #f1dfc0; border-radius: 14px; background: #fffaf2; }
+        .ats-issue-summary { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: .8rem; padding: .8rem .9rem; cursor: pointer; list-style: none; }
+        .ats-issue-summary::-webkit-details-marker { display: none; }
+        .ats-issue-summary::marker { content: ""; }
+        .ats-issue-summary:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: -3px; border-radius: inherit; }
+        .ats-issue-icon { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 12px; background: #ffe9c7; color: #8a4f00; }
+        .ats-issue-icon svg { width: 20px; height: 20px; }
+        .ats-issue-title { display: grid; gap: .1rem; min-width: 0; color: var(--studio-ink); font-size: .92rem; font-weight: 800; line-height: 1.3; }
+        .ats-issue-title small { color: #8a5a12; font-size: .64rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        .ats-issue-chevron { width: 18px; height: 18px; color: #a08355; transition: transform .25s ease; }
+        .ats-issue-details[open] .ats-issue-chevron { transform: rotate(180deg); }
+        .ats-issue-text { margin: 0; padding: 0 .9rem .9rem calc(.9rem + 2.4rem + .8rem); color: var(--studio-muted); font-size: .86rem; line-height: 1.6; }
+        .ats-issue-details[open] .ats-issue-text { animation: priorityActionOpen .3s ease both; }
+        .ats-all-clear { display: flex; align-items: center; gap: .6rem; padding: .8rem .9rem; border-radius: 14px; background: #e3f6ec; color: #0b6b43; font-size: .88rem; font-weight: 700; }
+        .ats-all-clear svg, .ats-pass-chip svg { flex: none; }
+        .ats-all-clear svg { width: 18px; height: 18px; }
+        .ats-pass-list { display: flex; flex-wrap: wrap; gap: .45rem; }
+        .ats-pass-chip { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .7rem; border-radius: 999px; background: #e3f6ec; color: #0b6b43; font-size: .76rem; font-weight: 700; }
+        .ats-pass-chip svg { width: 14px; height: 14px; }
+        @media (max-width: 700px) {
+            /* The score sits beside its band and hint; the bar runs underneath. */
+            .report-score-card { display: block; }
+            .report-score-button { grid-template-columns: auto minmax(0,1fr); align-items: center; gap: .45rem 1.1rem; }
+            .report-score-button .report-score-number { grid-column: 1; grid-row: 1 / span 2; margin: 0; }
+            .report-score-band { grid-column: 2; grid-row: 1; align-self: end; }
+            .report-score-hint { grid-column: 2; grid-row: 2; align-self: start; }
+            .report-score-meter { grid-column: 1 / -1; grid-row: 3; width: 100%; }
+            /* The Show details button sits under the edits, full width. */
+            .report-quick { row-gap: 0; }
+            .report-quick-head { display: contents; }
+            .report-quick-head > a { justify-self: start; }
+            .report-quick-list { margin-top: 1rem; }
+            .report-quick-head .report-collapse-toggle { order: 1; align-self: stretch; justify-content: center; width: auto; margin-top: 1rem; }
+            .quick-edit-summary { grid-template-columns: 4.5rem minmax(0,1fr) auto; }
+            .quick-edit-body { padding-left: calc(4.5rem + 2.6rem); }
+        }
+        @media (max-width: 639px) {
+            /* Three rings in one row; the tapped ring's detail shows underneath. */
+            .evidence-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+            .evidence-tile { flex-direction: column; justify-content: flex-start; gap: .5rem; padding: .8rem .35rem .7rem; text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: border-color .2s ease, box-shadow .2s ease; }
+            .evidence-tile .evidence-ring { width: 3.6rem; height: 3.6rem; }
+            .evidence-tile .evidence-ring::after { inset: .35rem; }
+            .evidence-tile .evidence-ring span { font-size: .86rem; }
+            .evidence-tile .evidence-ring .soft-count { font-size: .62rem; }
+            .evidence-tile > .min-w-0 > p:first-child { margin: 0; font-size: .6rem; letter-spacing: .06em; line-height: 1.3; }
+            .evidence-tile h4, .evidence-tile [data-evidence-detail] { display: none; }
+            .evidence-tile[aria-pressed="true"] { border-color: var(--studio-teal); box-shadow: 0 0 0 3px rgba(8,127,236,.14); }
+            .evidence-tile:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: 2px; }
+            .evidence-tile-detail { display: grid; gap: .15rem; margin: 0; padding: .8rem .95rem; border: 1px solid var(--studio-border); border-radius: 14px; background: #f8fbff; color: var(--studio-muted); font-size: .84rem; line-height: 1.5; }
+            .evidence-tile-detail strong { color: var(--studio-ink); font-size: .88rem; }
+        }
+        @media (min-width: 640px) {
+            .evidence-tile-detail { display: none; }
+        }
+        @media (max-width: 480px) {
+            .quick-edit-summary { grid-template-columns: minmax(0,1fr) auto; gap: .3rem .75rem; padding: .95rem; }
+            .report-quick-list .quick-edit-number { grid-column: 1; grid-row: 1; }
+            .quick-edit-summary h3 { grid-column: 1; grid-row: 2; }
+            .quick-edit-chevron { grid-column: 2; grid-row: 1 / span 2; }
+            .quick-edit-body { padding: 0 .95rem .95rem; }
+            .ats-issue-text { padding-left: .9rem; }
+            .related-skill-ask { padding-left: .9rem; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .report-score-button.is-bumped #overallScore, .report-score-parts.is-playing .score-part-track > span, .ats-meter.flow-ready.is-flowing .ats-meter-track > span { animation: none; }
+            .ats-meter.flow-ready .ats-meter-track > span { transform: none; }
+            .report-score-meter > span, .report-score-hint svg, .quick-edit-chevron, .related-skill-chevron, .ats-issue-chevron, .ats-how-chevron, .report-summary-more > summary svg, .evidence-tile { transition: none; }
+            .quick-edit-details[open] .quick-edit-body, .related-skill[open] .related-skill-ask, .ats-issue-details[open] .ats-issue-text, .ats-how[open] p, .report-summary-more[open] > :not(summary) { animation: none; }
+        }
         @media print {
             .report-hero::before, .report-hero::after { animation: none !important; }
             .report-reveal { opacity: 1 !important; filter: none !important; transform: none !important; }
-            .report-collapse-toggle { display: none !important; }
+            .report-collapse-toggle, .report-score-hint { display: none !important; }
             .flow-list > *, .tick-flow > li > .tick-mark { opacity: 1 !important; transform: none !important; animation: none !important; }
+            .ats-meter-track > span, .score-part-track > span { transform: none !important; animation: none !important; }
         }
     </style>
 <style id="darkThemeGenerated">
@@ -855,6 +1038,71 @@ html[data-theme="dark"] .role-match-chevron{color:#8a98a8}
 html[data-theme="dark"] .report-strategy-groups{border-top-color:var(--studio-border)}
 html[data-theme="dark"] .report-strategy-label{color:var(--studio-muted)}
 html[data-theme="dark"] .tick-flow > li > .tick-mark{background-image:none;background-color:#13212d;color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-score-button{border-color:currentcolor;background-image:none;background-color:transparent;color:inherit}
+html[data-theme="dark"] .report-score-button:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .report-score-meter{background-image:none;background-color:#1e2833}
+html[data-theme="dark"] .report-score-meter > span{background-image:none;background-color:#087fec}
+html[data-theme="dark"] .report-score-band{background-image:none;background-color:#13202d;color:#6cb7ff}
+html[data-theme="dark"] .report-score-band::before{background-image:none;background-color:currentColor}
+html[data-theme="dark"] .report-score-band[data-band="low"]{background-image:none;background-color:#2f1c1c;color:#ff8883}
+html[data-theme="dark"] .report-score-band[data-band="needs"]{background-image:none;background-color:#241c0c;color:#e0ab6f}
+html[data-theme="dark"] .report-score-band[data-band="strong"]{background-image:none;background-color:#11251d;color:#78ca9c}
+html[data-theme="dark"] .report-score-hint{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-score-parts{border-top-color:#2f3d49}
+html[data-theme="dark"] .score-part-label{color:var(--studio-ink)}
+html[data-theme="dark"] .score-part-label em{background-image:none;background-color:#241c0c;color:#e0ab6f}
+html[data-theme="dark"] .score-part strong{color:var(--studio-ink)}
+html[data-theme="dark"] .score-part-track{background-image:none;background-color:#20282f}
+html[data-theme="dark"] .score-part-track > span{background-image:none;background-color:#087fec}
+html[data-theme="dark"] .score-part[data-weakest="true"] .score-part-track > span{background-image:none;background-color:#503416}
+html[data-theme="dark"] .report-summary-card{border-color:#172b3e;background-image:none;background-color:#172b3e;color:#fff}
+html[data-theme="dark"] .report-summary-mark{color:#8fc8ff}
+html[data-theme="dark"] .report-summary-eyebrow{color:rgba(255,255,255,.62)}
+html[data-theme="dark"] .report-summary-band{color:#fff}
+html[data-theme="dark"] .report-summary-points li{color:rgba(255,255,255,.88)}
+html[data-theme="dark"] .report-summary-points svg{background-image:none;background-color:rgba(143,200,255,.13);color:#8fc8ff}
+html[data-theme="dark"] .report-summary-more > summary{border-top-color:rgba(255,255,255,.12);color:#b9dcff}
+html[data-theme="dark"] .report-summary-more > summary:focus-visible{outline-color:rgba(143,200,255,.45)}
+html[data-theme="dark"] .report-summary-more p{color:rgba(255,255,255,.74)}
+html[data-theme="dark"] .report-summary-weights li{border-bottom-color:rgba(255,255,255,.14);color:rgba(255,255,255,.82)}
+html[data-theme="dark"] .report-summary-weights small{color:rgba(255,255,255,.55)}
+html[data-theme="dark"] .report-summary-weights strong{color:#fff}
+html[data-theme="dark"] .quick-edit-summary:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .quick-edit-chevron{color:#8a98a8}
+html[data-theme="dark"] .related-skill-summary:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .related-skill-check{background-image:none;background-color:#11251d;color:#78ca9c}
+html[data-theme="dark"] .related-skill-tool{background-image:none;background-color:#16202b;color:#a1ccf5}
+html[data-theme="dark"] .related-skill-chevron{color:#8a98a8}
+html[data-theme="dark"] .related-skill-ask{color:var(--studio-muted)}
+html[data-theme="dark"] .related-skill-ask span{color:var(--studio-ink)}
+html[data-theme="dark"] .ats-meter-row strong{color:var(--studio-ink)}
+html[data-theme="dark"] .ats-risk{background-image:none;background-color:#13202d;color:#6cb7ff}
+html[data-theme="dark"] .ats-risk[data-risk="low"]{background-image:none;background-color:#11251d;color:#78ca9c}
+html[data-theme="dark"] .ats-risk[data-risk="medium"]{background-image:none;background-color:#241c0c;color:#e0ab6f}
+html[data-theme="dark"] .ats-risk[data-risk="high"]{background-image:none;background-color:#2f1c1c;color:#ff8883}
+html[data-theme="dark"] .ats-meter-track{background-image:none;background-color:#20282f}
+html[data-theme="dark"] .ats-meter-track > span{background-image:none;background-color:#087fec}
+html[data-theme="dark"] .ats-meter[data-risk="low"] .ats-meter-track > span{background-image:none;background-color:#1f9d63}
+html[data-theme="dark"] .ats-meter[data-risk="medium"] .ats-meter-track > span{background-image:none;background-color:#503416}
+html[data-theme="dark"] .ats-meter[data-risk="high"] .ats-meter-track > span{background-image:none;background-color:#d0393f}
+html[data-theme="dark"] .ats-how > summary{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .ats-how > summary:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .ats-how p{background-image:none;background-color:#161b21;color:var(--studio-muted)}
+html[data-theme="dark"] .ats-issue{border-color:#4a3a1c;background-image:none;background-color:#14191f}
+html[data-theme="dark"] .ats-issue-summary:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .ats-issue-icon{background-image:none;background-color:#292010;color:#e5a365}
+html[data-theme="dark"] .ats-issue-title{color:var(--studio-ink)}
+html[data-theme="dark"] .ats-issue-title small{color:#d9a564}
+html[data-theme="dark"] .ats-issue-chevron{color:#b99c6d}
+html[data-theme="dark"] .ats-issue-text{color:var(--studio-muted)}
+html[data-theme="dark"] .ats-all-clear{background-image:none;background-color:#11231b;color:#78ca9c}
+html[data-theme="dark"] .ats-pass-chip{background-image:none;background-color:#11231b;color:#78ca9c}
+@media (max-width: 639px){
+html[data-theme="dark"] .evidence-tile[aria-pressed="true"]{border-color:var(--studio-teal);box-shadow:0 0 0 3px rgba(8,127,236,.14)}
+html[data-theme="dark"] .evidence-tile:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .evidence-tile-detail{border-color:var(--studio-border);background-image:none;background-color:#14191f;color:var(--studio-muted)}
+html[data-theme="dark"] .evidence-tile-detail strong{color:var(--studio-ink)}
+}
 }
 </style>
 <style id="darkThemeTweaks">
@@ -868,6 +1116,10 @@ html[data-theme="dark"] .tick-flow > li > .tick-mark{background-image:none;backg
   /* The light theme paints these with the ink colour, which is light here. */
   html[data-theme="dark"] .report-shell :is(.priority-action-number, .role-match-rank, .role-match-badge).bg-primary { background-color: #0d6fd6; color: #fff; }
   html[data-theme="dark"] .tick-flow > li > .tick-mark { background: #183252; color: #8cc4ff; }
+  /* Amber bars (weakest score part, medium ATS risk) stay bright enough to read. */
+  html[data-theme="dark"] :is(.ats-meter[data-risk="medium"] .ats-meter-track, .score-part[data-weakest="true"] .score-part-track) > span { background-color: #e39a3b; }
+  /* The summary card stays a deep blue panel, a little lighter than the page. */
+  html[data-theme="dark"] .report-summary-card { background-color: #132a40; border-color: #27455f; }
 }
 </style>
 </head>
@@ -908,11 +1160,20 @@ html[data-theme="dark"] .tick-flow > li > .tick-mark{background-image:none;backg
 <span class="report-eyebrow" id="reportEyebrow">Resume feedback</span>
 <h1 id="reportTitle">Your resume, clearly reviewed.</h1>
 <p class="report-hero-copy" id="reportSummaryRole">Your role comparison and resume evidence appear below.</p>
-<p class="report-hero-copy"><strong>Matched evidence:</strong> <span id="reportSummaryEvidence">Your matched resume signals will appear here.</span></p>
 </div>
-<div class="report-score-card" aria-label="Final readiness score">
-<div><p class="report-score-label">UTS CS Readiness Score</p><div class="report-score-number"><span id="overallScore">—</span><span>/100</span></div></div>
-<p class="report-score-note">Evidence match and ATS feedback. This is not a hiring probability.</p>
+<!-- The score counts up; tap it to replay and to see the parts that make it up. -->
+<div class="report-score-card">
+<p class="report-score-label">UTS CS Readiness Score</p>
+<button class="report-score-button" id="reportScoreButton" type="button" aria-expanded="false" aria-controls="reportScoreParts">
+<span class="report-score-number"><span id="overallScore">—</span><span>/100</span></span>
+<span class="report-score-meter" aria-hidden="true"><span id="overallScoreMeter"></span></span>
+<span class="report-score-band" id="reportScoreBand">Score pending</span>
+<span class="report-score-hint" id="reportScoreHintRow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span id="reportScoreHint">See what makes up this score</span></span>
+</button>
+<div class="report-score-parts" id="reportScoreParts" hidden>
+<ul id="reportScorePartList"></ul>
+<p class="report-score-note">Evidence match and ATS feedback, not a hiring probability.</p>
+</div>
 </div>
 </section>
 <section class="report-progress" id="reportProgress" aria-labelledby="reportProgressTitle" hidden>
@@ -920,7 +1181,7 @@ html[data-theme="dark"] .tick-flow > li > .tick-mark{background-image:none;backg
 <div id="reportProgressBody" aria-live="polite"></div>
 </section>
 <section class="report-quick" aria-labelledby="quickActionsTitle">
-<div class="report-quick-head"><div><span class="report-eyebrow">Start here</span><h2 id="quickActionsTitle">Your next three edits</h2></div><a href="#improve">Read the full improvement plan</a></div>
+<div class="report-quick-head"><div><span class="report-eyebrow">Start here</span><h2 id="quickActionsTitle">Your next three edits</h2></div><a href="#improve">Read the full improvement plan</a><button class="report-collapse-toggle" type="button" data-collapse-toggle="quick" data-collapse-mode="items" data-collapse-default="phone" aria-controls="quickActionList" aria-expanded="true" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span data-collapse-label>Minimize</span></button></div>
 <div class="report-quick-list flow-list" id="quickActionList" aria-live="polite"></div>
 </section>
 <nav class="report-tabs" aria-label="Report sections">
@@ -959,54 +1220,54 @@ html[data-theme="dark"] .tick-flow > li > .tick-mark{background-image:none;backg
 </div>
 </div>
 </div>
-<div class="flex gap-2 flex-wrap mt-6 pt-5 border-t border-outline-variant/50" id="matchedSignalsChipList">
-<span class="px-3 py-1 bg-secondary-container/20 text-on-secondary-container rounded-full text-xs font-semibold">Matched resume signals will appear here.</span>
 </div>
-</div>
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-<article class="rounded-xl bg-surface-container-lowest border border-outline-variant/60 p-4 flex items-center gap-3 shadow-sm">
+<!-- Phones: the three rings sit in one row; tap a ring to read its detail below. -->
+<div class="evidence-tiles grid grid-cols-1 sm:grid-cols-3 gap-4" id="evidenceTiles">
+<article class="evidence-tile rounded-xl bg-surface-container-lowest border border-outline-variant/60 p-4 flex items-center gap-3 shadow-sm" data-evidence-tile="hard" data-title="Technical Fit">
 <div class="evidence-ring" id="hardSkillsRing" style="--score: 0;"><span id="hardSkillsScore">-</span></div>
 <div class="min-w-0">
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-1">Hard Skills</p>
 <h4 class="text-sm font-extrabold text-primary">Technical Fit</h4>
-<p class="text-xs text-on-surface-variant leading-snug mt-1" id="hardSkillsDetail">Tools, languages, and role keywords.</p>
+<p class="text-xs text-on-surface-variant leading-snug mt-1" id="hardSkillsDetail" data-evidence-detail>Tools, languages, and role keywords.</p>
 </div>
 </article>
-<article class="rounded-xl bg-surface-container-lowest border border-outline-variant/60 p-4 flex items-center gap-3 shadow-sm">
+<article class="evidence-tile rounded-xl bg-surface-container-lowest border border-outline-variant/60 p-4 flex items-center gap-3 shadow-sm" data-evidence-tile="soft" data-title="Work Style">
 <div class="evidence-ring is-count" id="softSkillsRing"><span class="soft-count" id="softSkillsScore">-</span></div>
 <div class="min-w-0">
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-1">Soft Skills</p>
 <h4 class="text-sm font-extrabold text-primary">Work Style</h4>
-<p class="text-xs text-on-surface-variant leading-snug mt-1" id="softSkillsDetail">Communication, teamwork, and leadership signals.</p>
+<p class="text-xs text-on-surface-variant leading-snug mt-1" id="softSkillsDetail" data-evidence-detail>Communication, teamwork, and leadership signals.</p>
 </div>
 </article>
-<article class="rounded-xl bg-surface-container-lowest border border-outline-variant/60 p-4 flex items-center gap-3 shadow-sm">
+<article class="evidence-tile rounded-xl bg-surface-container-lowest border border-outline-variant/60 p-4 flex items-center gap-3 shadow-sm" data-evidence-tile="experience" data-title="Project Evidence">
 <div class="evidence-ring" id="experienceRing" style="--score: 0;"><span id="experienceScore">-</span></div>
 <div class="min-w-0">
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-1">Experience</p>
 <h4 class="text-sm font-extrabold text-primary">Project Evidence</h4>
-<p class="text-xs text-on-surface-variant leading-snug mt-1" id="experienceDetail">Projects, internships, and measurable outcomes.</p>
+<p class="text-xs text-on-surface-variant leading-snug mt-1" id="experienceDetail" data-evidence-detail>Projects, internships, and measurable outcomes.</p>
 </div>
 </article>
 </div>
+<p class="evidence-tile-detail" id="evidenceTileDetail" aria-live="polite"></p>
 </div>
-<!-- Assessment summary -->
-<div class="bg-primary p-8 rounded-xl text-on-primary flex flex-col justify-between h-full">
-<div>
+<!-- Assessment summary: the verdict, three short points, and the full method on tap. -->
+<div class="report-summary-card rounded-xl p-6 sm:p-8 flex flex-col h-full">
 <div class="flex items-center gap-2 mb-4">
-<span class="text-secondary-fixed-dim" aria-hidden="true">▤</span>
-<span class="text-xs font-bold uppercase tracking-widest text-on-primary/60">Assessment summary</span>
+<span class="report-summary-mark" aria-hidden="true">▤</span>
+<span class="report-summary-eyebrow">Assessment summary</span>
 </div>
-<p class="text-lg leading-relaxed font-medium" id="aiSummary">Run an analysis to see the resume score and role recommendation.</p>
-</div>
-<div class="pt-6 border-t border-white/10">
-<p class="text-xs text-on-primary/60 italic" id="aiRecommendation">Recommendation details will appear after analysis.</p>
-</div>
-<div class="pt-5 mt-5 border-t border-white/10">
-<p class="text-xs font-bold uppercase tracking-widest text-secondary-fixed-dim mb-2" id="scoreMeaningLabel">Score conclusion</p>
-<p class="text-sm leading-relaxed text-on-primary/90" id="scoreMeaningText">Run an analysis to see what the score means.</p>
-<p class="text-xs leading-relaxed text-on-primary/60 mt-3" id="scoreFormulaText">Live score components will appear here.</p>
-</div>
+<p class="report-summary-band" id="scoreMeaningLabel">Score conclusion</p>
+<ul class="report-summary-points">
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6" fill="currentColor"/></svg><span id="aiSummary">Run an analysis to see the resume score and role recommendation.</span></li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16.5a7.5 7.5 0 1 1 15 0"/><path d="m12 16.5 3.6-4.6"/></svg><span id="scoreMeaningShort">Run an analysis to see what the score means.</span></li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13"/><path d="m13 6.5 5.5 5.5-5.5 5.5"/></svg><span id="aiRecommendation">Recommendation details will appear after analysis.</span></li>
+</ul>
+<details class="report-summary-more report-collapse-item">
+<summary><span>How the score is worked out</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+<p id="scoreMeaningText">Run an analysis to see what the score means.</p>
+<ul class="report-summary-weights" id="scoreWeightList"></ul>
+<p id="scoreFormulaText">Live score components will appear here.</p>
+</details>
 </div>
 </div>
 </section>
@@ -1045,7 +1306,7 @@ Top role matches will appear after analysis.
 <div class="mt-6 border-t border-outline-variant/60 pt-5" id="relatedSkillPanel" hidden>
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-1">Related-skill evidence</p>
 <h3 class="text-xl font-bold text-primary">Skills proven by the tools you named</h3>
-<p class="text-sm text-on-surface-variant mt-2 leading-relaxed">These requirements count as met because your resume names a tool that proves them. ATS keyword filters still look for the exact words, so write them too.</p>
+<p class="text-sm text-on-surface-variant mt-2 leading-relaxed">Counted as met. Write the skill words too, because ATS filters match exact words.</p>
 <ul class="related-skill-list" id="relatedSkillList"></ul>
 </div>
 </div>
@@ -1064,11 +1325,11 @@ Top role matches will appear after analysis.
 Recommendation actions will appear after analysis.
 </article>
 </div>
-<!-- One strategy card: what the draft adds (with proof) and what it keeps. -->
+<!-- One strategy card: what the draft adds (with proof) and what it keeps. The role
+     is already named in the Role Fit section above, so it is not repeated here. -->
 <article class="mt-5 rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-5">
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-2">Resume Generator Strategy</p>
-<h3 class="text-xl font-bold text-primary" id="resumeStrategyRole">Target role pending.</h3>
-<p class="text-sm text-on-surface-variant mt-3 leading-relaxed" id="resumeStrategySummary">The generated resume will use the recommended role, matched evidence, and missing keyword targets.</p>
+<h3 class="text-xl font-bold text-primary">Keywords for your next draft</h3>
 <div class="report-strategy-groups">
 <div>
 <p class="report-strategy-label">Keywords to add with proof</p>
@@ -1087,16 +1348,19 @@ Recommendation actions will appear after analysis.
 </section>
 <section class="report-section mb-12" id="ats-checks">
 <div class="bg-surface-container-lowest rounded-xl border border-outline-variant/60 p-5 sm:p-6 lg:p-8">
-<div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
-<div class="max-w-3xl">
+<!-- A quality meter instead of a paragraph; the scoring detail stays one tap away
+     (and in the full report). -->
+<div class="mb-6">
 <p class="text-xs uppercase tracking-widest font-bold text-secondary mb-2">ATS Quality Criteria</p>
 <h2 class="text-2xl sm:text-3xl font-extrabold text-primary tracking-tight" id="atsQualityHeadline">ATS Readiness Check</h2>
-<p class="text-sm sm:text-base text-on-surface-variant mt-3 leading-relaxed" id="atsQualitySummaryText">Run an analysis to check resume format, language, contact details, and parsing risks.</p>
+<div class="ats-meter" id="atsQualityMeterBlock">
+<div class="ats-meter-row"><strong id="atsQualityScoreText">Included in final score</strong><span class="ats-risk" id="atsQualityRiskText" hidden></span></div>
+<div class="ats-meter-track" aria-hidden="true"><span id="atsQualityMeter"></span></div>
 </div>
-<div class="flex flex-col sm:items-end gap-2">
-<span class="px-3 py-1 rounded-full bg-surface-container-high text-primary text-xs font-bold" id="atsQualityRiskText">Risk: -</span>
-<p class="text-sm font-bold text-primary" id="atsQualityScoreText">Included in final score</p>
-</div>
+<details class="ats-how report-collapse-item">
+<summary><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><path d="M12 7.6v.2"/></svg><span>How this affects your score</span><svg class="ats-how-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+<p id="atsQualitySummaryText">Run an analysis to check resume format, language, contact details, and parsing risks.</p>
+</details>
 </div>
 <div class="grid grid-cols-1 lg:grid-cols-[1fr_0.8fr] gap-6" id="atsQualityCriteriaList">
 <div class="border-t border-outline-variant/60 pt-4">
@@ -2279,12 +2543,107 @@ Download PDF
         return "Needs work";
     }
 
+    // The hero score counts up from 0 while its bar fills.
     function animateScoreNumber(element, targetValue) {
         if (!element) {
             return;
         }
         const target = Math.round(clampPercent(targetValue));
-        element.textContent = String(target);
+        const meter = document.getElementById("overallScoreMeter");
+        const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (element.countFrame) cancelAnimationFrame(element.countFrame);
+        if (reduceMotion || !window.requestAnimationFrame) {
+            element.textContent = String(target);
+            if (meter) meter.style.width = target + "%";
+            return;
+        }
+        if (meter) {
+            meter.style.transition = "none";
+            meter.style.width = "0%";
+            void meter.offsetWidth; // restart the fill
+            meter.style.transition = "";
+            meter.style.width = target + "%";
+        }
+        const startedAt = performance.now();
+        const duration = 950;
+        const step = (now) => {
+            const progress = Math.min(1, (now - startedAt) / duration);
+            element.textContent = String(Math.round(target * (1 - Math.pow(1 - progress, 3))));
+            element.countFrame = progress < 1 ? requestAnimationFrame(step) : 0;
+        };
+        element.textContent = "0";
+        element.countFrame = requestAnimationFrame(step);
+    }
+
+    // The four parts behind the hero score, weakest one marked. They open when the
+    // score is tapped (and start open on wide screens).
+    const HERO_SCORE_PARTS = [
+        ["Requirements", (breakdown, compatibility) => breakdown.keyword_coverage ?? compatibility.keyword_match],
+        ["Role evidence", (breakdown, compatibility) => breakdown.role_evidence ?? compatibility.role_evidence],
+        ["ATS format", (breakdown, compatibility) => breakdown.resume_quality ?? compatibility.resume_quality],
+        ["Experience", (breakdown, compatibility) => breakdown.experience_alignment ?? compatibility.experience_alignment]
+    ];
+    let heroScoreValue = 0;
+
+    function renderHeroScoreParts(scoreBreakdown, compatibility) {
+        const list = document.getElementById("reportScorePartList");
+        const hintRow = document.getElementById("reportScoreHintRow");
+        const safeBreakdown = scoreBreakdown || {};
+        const safeCompatibility = compatibility || {};
+        const parts = HERO_SCORE_PARTS.map(([label, pick]) => {
+            const raw = pick(safeBreakdown, safeCompatibility);
+            const value = raw === null || raw === undefined || raw === "" ? Number.NaN : Number(raw);
+            return { label, value: Number.isFinite(value) ? Math.round(clampPercent(value)) : null };
+        }).filter((part) => part.value !== null);
+        const values = parts.map((part) => part.value);
+        const lowest = values.length > 1 && Math.min(...values) < Math.max(...values) ? Math.min(...values) : null;
+        let lowestMarked = false;
+        if (list) {
+            list.innerHTML = parts.map((part, index) => {
+                const isLowest = lowest !== null && part.value === lowest && !lowestMarked;
+                if (isLowest) lowestMarked = true;
+                return '<li class="score-part"' + (isLowest ? ' data-weakest="true"' : "") + ' style="--part:' + part.value + ';--flow-index:' + index + '">' +
+                    '<span class="score-part-label"><span>' + escapeHtml(part.label) + '</span>' + (isLowest ? '<em>' + escapeHtml("Lowest") + '</em>' : "") + '</span>' +
+                    '<strong>' + part.value + '</strong>' +
+                    '<span class="score-part-track" aria-hidden="true"><span></span></span>' +
+                '</li>';
+            }).join("");
+        }
+        // Without parts there is nothing to open; the score still replays when tapped.
+        if (hintRow) hintRow.hidden = !parts.length;
+        return parts.length > 0;
+    }
+
+    function setHeroScorePartsOpen(open, animate) {
+        const button = document.getElementById("reportScoreButton");
+        const panel = document.getElementById("reportScoreParts");
+        const hint = document.getElementById("reportScoreHint");
+        if (!button || !panel) return;
+        button.setAttribute("aria-expanded", String(open));
+        panel.hidden = !open;
+        if (hint) hint.textContent = open ? "Hide score parts" : "See what makes up this score";
+        if (open && animate) {
+            panel.classList.remove("is-playing");
+            void panel.offsetWidth; // replay the bars
+            panel.classList.add("is-playing");
+        }
+    }
+
+    function initHeroScore(hasParts) {
+        const button = document.getElementById("reportScoreButton");
+        if (!button) return;
+        button.dataset.hasParts = String(Boolean(hasParts));
+        if (button.dataset.bound === "true") return;
+        button.dataset.bound = "true";
+        button.addEventListener("click", () => {
+            if (button.dataset.hasParts === "true") {
+                setHeroScorePartsOpen(button.getAttribute("aria-expanded") !== "true", true);
+            }
+            animateScoreNumber(document.getElementById("overallScore"), heroScoreValue);
+            button.classList.remove("is-bumped");
+            void button.offsetWidth; // replay the pop
+            button.classList.add("is-bumped");
+        });
     }
 
     function setMetric(barId, labelId, percent) {
@@ -2361,18 +2720,69 @@ Download PDF
             softSkillsRing.setAttribute("aria-label", softSignals.length + " soft skill signals found");
         }
         if (softSkillsScore) softSkillsScore.textContent = softSignals.length + " found";
-        setText(
+        setEvidenceDetail(
             "hardSkillsDetail",
             hardSignals.length ? "Matched: " + hardSignals.join(", ") + "." : "No strong technical keyword evidence yet."
         );
-        setText(
+        setEvidenceDetail(
             "softSkillsDetail",
             softSignals.length ? "Detected: " + softSignals.join(", ") + "." : "Add teamwork, communication, or leadership evidence."
         );
-        setText(
+        setEvidenceDetail(
             "experienceDetail",
             experienceMarkers ? experienceMarkers + " experience marker(s) found in the resume." : "Add internship, project, or work evidence."
         );
+        initEvidenceTiles();
+    }
+
+    // Each ring keeps its detail in English on the tile, so the shared phone panel
+    // below the rings can show (and translate) it.
+    function setEvidenceDetail(id, text) {
+        setText(id, text);
+        const element = document.getElementById(id);
+        const tile = element && element.closest("[data-evidence-tile]");
+        if (tile) tile.dataset.detail = text;
+    }
+
+    function showEvidenceTileDetail(tile) {
+        const detail = document.getElementById("evidenceTileDetail");
+        if (!detail || !tile) return;
+        document.querySelectorAll("[data-evidence-tile]").forEach((item) => item.setAttribute("aria-pressed", String(item === tile)));
+        detail.innerHTML = '<strong>' + escapeHtml(tile.dataset.title || "") + '</strong><span>' + escapeHtml(tile.dataset.detail || "") + '</span>';
+    }
+
+    // Phones: the three rings sit in one row and work like buttons; the tapped
+    // ring's detail shows underneath. Wider screens show every detail in its card.
+    function initEvidenceTiles() {
+        const tiles = Array.from(document.querySelectorAll("[data-evidence-tile]"));
+        if (!tiles.length) return;
+        const phone = window.matchMedia ? window.matchMedia("(max-width: 639px)") : null;
+        const isPhone = () => Boolean(phone && phone.matches);
+        const syncTiles = () => {
+            tiles.forEach((tile) => {
+                if (isPhone()) {
+                    tile.setAttribute("role", "button");
+                    tile.tabIndex = 0;
+                    tile.setAttribute("aria-controls", "evidenceTileDetail");
+                } else {
+                    ["role", "tabindex", "aria-controls", "aria-pressed"].forEach((name) => tile.removeAttribute(name));
+                }
+            });
+            if (isPhone()) showEvidenceTileDetail(tiles.find((tile) => tile.getAttribute("aria-pressed") === "true") || tiles[0]);
+        };
+        if (tiles[0].dataset.bound !== "true") {
+            tiles.forEach((tile) => {
+                tile.dataset.bound = "true";
+                tile.addEventListener("click", () => { if (isPhone()) showEvidenceTileDetail(tile); });
+                tile.addEventListener("keydown", (event) => {
+                    if (!isPhone() || (event.key !== "Enter" && event.key !== " ")) return;
+                    event.preventDefault();
+                    showEvidenceTileDetail(tile);
+                });
+            });
+            if (phone && phone.addEventListener) phone.addEventListener("change", syncTiles);
+        }
+        syncTiles();
     }
 
     function setText(id, value) {
@@ -2407,57 +2817,62 @@ Download PDF
                 Number(weightedDeduction.toFixed(1)) + " overall points."
             : " ATS document quality is " + Math.round(qualityScore) + "/100 with no detected format issues.";
 
+        const shared = {
+            badge: issueCount ? issueLabel : "0 ATS fixes",
+            scoreText: qualityScoreLabel,
+            qualityScore: Math.round(qualityScore)
+        };
+
         if (safeScore < 30) {
             return {
+                ...shared,
                 headline: issueCount ? "ATS Document: " + issueLabel : "No ATS Format Issue Detected",
-                summary: overallDetail + qualityDetail + " Role evidence and database requirements also affect the overall score.",
-                badge: issueCount ? issueLabel : "0 ATS fixes",
-                scoreText: qualityScoreLabel
+                summary: overallDetail + qualityDetail + " Role evidence and database requirements also affect the overall score."
             };
         }
 
         if (safeScore < 50) {
             return {
+                ...shared,
                 headline: issueCount ? "ATS Document: " + issueLabel : "No ATS Format Issue Detected",
-                summary: overallDetail + qualityDetail + " Role evidence and database requirements also affect the overall score.",
-                badge: issueCount ? issueLabel : "0 ATS fixes",
-                scoreText: qualityScoreLabel
+                summary: overallDetail + qualityDetail + " Role evidence and database requirements also affect the overall score."
             };
         }
 
         if (safeScore < 80) {
             return {
+                ...shared,
                 headline: issueCount ? "ATS Document: " + issueLabel : "ATS Document Checks Passed",
-                summary: overallDetail + qualityDetail + " The remaining score comes from requirements, role evidence, experience, education/skills, and text similarity.",
-                badge: issueCount ? issueLabel : "0 ATS fixes",
-                scoreText: qualityScoreLabel
+                summary: overallDetail + qualityDetail + " The remaining score comes from requirements, role evidence, experience, education/skills, and text similarity."
             };
         }
 
         return {
+            ...shared,
             headline: issueCount ? "Strong Role Match With " + issueLabel : "ATS Document Checks Passed",
-            summary: overallDetail + qualityDetail + " Treat this as an evidence-match score, not a hiring probability.",
-            badge: issueCount ? issueLabel : "0 ATS fixes",
-            scoreText: qualityScoreLabel
+            summary: overallDetail + qualityDetail + " Treat this as an evidence-match score, not a hiring probability."
         };
     }
 
-    const escapeHtml = window.CareerNavigatorCommon.escapeHtml;
-
-    function renderPills(id, items, emptyText, colorClass = "bg-secondary-container/20 text-on-secondary-container") {
-        const container = document.getElementById(id);
-        if (!container) {
-            return;
+    // ATS quality meter: the document-quality bar, coloured by the risk level, and
+    // a short risk chip. The bar fills when the section scrolls into view.
+    function renderAtsMeter(resumeQuality, qualityScore) {
+        const block = document.getElementById("atsQualityMeterBlock");
+        const meter = document.getElementById("atsQualityMeter");
+        const chip = document.getElementById("atsQualityRiskText");
+        const risk = String((resumeQuality && resumeQuality.risk_level) || "").trim().toLowerCase();
+        const riskLabel = { low: "Low risk", medium: "Medium risk", high: "High risk" }[risk] || "";
+        if (chip) {
+            chip.hidden = !riskLabel;
+            chip.textContent = riskLabel;
+            chip.dataset.risk = risk;
         }
-        const cleanItems = Array.isArray(items) ? items.filter(Boolean).slice(0, 10) : [];
-        if (cleanItems.length === 0) {
-            container.innerHTML = '<span class="px-3 py-1 rounded-full bg-surface-container-low text-on-surface-variant text-xs font-semibold">' + escapeHtml(emptyText) + '</span>';
-            return;
-        }
-        container.innerHTML = cleanItems.map((item) => (
-            '<span class="px-3 py-1 rounded-full ' + colorClass + ' text-xs font-semibold">' + escapeHtml(item) + '</span>'
-        )).join("");
+        if (block) block.dataset.risk = riskLabel ? risk : "";
+        if (meter) meter.style.width = clampPercent(Number(qualityScore) || 0) + "%";
+        if (block) playFlowList(block);
     }
+
+    const escapeHtml = window.CareerNavigatorCommon.escapeHtml;
 
     function renderTopRoleMatches(matches, context = {}) {
         const container = document.getElementById("topRoleMatchesList");
@@ -2723,8 +3138,6 @@ Download PDF
         if (context.empty) {
             setText("recommendationPlanSummary", "Run an analysis to see the recommended next actions for the selected role.");
             setText("recommendationPlanBadge", "Waiting for analysis");
-            setText("resumeStrategyRole", "Target role pending.");
-            setText("resumeStrategySummary", "The generated resume will use the recommended role, matched evidence, and missing keyword targets.");
             renderKeywordPills("resumeStrategyKeywordList", [], "Keyword targets pending.", "bg-error-container text-on-error-container");
             renderKeywordPills("resumeStrategyEvidenceList", [], "Matched evidence pending.", "bg-secondary-container/20 text-on-secondary-container");
             if (actionList) {
@@ -2752,11 +3165,6 @@ Download PDF
 
         setText("recommendationPlanSummary", summary);
         setText("recommendationPlanBadge", safeModule.status === "ready" ? "Ready for user action" : "Generated from analysis");
-        setText("resumeStrategyRole", "Target: " + recommendedRole);
-        setText(
-            "resumeStrategySummary",
-            strategy.strategy_summary || "Generate the ATS resume around the recommended role, keep matched evidence, and add missing keywords only with truthful proof."
-        );
 
         renderKeywordPills(
             "resumeStrategyKeywordList",
@@ -2915,12 +3323,21 @@ Download PDF
             ? semanticMatches.filter((item) => item && item.concept && Array.isArray(item.evidence) && item.evidence.length).slice(0, 8)
             : [];
         panel.hidden = !matches.length;
+        // A tick, the skill and the tool chips; tap a row for what the job asks for.
         list.innerHTML = matches.map((item) => {
             const requirement = Array.isArray(item.requirements) && item.requirements.length ? String(item.requirements[0]) : "";
-            return '<li><strong>' + escapeHtml(item.concept) + '</strong> <span class="related-skill-proof">' + escapeHtml("proven by") + '</span> ' +
-                escapeHtml(item.evidence.slice(0, 3).join(", ")) +
-                (requirement ? '<small><span>' + escapeHtml("Job asks for:") + '</span> ' + escapeHtml(requirement) + '</small>' : "") +
-                '</li>';
+            const head =
+                '<span class="related-skill-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>' +
+                '<span class="related-skill-main"><strong>' + escapeHtml(item.concept) + '</strong>' +
+                    '<span class="related-skill-tools"><span class="related-skill-proof">' + escapeHtml("proven by") + '</span>' +
+                    item.evidence.slice(0, 3).map((tool) => '<span class="related-skill-tool">' + escapeHtml(tool) + '</span>').join("") +
+                '</span></span>';
+            if (!requirement) {
+                return '<li><div class="related-skill-summary">' + head + '</div></li>';
+            }
+            return '<li><details class="related-skill report-collapse-item"><summary class="related-skill-summary">' + head +
+                    '<svg class="related-skill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
+                '</summary><p class="related-skill-ask"><span>' + escapeHtml("Job asks for:") + '</span> ' + escapeHtml(requirement) + '</p></details></li>';
         }).join("");
     }
 
@@ -2955,18 +3372,29 @@ Download PDF
         });
         if (!quickActions.length) {
             list.innerHTML = '<p class="text-sm text-on-surface-variant">This analysis did not return prioritized edits. Review the detailed findings below.</p>';
+            syncCollapseToggle("quickActionList", false);
             return;
         }
+        // Phones start with the number and title only; tap an edit (or Show details)
+        // for how to do it.
+        const openAttribute = isCollapseTargetOpen("quickActionList") ? " open" : "";
         list.innerHTML = quickActions.map((item, index) => (
-            '<article><span>' + String(index + 1).padStart(2, "0") + ' / EDIT</span>' +
-            '<h3>' + escapeHtml(item.title) + '</h3>' +
-            '<p>' + escapeHtml(item.detail) + '</p>' +
-            (item.note ? '<em class="action-progress-note">' + escapeHtml(item.note) + '</em>' : "") +
-            (item.keywords && item.keywords.length
-                ? '<ul class="quick-keywords">' + item.keywords.map((keyword) => '<li>' + escapeHtml(keyword) + '</li>').join("") + '</ul>'
-                : "") +
-            '</article>'
+            '<article class="quick-edit"><details class="quick-edit-details report-collapse-item"' + openAttribute + '>' +
+                '<summary class="quick-edit-summary">' +
+                    '<span class="quick-edit-number">' + String(index + 1).padStart(2, "0") + ' / EDIT</span>' +
+                    '<h3>' + escapeHtml(item.title) + '</h3>' +
+                    '<svg class="quick-edit-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
+                '</summary>' +
+                '<div class="quick-edit-body">' +
+                    '<p>' + escapeHtml(item.detail) + '</p>' +
+                    (item.note ? '<em class="action-progress-note">' + escapeHtml(item.note) + '</em>' : "") +
+                    (item.keywords && item.keywords.length
+                        ? '<ul class="quick-keywords">' + item.keywords.map((keyword) => '<li>' + escapeHtml(keyword) + '</li>').join("") + '</ul>'
+                        : "") +
+                '</div>' +
+            '</details></article>'
         )).join("");
+        syncCollapseToggle("quickActionList", true);
         playFlowList(list);
         const heading = document.getElementById("quickActionsTitle");
         if (heading) heading.textContent = quickActions.length === 1 ? "Your next edit" : "Your next " + quickActions.length + " edits";
@@ -3050,6 +3478,16 @@ Download PDF
     }
 
     function getIssueTopic(item) {
+        // Use the check's category when there is one. Matching words in the text
+        // misfired: "Word, Google Docs" or "words joined" read as a length problem,
+        // and "translate key skills" as a missing skills section.
+        const category = String((item && item.category) || "").trim().toLowerCase();
+        if (category) {
+            if (category === "length") return /too short/.test(String(item.title || "").toLowerCase()) ? "length" : "general";
+            if (category === "skills") return "skills";
+            return "general";
+        }
+        // Reports saved without a category fall back to the words in the issue.
         const combined = getIssueSearchText(item);
         if (/length|too short|word/.test(combined)) return "length";
         if (/technical skills|skills|framework|database|tool|cloud/.test(combined)) return "skills";
@@ -3362,6 +3800,29 @@ Download PDF
         }
     }
 
+    // One icon per ATS check category (the backend's quality checks), so an issue
+    // reads at a glance: a crossed-out picture for a photo, a chart for impact...
+    const ATS_CATEGORY_ICON_PATHS = {
+        photo: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m20.5 16-4.5-4.5L9.5 18"/><path d="M3 3l18 18"/>',
+        format: '<path d="M7 3.5h7l4 4V20.5H7a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z"/><path d="M14 3.5v4h4"/><path d="M8.5 13h7M8.5 16.5h4.5"/>',
+        parsing: '<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M12 4v16"/><path d="M6.5 8.5h3M6.5 12h3M14.5 8.5h3M14.5 12h3"/>',
+        language: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.4 2.6 3.5 5.4 3.5 8.5s-1.1 5.9-3.5 8.5c-2.4-2.6-3.5-5.4-3.5-8.5S9.6 6.1 12 3.5Z"/>',
+        structure: '<path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.75" cy="6.5" r="1.1"/><circle cx="4.75" cy="12" r="1.1"/><circle cx="4.75" cy="17.5" r="1.1"/>',
+        timeline: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+        contact: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.8 6.5 8.2 6 8.2-6"/>',
+        impact: '<path d="M4 19.5h16"/><path d="m5 15 4.5-4.5 3.5 3.5 6.5-6.5"/><path d="M15 7.5h4.5V12"/>',
+        length: '<rect x="2.5" y="8" width="19" height="8" rx="1.5"/><path d="M6.5 8v3M10 8v4.5M13.5 8v3M17 8v4.5"/>',
+        skills: '<path d="m8.5 8-4.5 4 4.5 4"/><path d="m15.5 8 4.5 4-4.5 4"/><path d="m13.5 5-3 14"/>'
+    };
+    const ATS_DEFAULT_ICON_PATH = '<path d="M12 4 2.8 19.5h18.4L12 4Z"/><path d="M12 10v4.5M12 17.2v.3"/>';
+    const ATS_CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+
+    function getAtsCategoryIcon(category) {
+        const key = String(category || "").trim().toLowerCase();
+        const paths = ATS_CATEGORY_ICON_PATHS[key] || ATS_DEFAULT_ICON_PATH;
+        return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>';
+    }
+
     function renderAtsQualityCriteria(criteria, resumePreviewText = "", resumeVisualPreview = null, context = {}, previewIsExcerpt = false) {
         const container = document.getElementById("atsQualityCriteriaList");
         if (!container) {
@@ -3376,33 +3837,38 @@ Download PDF
 
         const issues = cleanItems.filter((item) => item.status !== "pass");
         const passes = cleanItems.filter((item) => item.status === "pass");
+        // Each issue is its category icon and title; tap it for the fix.
         const issueMarkup = issues.length
             ? issues.slice(0, 5).map((item) => (
-                '<li class="flex gap-3 border-b border-outline-variant/50 pb-3 last:border-b-0 last:pb-0">' +
-                    '<span class="text-error text-lg mt-0.5" aria-hidden="true">!</span>' +
-                    '<span>' +
-                        '<span class="block text-sm font-bold text-primary">' + escapeHtml(item.title || item.category || "ATS issue") + '</span>' +
-                        '<span class="block text-sm text-on-surface-variant leading-relaxed mt-1">' + escapeHtml(buildIssueActionText(item, safeContext)) + '</span>' +
-                    '</span>' +
-                '</li>'
+                '<li class="ats-issue"><details class="ats-issue-details report-collapse-item">' +
+                    '<summary class="ats-issue-summary">' +
+                        '<span class="ats-issue-icon" aria-hidden="true">' + getAtsCategoryIcon(item.category) + '</span>' +
+                        '<span class="ats-issue-title">' +
+                            (item.category ? '<small>' + escapeHtml(item.category) + '</small>' : "") +
+                            '<span>' + escapeHtml(item.title || item.category || "ATS issue") + '</span>' +
+                        '</span>' +
+                        '<svg class="ats-issue-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
+                    '</summary>' +
+                    '<p class="ats-issue-text">' + escapeHtml(buildIssueActionText(item, safeContext)) + '</p>' +
+                '</details></li>'
             )).join("")
-            : '<li class="flex gap-3"><span class="text-secondary text-lg mt-0.5" aria-hidden="true">✓</span><span class="text-sm text-on-surface-variant">No major ATS quality issues detected.</span></li>';
+            : '<li class="ats-all-clear">' + ATS_CHECK_ICON + '<span>No major ATS quality issues detected.</span></li>';
         const passMarkup = passes.length
             ? passes.map((item) => (
-                '<span class="px-3 py-1 rounded-full bg-secondary-container/20 text-on-secondary-container text-xs font-semibold">' + escapeHtml(item.category || item.title || "Passed") + '</span>'
+                '<span class="ats-pass-chip">' + getAtsCategoryIcon(item.category) + '<span>' + escapeHtml(item.category || item.title || "Passed") + '</span></span>'
             )).join("")
             : '<span class="px-3 py-1 rounded-full bg-surface-container-low text-on-surface-variant text-xs font-semibold">No passed checks yet</span>';
 
         container.innerHTML =
             '<div class="border-t border-outline-variant/60 pt-5">' +
                 '<p class="text-xs uppercase tracking-widest text-on-surface-variant mb-3">Issues to fix</p>' +
-                '<ul class="space-y-3">' + issueMarkup + '</ul>' +
+                '<ul class="ats-issue-list">' + issueMarkup + '</ul>' +
             '</div>' +
             '<div class="space-y-5 border-t lg:border-l lg:border-t-0 border-outline-variant/60 pt-5 lg:pt-0 lg:pl-6">' +
                 buildVisualResumePreview(resumeVisualPreview, resumePreviewText, previewIsExcerpt) +
                 '<div>' +
                     '<p class="text-xs uppercase tracking-widest text-on-surface-variant mb-3">Passed checks</p>' +
-                    '<div class="flex flex-wrap gap-2">' + passMarkup + '</div>' +
+                    '<div class="ats-pass-list">' + passMarkup + '</div>' +
                 '</div>' +
             '</div>';
 
@@ -3425,26 +3891,35 @@ Download PDF
 
     function getScoreMeaningBand(score) {
         const safeScore = clampPercent(Number(score || 0));
+        // key colours the band chip; short is the one-line version for the summary card.
         if (safeScore < 30) {
             return {
+                key: "low",
                 label: "Low readiness",
+                short: "Unlikely to pass ATS screening for this role yet.",
                 text: "Below 30 means the CV is unlikely to pass ATS screening for the compared role yet."
             };
         }
         if (safeScore < 50) {
             return {
+                key: "needs",
                 label: "Needs improvement",
+                short: "Some useful evidence, but keywords, proof, or format need work.",
                 text: "30-49 means the CV has some useful evidence, but role keywords, proof, or format need stronger work."
             };
         }
         if (safeScore < 80) {
             return {
+                key: "good",
                 label: "Good but not complete",
+                short: "Usable, but not fully optimized for this role yet.",
                 text: "50-79 means the CV is usable, but it is not fully optimized for the compared role yet."
             };
         }
         return {
+            key: "strong",
             label: "Strong readiness",
+            short: "Strong role and ATS alignment; small improvements are still possible.",
             text: "80+ means the CV has strong role and ATS alignment, with small improvements still possible."
         };
     }
@@ -3493,15 +3968,22 @@ Download PDF
             const numeric = value === null || value === undefined || value === "" ? Number.NaN : Number(value);
             return {
                 label: label + " (" + weight + ")",
-                value: Number.isFinite(numeric) ? formatScoreComponent(numeric) + " - " + metricStatus(numeric) : "Not available"
+                value: Number.isFinite(numeric) ? formatScoreComponent(numeric) + " - " + metricStatus(numeric) : "Not available",
+                // Separate parts for the summary card's weight list.
+                name: label,
+                weight,
+                score: Number.isFinite(numeric) ? formatScoreComponent(numeric) : "Not available"
             };
         });
 
         return {
             label: band.label,
+            band: band.key,
+            short: band.short,
             text: band.text + contextText,
             formula: componentText,
             components,
+            employment: employmentText.trim(),
             method: (formulaSentence + employmentText).trim()
         };
     }
@@ -4530,11 +5012,11 @@ Download PDF
             missingKeywords,
             overallScore: scoreOutOf100
         });
-        const evidenceItems = Array.isArray(matchedSignals) ? matchedSignals.map((item) => String(item).trim()).filter(Boolean) : [];
-        setText("reportSummaryEvidence", evidenceItems.length ? evidenceItems.slice(0, 4).join(", ") + "." : "No matched resume signals were returned for this comparison.");
+        // The matched words live in the Overview and Improve sections, so the hero
+        // only names the role.
         setText("reportSummaryRole", humanReviewRequired
             ? "The evidence for " + (selectedRole || recommendedRole || "this role") + " needs human review. Use the findings below as guidance for your next edit."
-            : "Compared with " + recommendedRole + ". Review the matched evidence and start with the suggested edits below.");
+            : "Compared with " + recommendedRole + ". Start with the suggested edits below.");
 
         const overallScore = document.getElementById("overallScore");
         const aiSummary = document.getElementById("aiSummary");
@@ -4549,11 +5031,29 @@ Download PDF
         }
         const downloadGeneratedPdfBtn = document.getElementById("downloadGeneratedPdfBtn");
 
-        animateScoreNumber(overallScore, scoreOutOf100);
         const scoreExplanation = buildScoreExplanation(scoreOutOf100, compatibility, scoreBreakdown, roleRecommendation, selectedRole, recommendedRole);
+        // Hero: band chip, the four score parts (open on wide screens), then the count-up.
+        heroScoreValue = scoreOutOf100;
+        const scoreBand = document.getElementById("reportScoreBand");
+        if (scoreBand) {
+            scoreBand.textContent = scoreExplanation.label;
+            scoreBand.dataset.band = scoreExplanation.band;
+        }
+        const hasScoreParts = renderHeroScoreParts(scoreBreakdown, compatibility);
+        initHeroScore(hasScoreParts);
+        setHeroScorePartsOpen(hasScoreParts && !(window.matchMedia && window.matchMedia("(max-width: 700px)").matches), true);
+        animateScoreNumber(overallScore, scoreOutOf100);
+        // Summary card: verdict and one short line; the method sits in its fold.
         setText("scoreMeaningLabel", scoreExplanation.label);
+        setText("scoreMeaningShort", scoreExplanation.short);
         setText("scoreMeaningText", scoreExplanation.text);
-        setText("scoreFormulaText", scoreExplanation.formula);
+        const scoreWeightList = document.getElementById("scoreWeightList");
+        if (scoreWeightList) {
+            scoreWeightList.innerHTML = scoreExplanation.components.map((part) => (
+                '<li><span>' + escapeHtml(part.name) + ' <small>' + escapeHtml(part.weight) + '</small></span><strong>' + escapeHtml(part.score) + '</strong></li>'
+            )).join("");
+        }
+        setText("scoreFormulaText", scoreExplanation.employment);
 
         setText("submissionFileNameDisplay", uploadedResumeName || "No resume selected");
         setText("submissionFileTypeDisplay", fileType);
@@ -4595,7 +5095,7 @@ Download PDF
                 aiRecommendation.textContent = "Notes use the Top 1 detected role because no job was selected.";
             } else {
                 aiRecommendation.textContent = missingKeywords.length
-                    ? "Next edit for " + (guidanceContext.roleName || recommendedRole) + ": add evidence for " + missingKeywords.slice(0, 4).join(", ") + "."
+                    ? "Next: add evidence for " + missingKeywords.slice(0, 4).join(", ") + "."
                     : "Next edit: quantify impact and keep the ATS format clean.";
             }
         }
@@ -4603,8 +5103,8 @@ Download PDF
         const atsReadinessCopy = getAtsReadinessCopy(scoreOutOf100, resumeQuality, scoreBreakdown);
         setText("atsQualityHeadline", atsReadinessCopy.headline);
         setText("atsQualitySummaryText", atsReadinessCopy.summary);
-        setText("atsQualityRiskText", atsReadinessCopy.badge);
         setText("atsQualityScoreText", atsReadinessCopy.scoreText);
+        renderAtsMeter(resumeQuality, atsReadinessCopy.qualityScore);
         renderAtsQualityCriteria(qualityCriteria, resumePreviewText, resumeVisualPreview, guidanceContext, !result.resume_text_for_generation);
 
         if (guidanceContext.mode === "selectedRoleExample") {
@@ -4696,7 +5196,6 @@ Download PDF
             generateResumeBtn.textContent = "Analyze your own resume to create a draft";
             setGeneratedResumeStatus("Resume drafting is available after you analyze your own resume. This report uses fictional sample data.");
         }
-        renderPills("matchedSignalsChipList", matchedSignals, "No matched resume signals detected yet.");
         renderTopRoleMatches(topRoleMatches, guidanceContext);
         renderRecommendationPlan(recommendationModule, {
             recommendedRole,
