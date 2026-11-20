@@ -22,6 +22,15 @@ class WritingCardTests(unittest.TestCase):
         for part in ("action", "tool", "scope", "purpose"):
             self.assertIn(f'.career-writing-card[data-active-part="{part}"] mark[data-part="{part}"]', HOME)
 
+    def test_bullets_type_out_without_moving_the_layout(self):
+        typer = HOME[HOME.index("// \"Write with evidence\" card types itself out"):HOME.index("// \"Write with evidence\" card: a legend chip")]
+        # Skipped for reduced motion; hidden letters keep their space (opacity, not display).
+        self.assertIn('reduceMotion.matches) return;', typer)
+        self.assertIn(".career-writing-card.is-typing .tw-char:not(.is-shown) { opacity: 0; }", HOME)
+        # Tapping the card finishes it, and the plain text is put back at the end.
+        self.assertIn('card.addEventListener("click", finish);', typer)
+        self.assertIn("quote.innerHTML = originals[index];", typer)
+
     def test_labels_have_malay_translations(self):
         for label in ("No tool, number, or purpose.", "What makes it specific", "Action", "Tools", "Scope", "Purpose"):
             with self.subTest(label=label):
