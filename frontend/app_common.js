@@ -299,6 +299,7 @@
     "Display": "Paparan",
     "Preferences and security": "Pilihan dan keselamatan",
     "Your preferences": "Pilihan anda",
+    "Full sample report": "Laporan contoh penuh",
     "Language": "Bahasa",
     "Appearance": "Tema warna",
     "Light": "Cerah",
