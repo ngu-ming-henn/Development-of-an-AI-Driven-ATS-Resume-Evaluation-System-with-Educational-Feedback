@@ -28,6 +28,17 @@ class HistoryButtonWiringTests(unittest.TestCase):
                 self.assertIn('data-account-auth-action="register" data-account-guest-only', page_source)
                 self.assertIn("createHistoryModal({", page_source)
 
+    def test_clearing_history_also_forgets_the_latest_report(self):
+        common_source = (FRONTEND_DIR / "app_common.js").read_text(encoding="utf-8")
+        clear_handler = common_source.split('requestHistory("/analyses", "DELETE")', 1)[1].split("render();", 1)[0]
+        self.assertIn("forgetLatestReport();", clear_handler)
+        self.assertIn("forgetLatestReport({ analysisId: id, historyKey: item.history_key });", common_source)
+        self.assertIn('new CustomEvent("career-navigator-report-cleared")', common_source)
+        for page_name in ("home_page.html", "analysis_result.html"):
+            with self.subTest(page=page_name):
+                page_source = (FRONTEND_DIR / page_name).read_text(encoding="utf-8")
+                self.assertIn('window.addEventListener("career-navigator-report-cleared"', page_source)
+
     def test_guest_sign_in_action_opens_existing_auth_flow(self):
         for page_name in ("home_page.html", "analysis_result.html"):
             with self.subTest(page=page_name):

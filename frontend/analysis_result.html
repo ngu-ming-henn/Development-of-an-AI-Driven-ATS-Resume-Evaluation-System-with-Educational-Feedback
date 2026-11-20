@@ -4781,8 +4781,20 @@ Download PDF
         returnToRealReportLink.classList.toggle("hidden", !viewingSampleReport || !window.CareerNavigatorCommon.hasCurrentUserReport());
     }
     window.addEventListener("career-navigator-auth-changed", updateRealReportReturnLink);
+    // History cleared, or this report deleted, in the account window (or in another tab):
+    // stop showing the report that no longer exists.
+    function hideClearedReport() {
+        updateRealReportReturnLink();
+        if (viewingSampleReport) return;
+        const content = document.getElementById("reportContent");
+        const empty = document.getElementById("noAnalysisState");
+        if (content) content.hidden = true;
+        if (empty) empty.hidden = false;
+    }
+    window.addEventListener("career-navigator-report-cleared", hideClearedReport);
     window.addEventListener("storage", (event) => {
         if (["analysisResult", "analysisOwner", "authUser"].includes(event.key)) updateRealReportReturnLink();
+        if (event.key === "analysisResult" && !event.newValue) hideClearedReport();
     });
     window.addEventListener("pageshow", (event) => {
         if (!event.persisted) return;
