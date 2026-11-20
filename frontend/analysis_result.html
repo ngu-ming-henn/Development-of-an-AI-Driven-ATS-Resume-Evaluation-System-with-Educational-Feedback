@@ -253,6 +253,9 @@
         .report-shell .evidence-ring { background: conic-gradient(var(--studio-teal) calc(var(--score) * 1%), #e0e7ef 0); }
         .report-shell .evidence-ring span { color: var(--studio-ink); }
         .report-shell .evidence-ring .soft-count { font-size: .72rem; }
+        /* Soft skills are counted, not scored: four segments, one for each signal
+           found (the card lists up to four), instead of a percentage ring. */
+        .report-shell .evidence-ring.is-count { background: conic-gradient(var(--count-1, #e0e7ef) 0 82deg, transparent 82deg 90deg, var(--count-2, #e0e7ef) 90deg 172deg, transparent 172deg 180deg, var(--count-3, #e0e7ef) 180deg 262deg, transparent 262deg 270deg, var(--count-4, #e0e7ef) 270deg 352deg, transparent 352deg 360deg); }
         .report-shell .priority-action-grid article { min-height: auto; }
         .career-footer { background: #122b3b; color: #fff; }
         .career-container { width: min(1200px, calc(100% - 48px)); margin-inline: auto; }
@@ -740,6 +743,7 @@ html[data-theme="dark"] .report-sample-banner{border-color:#2d3f45;background-im
 html[data-theme="dark"] .report-shell section > div:is(.bg-surface-container-lowest,.bg-surface-container-high){border-color:var(--studio-border);box-shadow:0 12px 36px rgba(22,35,56,.04)}
 html[data-theme="dark"] .report-shell .evidence-ring{background-image:conic-gradient(var(--studio-teal) calc(var(--score) * 1%), #222830 0);background-color:transparent}
 html[data-theme="dark"] .report-shell .evidence-ring span{color:var(--studio-ink)}
+html[data-theme="dark"] .report-shell .evidence-ring.is-count{background-image:conic-gradient(var(--count-1, #222830) 0 82deg, transparent 82deg 90deg, var(--count-2, #222830) 90deg 172deg, transparent 172deg 180deg, var(--count-3, #222830) 180deg 262deg, transparent 262deg 270deg, var(--count-4, #222830) 270deg 352deg, transparent 352deg 360deg);background-color:transparent}
 html[data-theme="dark"] .career-footer{background-image:none;background-color:#122b3b;color:#fff}
 html[data-theme="dark"] .career-footer-lockup{color:#fff}
 html[data-theme="dark"] .career-footer-mark{border-color:rgba(179,234,242,.3);background-image:none;background-color:var(--studio-teal)}
@@ -966,7 +970,7 @@ html[data-theme="dark"] .tick-flow > li > .tick-mark{background-image:none;backg
 </div>
 </article>
 <article class="rounded-xl bg-surface-container-lowest border border-outline-variant/60 p-4 flex items-center gap-3 shadow-sm">
-<div class="evidence-ring" id="softSkillsRing" style="--score: 0;"><span class="soft-count" id="softSkillsScore">-</span></div>
+<div class="evidence-ring is-count" id="softSkillsRing"><span class="soft-count" id="softSkillsScore">-</span></div>
 <div class="min-w-0">
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-1">Soft Skills</p>
 <h4 class="text-sm font-extrabold text-primary">Work Style</h4>
@@ -2337,7 +2341,11 @@ Download PDF
         const softSkillsRing = document.getElementById("softSkillsRing");
         const softSkillsScore = document.getElementById("softSkillsScore");
         if (softSkillsRing) {
-            softSkillsRing.style.setProperty("--score", "0");
+            // One filled segment per soft-skill signal found (up to four).
+            for (let segment = 1; segment <= 4; segment += 1) {
+                if (segment <= softSignals.length) softSkillsRing.style.setProperty("--count-" + segment, "var(--studio-teal)");
+                else softSkillsRing.style.removeProperty("--count-" + segment);
+            }
             softSkillsRing.setAttribute("aria-label", softSignals.length + " soft skill signals found");
         }
         if (softSkillsScore) softSkillsScore.textContent = softSignals.length + " found";
