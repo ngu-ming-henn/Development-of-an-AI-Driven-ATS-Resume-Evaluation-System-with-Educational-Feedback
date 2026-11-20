@@ -572,14 +572,67 @@
         .career-writing-section { background: white; }
         .career-writing-grid { display: grid; grid-template-columns: .82fr 1.18fr; gap: clamp(30px,6vw,100px); align-items: center; }
         .career-writing-intro { max-width: 420px; margin-top: 21px; color: var(--career-muted); font-size: 15px; line-height: 1.7; }
-        .career-writing-examples { display: grid; gap: 11px; }
-        .career-writing-example { padding: 18px 22px; border: 1px solid var(--career-line); border-radius: 12px; background: #f7f9fc; }
-        .career-writing-example span { color: var(--career-muted); font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
-        .career-writing-example p { margin: 8px 0 0; font-size: 16px; line-height: 1.5; }
-        .career-writing-example-after { border-color: #bee6d7; background: #effaf5; }
-        .career-writing-example-after span { color: #176b52; }
-        .career-writing-note { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0 0; color: #526477; font-size: 12px; line-height: 1.6; }
+        .career-writing-examples { display: grid; gap: 14px; min-width: 0; }
+        /* Before/after card: the vague bullet, an arrow, then the stronger bullet with
+           each part coloured by what it adds. */
+        .career-writing-card { margin: 0; overflow: hidden; border: 1px solid var(--career-line); border-radius: 20px; background: #fff; box-shadow: 0 18px 44px rgba(22,35,56,.07); }
+        .career-writing-before { padding: 24px 28px 30px; background: #f6f8fb; }
+        .career-writing-after { position: relative; padding: 32px 28px 26px; border-top: 1px solid var(--career-line); }
+        .career-writing-arrow { position: absolute; top: 0; left: 50%; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--career-line); border-radius: 50%; background: #fff; color: var(--career-teal-deep); transform: translate(-50%, -50%); box-shadow: 0 6px 16px rgba(22,35,56,.08); }
+        .career-writing-arrow svg { width: 17px; height: 17px; }
+        .career-writing-label { display: flex; align-items: center; gap: 9px; margin: 0; color: #8a3b3f; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        .career-writing-badge { display: grid; flex: none; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #fde5e5; color: #b4282e; }
+        .career-writing-badge svg { width: 12px; height: 12px; }
+        .career-writing-after .career-writing-label { color: #176b52; }
+        .career-writing-after .career-writing-badge { background: #dcf5ea; color: #0b7a4b; }
+        .career-writing-quote { margin: 12px 0 0; color: var(--career-ink); font-size: 17px; line-height: 1.75; }
+        .career-writing-before .career-writing-quote { color: #5b6878; }
+        .career-writing-vague { text-decoration: underline wavy #e0676c; text-decoration-thickness: 1.5px; text-underline-offset: 5px; }
+        .career-writing-missing { margin: 8px 0 0; color: #8a5a5d; font-size: 12px; font-weight: 600; }
+        .career-writing-quote mark { padding: .12em .34em; border-radius: 6px; color: inherit; font-weight: 600; background-color: transparent; background-repeat: no-repeat; background-size: 100% 100%; -webkit-box-decoration-break: clone; box-decoration-break: clone; transition: opacity .2s ease, background-size .55s cubic-bezier(.2,.8,.2,1); transition-delay: 0s, calc(.35s + var(--i, 0) * .16s); }
+        .career-writing-quote mark[data-part="action"] { background-image: linear-gradient(#dfeeff, #dfeeff); box-shadow: inset 0 -2px 0 #4c9cf2; }
+        .career-writing-quote mark[data-part="tool"] { background-image: linear-gradient(#d9f4e7, #d9f4e7); box-shadow: inset 0 -2px 0 #2fa874; }
+        .career-writing-quote mark[data-part="scope"] { background-image: linear-gradient(#ffefd2, #ffefd2); box-shadow: inset 0 -2px 0 #e39a3b; }
+        .career-writing-quote mark[data-part="purpose"] { background-image: linear-gradient(#efe8ff, #efe8ff); box-shadow: inset 0 -2px 0 #8f6ef0; }
+        /* The colours sweep in after the card slides into view. */
+        body.motion-ready .career-writing-examples:not(.is-visible) .career-writing-quote mark { background-size: 0% 100%; }
+        .career-writing-legend { margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--career-line); }
+        .career-writing-legend p { margin: 0 0 10px; color: var(--career-muted); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        .career-writing-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .career-writing-chips button { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 6px 13px; border: 1px solid var(--career-line); border-radius: 999px; background: #fff; color: var(--career-ink); font: 700 12.5px/1.2 Inter, sans-serif; cursor: pointer; transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease; }
+        .career-writing-chips button i { width: 10px; height: 10px; border-radius: 50%; }
+        .career-writing-chips button[data-part="action"] i { background: #4c9cf2; }
+        .career-writing-chips button[data-part="tool"] i { background: #2fa874; }
+        .career-writing-chips button[data-part="scope"] i { background: #e39a3b; }
+        .career-writing-chips button[data-part="purpose"] i { background: #8f6ef0; }
+        .career-writing-chips button:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: 2px; }
+        .career-writing-chips button[aria-pressed="true"] { border-color: var(--career-teal); background: #eef6ff; box-shadow: inset 0 0 0 1px var(--career-teal); }
+        @media (hover: hover) and (pointer: fine) {
+            .career-writing-chips button:hover { border-color: #b9d3ec; background: #f6faff; }
+        }
+        /* Picking a chip keeps its words bright and fades the rest. */
+        .career-writing-card[data-active-part] .career-writing-quote mark { opacity: .28; }
+        .career-writing-card[data-active-part="action"] mark[data-part="action"],
+        .career-writing-card[data-active-part="tool"] mark[data-part="tool"],
+        .career-writing-card[data-active-part="scope"] mark[data-part="scope"],
+        .career-writing-card[data-active-part="purpose"] mark[data-part="purpose"] { opacity: 1; }
+        .career-writing-note { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding-inline: 4px; color: #526477; font-size: 12px; line-height: 1.6; }
         .career-writing-mark { color: var(--career-teal); font-size: 18px; flex: none; line-height: 1; }
+        @media (max-width: 700px) {
+            .career-writing-card { border-radius: 18px; }
+            .career-writing-before { padding: 20px 20px 26px; }
+            .career-writing-after { padding: 28px 20px 22px; }
+            .career-writing-quote { font-size: 15.5px; line-height: 1.75; }
+            .career-writing-chips { gap: 7px; }
+            .career-writing-chips button { padding: 6px 11px; font-size: 12px; }
+        }
+        @media (max-width: 520px) {
+            /* Four chips do not fit one row on phones; a 2 x 2 grid keeps them even. */
+            .career-writing-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .career-writing-quote mark, .career-writing-chips button { transition: none; }
+        }
         /* Resume draft: what the generated ATS resume looks like (fictional). */
         .career-draft-section { background: #f7fbff; }
         .career-draft-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: clamp(32px, 6vw, 96px); }
@@ -1025,10 +1078,34 @@ html[data-theme="dark"] .career-report-footnote{border-top-color:var(--career-li
 html[data-theme="dark"] .career-report-footnote a{color:var(--career-teal-deep-text, var(--career-teal-deep))}
 html[data-theme="dark"] .career-writing-section{background-image:none;background-color:#1f252c}
 html[data-theme="dark"] .career-writing-intro{color:var(--career-muted)}
-html[data-theme="dark"] .career-writing-example{border-color:var(--career-line);background-image:none;background-color:#151a20}
-html[data-theme="dark"] .career-writing-example span{color:var(--career-muted)}
-html[data-theme="dark"] .career-writing-example-after{border-color:#1f463a;background-image:none;background-color:#111e19}
-html[data-theme="dark"] .career-writing-example-after span{color:#7ac7aa}
+html[data-theme="dark"] .career-writing-card{border-color:var(--career-line);background-image:none;background-color:#1f252c;box-shadow:0 18px 44px rgba(22,35,56,.07)}
+html[data-theme="dark"] .career-writing-before{background-image:none;background-color:#161b21}
+html[data-theme="dark"] .career-writing-after{border-top-color:var(--career-line)}
+html[data-theme="dark"] .career-writing-arrow{border-color:var(--career-line);background-image:none;background-color:#1f252c;color:var(--career-teal-deep-text, var(--career-teal-deep));box-shadow:0 6px 16px rgba(22,35,56,.08)}
+html[data-theme="dark"] .career-writing-label{color:#f49a9b}
+html[data-theme="dark"] .career-writing-badge{background-image:none;background-color:#2f1c1c;color:#ff7d77}
+html[data-theme="dark"] .career-writing-after .career-writing-label{color:#7ac7aa}
+html[data-theme="dark"] .career-writing-after .career-writing-badge{background-image:none;background-color:#11251d;color:#69c692}
+html[data-theme="dark"] .career-writing-quote{color:var(--career-ink)}
+html[data-theme="dark"] .career-writing-before .career-writing-quote{color:#a3b1c3}
+html[data-theme="dark"] .career-writing-missing{color:#d49ea1}
+html[data-theme="dark"] .career-writing-quote mark{color:inherit;background-color:transparent}
+html[data-theme="dark"] .career-writing-quote mark[data-part="action"]{background-image:linear-gradient(#17222f, #17222f);box-shadow:inset 0 -2px 0 #3a5069}
+html[data-theme="dark"] .career-writing-quote mark[data-part="tool"]{background-image:linear-gradient(#13261e, #13261e);box-shadow:inset 0 -2px 0 #385a48}
+html[data-theme="dark"] .career-writing-quote mark[data-part="scope"]{background-image:linear-gradient(#261d0d, #261d0d);box-shadow:inset 0 -2px 0 #5b452b}
+html[data-theme="dark"] .career-writing-quote mark[data-part="purpose"]{background-image:linear-gradient(#231e2e, #231e2e);box-shadow:inset 0 -2px 0 #534e6c}
+html[data-theme="dark"] .career-writing-legend{border-top-color:var(--career-line)}
+html[data-theme="dark"] .career-writing-legend p{color:var(--career-muted)}
+html[data-theme="dark"] .career-writing-chips button{border-color:var(--career-line);background-image:none;background-color:#1f252c;color:var(--career-ink)}
+html[data-theme="dark"] .career-writing-chips button[data-part="action"] i{background-image:none;background-color:#253f5c}
+html[data-theme="dark"] .career-writing-chips button[data-part="tool"] i{background-image:none;background-color:#1f4a35}
+html[data-theme="dark"] .career-writing-chips button[data-part="scope"] i{background-image:none;background-color:#4c3211}
+html[data-theme="dark"] .career-writing-chips button[data-part="purpose"] i{background-image:none;background-color:#423c5f}
+html[data-theme="dark"] .career-writing-chips button:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .career-writing-chips button[aria-pressed="true"]{border-color:var(--career-teal);background-image:none;background-color:#141d27;box-shadow:inset 0 0 0 1px var(--career-teal)}
+@media (hover: hover) and (pointer: fine){
+html[data-theme="dark"] .career-writing-chips button:hover{border-color:#2a435a;background-image:none;background-color:#151a20}
+}
 html[data-theme="dark"] .career-writing-note{color:#a0b4c9}
 html[data-theme="dark"] .career-writing-mark{color:var(--career-teal-text, var(--career-teal))}
 html[data-theme="dark"] .career-draft-section{background-image:none;background-color:#15191f}
@@ -1105,6 +1182,15 @@ html[data-theme="dark"] .career-report-preview-overview .career-ui-metric{border
     --career-teal: #2f8ff0; --career-teal-text: #66b2ff;
     --career-teal-deep: #0d6fd6; --career-teal-deep-text: #66b2ff;
   }
+  /* "Write with evidence": the four highlight colours stay easy to tell apart. */
+  html[data-theme="dark"] .career-writing-quote mark[data-part="action"] { background-image: linear-gradient(#173352, #173352); box-shadow: inset 0 -2px 0 #4c9cf2; }
+  html[data-theme="dark"] .career-writing-quote mark[data-part="tool"] { background-image: linear-gradient(#143a2a, #143a2a); box-shadow: inset 0 -2px 0 #3fbf86; }
+  html[data-theme="dark"] .career-writing-quote mark[data-part="scope"] { background-image: linear-gradient(#3d2b10, #3d2b10); box-shadow: inset 0 -2px 0 #e9a54b; }
+  html[data-theme="dark"] .career-writing-quote mark[data-part="purpose"] { background-image: linear-gradient(#2b2350, #2b2350); box-shadow: inset 0 -2px 0 #a48bf5; }
+  html[data-theme="dark"] .career-writing-chips button[data-part="action"] i { background-color: #4c9cf2; }
+  html[data-theme="dark"] .career-writing-chips button[data-part="tool"] i { background-color: #3fbf86; }
+  html[data-theme="dark"] .career-writing-chips button[data-part="scope"] i { background-color: #e9a54b; }
+  html[data-theme="dark"] .career-writing-chips button[data-part="purpose"] i { background-color: #a48bf5; }
 }
 </style>
 </head>
@@ -1409,9 +1495,30 @@ html[data-theme="dark"] .career-report-preview-overview .career-ui-metric{border
   <section class="career-section career-writing-section" aria-labelledby="writing-heading">
     <div class="career-container career-writing-grid">
       <div data-reveal="left"><p class="career-eyebrow"><span class="career-eyebrow-rule"></span> Write with evidence</p><h2 id="writing-heading">A stronger bullet starts with what you did.</h2><p class="career-writing-intro">The goal is clear, truthful detail a reader can understand. This fictional example shows how specificity helps.</p></div>
+      <!-- One before/after card. Each part of the stronger bullet is coloured by what it
+           adds; the legend chips light up those words (tap on phones, hover on PCs). -->
       <div class="career-writing-examples" data-reveal="right">
-        <div class="career-writing-example"><span>Before · vague</span><p>“Responsible for developing a web application.”</p></div>
-        <div class="career-writing-example career-writing-example-after"><span>After · specific</span><p>“Built a Flask web application with PostgreSQL and three API endpoints for campus timetable search.”</p></div>
+        <figure class="career-writing-card">
+          <div class="career-writing-before">
+            <p class="career-writing-label"><span class="career-writing-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg></span><span>Before · vague</span></p>
+            <p class="career-writing-quote">“<span class="career-writing-vague">Responsible for</span> developing a web application.”</p>
+            <p class="career-writing-missing">No tool, number, or purpose.</p>
+          </div>
+          <div class="career-writing-after">
+            <span class="career-writing-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg></span>
+            <p class="career-writing-label"><span class="career-writing-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><span>After · specific</span></p>
+            <p class="career-writing-quote">“<mark data-part="action" style="--i:0">Built</mark> a <mark data-part="tool" style="--i:1">Flask</mark> web application with <mark data-part="tool" style="--i:2">PostgreSQL</mark> and <mark data-part="scope" style="--i:3">three API endpoints</mark> for <mark data-part="purpose" style="--i:4">campus timetable search</mark>.”</p>
+            <div class="career-writing-legend">
+              <p>What makes it specific</p>
+              <div class="career-writing-chips">
+                <button type="button" data-part="action" aria-pressed="false"><i aria-hidden="true"></i>Action</button>
+                <button type="button" data-part="tool" aria-pressed="false"><i aria-hidden="true"></i>Tools</button>
+                <button type="button" data-part="scope" aria-pressed="false"><i aria-hidden="true"></i>Scope</button>
+                <button type="button" data-part="purpose" aria-pressed="false"><i aria-hidden="true"></i>Purpose</button>
+              </div>
+            </div>
+          </div>
+        </figure>
         <p class="career-writing-note"><span class="career-writing-mark" aria-hidden="true">✦</span> Write only what you actually did. Use tools, actions, and outcomes you can support.</p>
       </div>
     </div>
@@ -3960,6 +4067,29 @@ html[data-theme="dark"] .career-report-preview-overview .career-ui-metric{border
       });
     }
   }
+
+  // "Write with evidence" card: a legend chip lights up its words in the stronger
+  // bullet. Tap pins it (tap again to clear); hovering with a mouse previews it.
+  (() => {
+    const card = document.querySelector(".career-writing-card");
+    if (!card) return;
+    const chips = Array.from(card.querySelectorAll(".career-writing-chips button"));
+    let pinned = "";
+    const show = (part) => {
+      if (part) card.dataset.activePart = part;
+      else delete card.dataset.activePart;
+      chips.forEach((chip) => chip.setAttribute("aria-pressed", String(chip.dataset.part === pinned)));
+    };
+    const canHover = window.matchMedia("(hover: hover) and (pointer: fine)");
+    chips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        pinned = pinned === chip.dataset.part ? "" : chip.dataset.part;
+        show(pinned);
+      });
+      chip.addEventListener("mouseenter", () => { if (canHover.matches) show(chip.dataset.part); });
+      chip.addEventListener("mouseleave", () => { if (canHover.matches) show(pinned); });
+    });
+  })();
 
   // Quick tour in the hero: four stacked step cards. Back/Next, the dots, the
   // arrow keys or a swipe change the step; Play runs the steps like a short
