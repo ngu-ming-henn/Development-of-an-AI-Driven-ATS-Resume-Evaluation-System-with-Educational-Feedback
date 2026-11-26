@@ -8,6 +8,14 @@
   let authSessionRequest = null;
   let authSessionVerified = false;
 
+  // Light or dark colours. Applied here, before the page styles, so a dark page
+  // never flashes white while it loads.
+  const THEME_KEY = "careerNavigatorTheme";
+  let theme = "light";
+  try { theme = localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light"; } catch (error) { /* Storage can be unavailable. */ }
+  // The Node tests load this file with a minimal document that has no root element.
+  if (document.documentElement) document.documentElement.dataset.theme = theme;
+
   function getRequestUrl(input) {
     if (typeof input === "string" || input instanceof URL) {
       return new URL(input, window.location.href);
@@ -98,6 +106,34 @@
     } catch (error) {
       return null;
     }
+  }
+
+  // The latest report this browser keeps. It powers "Your report" and the report page.
+  const LATEST_REPORT_KEYS = ["analysisResult", "analysisOwner", "pipelineStatus", "uploadedResumeName", "selectedJobRole", "selectedJobDescription", "analysisStartedAt"];
+  const REPORT_PREVIEW_KEYS = ["resumeVisualPreviewDataUrl", "resumeVisualPreviewType", "resumeVisualPreviewName", "resumeVisualPreviewResultKey", "resumeRenderedPreviewDataUrl", "resumeRenderedPreviewName", "resumeRenderedPreviewResultKey"];
+
+  // Forget the latest report: always, or only when it is the given saved report.
+  // The page hears "career-navigator-report-cleared" and hides "Your report" and
+  // an open report straight away.
+  function forgetLatestReport(only) {
+    try {
+      if (only) {
+        const stored = JSON.parse(localStorage.getItem("analysisResult") || "null");
+        if (!stored) return false;
+        const sameId = Boolean(only.analysisId) && Number(stored.analysis_id) === Number(only.analysisId);
+        const sameKey = Boolean(only.historyKey) && getAnalysisHistoryKey(stored, localStorage.getItem("selectedJobRole") || "") === only.historyKey;
+        if (!sameId && !sameKey) return false;
+      }
+      LATEST_REPORT_KEYS.forEach((key) => localStorage.removeItem(key));
+      REPORT_PREVIEW_KEYS.forEach((key) => {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+      });
+    } catch (error) {
+      return false;
+    }
+    window.dispatchEvent(new CustomEvent("career-navigator-report-cleared"));
+    return true;
   }
 
   function hasCurrentUserReport() {
@@ -244,6 +280,78 @@
     "ATS format feedback": "Maklum balas format ATS",
     "Practical improvement tips": "Tip penambahbaikan praktikal",
     "From the built-in sample report": "Daripada contoh laporan terbina dalam",
+    "Quick tour": "Lawatan pantas",
+    "Quick tour: how to check your resume": "Lawatan pantas: cara menyemak resume anda",
+    "Play tour": "Main lawatan",
+    "Pause tour": "Jeda lawatan",
+    "Back": "Kembali",
+    "Next": "Seterusnya",
+    "Previous step": "Langkah sebelumnya",
+    "Next step": "Langkah seterusnya",
+    "Choose a step": "Pilih langkah",
+    "Step 3": "Langkah 3",
+    "Step 4": "Langkah 4",
+    "Step 5": "Langkah 5",
+    "Draft": "Draf",
+    "Get your ATS resume draft": "Dapatkan draf resume ATS anda",
+    "The report builds a clean one-column draft from your own evidence. Review it, then download the PDF.": "Laporan membina draf satu lajur yang kemas daripada bukti anda sendiri. Semak dahulu, kemudian muat turun PDF.",
+    "Reading the text in your image, then analyzing it. Images take longer than PDFs, often up to a minute. To change the role or file, choose Stop waiting.": "Membaca teks dalam imej anda, kemudian menganalisisnya. Imej mengambil masa lebih lama daripada PDF, selalunya sehingga seminit. Untuk menukar peranan atau fail, pilih Berhenti menunggu.",
+    "Still working. Images, scanned PDFs and the first check after the site has been quiet can take up to a minute. To change the role or file, choose Stop waiting.": "Masih diproses. Imej, PDF imbasan dan semakan pertama selepas laman lama tidak digunakan boleh mengambil masa sehingga seminit. Untuk menukar peranan atau fail, pilih Berhenti menunggu.",
+    "Analyzing your resume against the selected role. To change the role or file, choose Stop waiting.": "Menganalisis resume anda berdasarkan peranan yang dipilih. Untuk menukar peranan atau fail, pilih Berhenti menunggu.",
+    "Analyzing your resume and looking for a suitable role. To change the role or file, choose Stop waiting.": "Menganalisis resume anda dan mencari peranan yang sesuai. Untuk menukar peranan atau fail, pilih Berhenti menunggu.",
+    "Upload": "Muat naik",
+    "Upload your resume": "Muat naik resume anda",
+    "Drop a PDF, PNG or JPG file. A text-based PDF gives the clearest result.": "Letakkan fail PDF, PNG atau JPG. PDF berasaskan teks memberikan hasil paling jelas.",
+    "Reading your resume…": "Membaca resume anda…",
+    "Choose your target role": "Pilih peranan sasaran anda",
+    "Type a role or pick a popular one. Leave it empty and the navigator suggests the closest match.": "Taip peranan atau pilih peranan popular. Biarkan kosong dan navigator akan mencadangkan padanan paling hampir.",
+    "See your score": "Lihat skor anda",
+    "Fix the next edits": "Buat suntingan seterusnya",
+    "Follow the top three edits, then check again to see your progress.": "Ikut tiga suntingan utama, kemudian semak semula untuk melihat kemajuan anda.",
+    "Add missing keywords with real evidence": "Tambah kata kunci yang tiada dengan bukti sebenar",
+    "Show the result of each project": "Tunjukkan hasil setiap projek",
+    "Use clear section headings": "Gunakan tajuk bahagian yang jelas",
+    "since your last check": "sejak semakan lepas anda",
+    "UTS CS Readiness Score": "Skor kesediaan UTS CS",
+    "Show details": "Tunjuk butiran",
+    "Minimize": "Kecilkan",
+    "Keywords to add with proof": "Kata kunci untuk ditambah dengan bukti",
+    "Evidence kept from your resume": "Bukti yang dikekalkan daripada resume anda",
+    "Resume feedback for Computer Science students": "Maklum balas resume untuk pelajar Sains Komputer",
+    "Role matching": "Padanan peranan",
+    "Improvement tips": "Tip penambahbaikan",
+    "ATS resume drafts": "Draf resume ATS",
+    "Final Year Project 2026": "Projek Tahun Akhir 2026",
+    "University of Technology Sarawak logo": "Logo University of Technology Sarawak",
+    "Ready for user action": "Sedia untuk tindakan anda",
+    "Generated from analysis": "Dijana daripada analisis",
+    "Display": "Paparan",
+    "Preferences and security": "Pilihan dan keselamatan",
+    "Your preferences": "Pilihan anda",
+    "Full sample report": "Laporan contoh penuh",
+    "Language": "Bahasa",
+    "Appearance": "Tema warna",
+    "Light": "Cerah",
+    "Dark": "Gelap",
+    "Your choice is saved in this browser.": "Pilihan anda disimpan dalam pelayar ini.",
+    "Choose the language and colours, and manage your verified email and password.": "Pilih bahasa dan warna, serta urus e-mel yang disahkan dan kata laluan anda.",
+    "Choose the language and colours for this site.": "Pilih bahasa dan warna untuk laman ini.",
+    "Custom role typed by user.": "Peranan tersuai ditaip oleh pengguna.",
+    "The Top 3 list below shows the closest database roles.": "Senarai 3 teratas di bawah menunjukkan peranan pangkalan data terdekat.",
+    "Turn your feedback into an": "Jadikan maklum balas anda",
+    "ATS-ready draft.": "draf sedia ATS.",
+    "After the analysis, the report builds a clean resume draft from your own evidence for the role you chose. You review it, then download it as a PDF.": "Selepas analisis, laporan membina draf resume yang kemas daripada bukti anda sendiri untuk peranan yang anda pilih. Anda semak dahulu, kemudian muat turunnya sebagai PDF.",
+    "Built from your resume": "Dibina daripada resume anda",
+    "Your name, contact details, skills, projects and education stay in their own sections.": "Nama, butiran hubungan, kemahiran, projek dan pendidikan anda kekal dalam bahagian masing-masing.",
+    "A layout ATS can read": "Susun atur yang boleh dibaca ATS",
+    "One column and standard headings, without tables, icons or photos.": "Satu lajur dan tajuk standard, tanpa jadual, ikon atau foto.",
+    "Advice stays in the report": "Cadangan kekal dalam laporan",
+    "Missing keywords are listed as tips, never added as experience you do not have.": "Kata kunci yang tiada disenaraikan sebagai tip, tidak sekali-kali ditambah sebagai pengalaman yang anda tiada.",
+    "See where the draft appears": "Lihat di mana draf dipaparkan",
+    "Generated draft · fictional example": "Draf dijana · contoh rekaan",
+    "Shown in the report only:": "Dipaparkan dalam laporan sahaja:",
+    "add the number of users or the test result to the API project if it is true.": "tambah bilangan pengguna atau keputusan ujian pada projek API jika benar.",
+    "Fictional example of a generated ATS resume draft": "Contoh rekaan draf resume ATS yang dijana",
     "Resume feedback": "Maklum balas resume",
     "Sample report · fictional data": "Contoh laporan · data rekaan",
     "Selected role:": "Peranan dipilih:",
@@ -413,7 +521,31 @@
     "Email verification PIN": "PIN pengesahan e-mel",
     "Enter a new email and your current password to request a PIN.": "Masukkan e-mel baharu dan kata laluan semasa untuk meminta PIN.",
     "Evidence match and ATS feedback. Not a hiring probability.": "Padanan bukti dan maklum balas ATS. Bukan kebarangkalian diterima kerja.",
-    "Evidence match and ATS feedback. This is not a hiring probability.": "Padanan bukti dan maklum balas ATS. Ini bukan kebarangkalian diterima kerja.",
+    "Evidence match and ATS feedback, not a hiring probability.": "Padanan bukti dan maklum balas ATS, bukan kebarangkalian diterima kerja.",
+    "See what makes up this score": "Lihat bahagian skor ini",
+    "Hide score parts": "Sembunyikan bahagian skor",
+    "Score pending": "Skor belum tersedia",
+    "ATS format": "Format ATS",
+    "Lowest": "Terendah",
+    "Unlikely to pass ATS screening for this role yet.": "Belum berkemungkinan melepasi saringan ATS untuk peranan ini.",
+    "Some useful evidence, but keywords, proof, or format need work.": "Ada bukti berguna, tetapi kata kunci, bukti atau format perlu diperbaiki.",
+    "Usable, but not fully optimized for this role yet.": "Boleh digunakan, tetapi belum dioptimumkan sepenuhnya untuk peranan ini.",
+    "Strong role and ATS alignment; small improvements are still possible.": "Padanan peranan dan ATS yang kukuh; penambahbaikan kecil masih boleh dibuat.",
+    "How the score is worked out": "Cara skor dikira",
+    "TF-IDF text similarity": "Persamaan teks TF-IDF",
+    "How this affects your score": "Kesan kepada skor anda",
+    "Low risk": "Risiko rendah",
+    "Medium risk": "Risiko sederhana",
+    "High risk": "Risiko tinggi",
+    "Format": "Format",
+    "Photo": "Foto",
+    "Parsing": "Penghuraian",
+    "Structure": "Struktur",
+    "Timeline": "Garis masa",
+    "Contact": "Hubungan",
+    "Impact": "Impak",
+    "Length": "Panjang",
+    "Skills": "Kemahiran",
     "Evidence-match scores from resume text and database requirements.": "Skor padanan bukti daripada teks resume dan keperluan pangkalan data.",
     "Evidence To Keep": "Bukti yang perlu dikekalkan",
     "Experience": "Pengalaman",
@@ -510,12 +642,11 @@
     "Strength is an estimate. Avoid names and common passwords.": "Kekuatan ialah anggaran. Elakkan nama dan kata laluan lazim.",
     "Submission details": "Butiran penyerahan",
     "Target job role": "Peranan kerja sasaran",
-    "Target role pending.": "Peranan sasaran belum tersedia.",
+    "Keywords for your next draft": "Kata kunci untuk draf seterusnya",
     "Tap one to fill the role": "Ketik satu untuk memilih peranan",
     "Technical Fit": "Padanan teknikal",
     "Terms of Service": "Syarat Perkhidmatan",
     "Terms of service": "Syarat perkhidmatan",
-    "The generated resume will use the recommended role, matched evidence, and missing keyword targets.": "Resume yang dijana akan menggunakan peranan dicadangkan, bukti sepadan dan sasaran kata kunci yang kurang.",
     "These are the signals the system will preserve when generating the ATS resume draft.": "Bukti inilah yang akan dikekalkan oleh sistem ketika menjana draf resume ATS.",
     "This example shows how feedback appears. Its score and recommendations are not based on your resume.": "Contoh ini menunjukkan rupa maklum balas. Skor dan cadangannya tidak berdasarkan resume anda.",
     "This is fictional sample data, never an analysis of your resume.": "Ini data contoh rekaan, bukan analisis resume anda.",
@@ -612,7 +743,14 @@
     "(optional)": "(pilihan)",
     "Analyze resume": "Analisis resume",
     "Before · vague": "Sebelum · kabur",
-    "After · specific": "Selepas · khusus",
+    "After · your rewrite": "Selepas · tulisan semula anda",
+    "Your report flags": "Laporan anda menandakan",
+    "Limited measurable impact": "Impak yang boleh diukur adalah terhad",
+    "Pattern from your improvement plan: action verb + tool/skill + task + measurable result.": "Corak daripada pelan penambahbaikan anda: kata kerja tindakan + alat/kemahiran + tugas + hasil yang boleh diukur.",
+    "The pattern, part by part": "Corak, bahagian demi bahagian",
+    "Action verb": "Kata kerja tindakan",
+    "Tool / skill": "Alat / kemahiran",
+    "Measurable result": "Hasil boleh diukur",
     "Feedback with a": "Maklum balas dengan",
     "Find the story behind": "Fahami cerita di sebalik",
     "clear purpose.": "tujuan yang jelas.",
@@ -631,7 +769,7 @@
     "The app uses PDF extraction, optional image OCR, TF-IDF similarity scoring, and simple rule-based feedback generation.": "Aplikasi ini menggunakan pengekstrakan PDF, OCR imej jika perlu, pemarkahan keserupaan TF-IDF dan penjanaan maklum balas berasaskan peraturan mudah.",
     "The app uses PDF text extraction, optional image OCR, TF-IDF similarity scoring, and rule-based feedback generation.": "Aplikasi ini menggunakan pengekstrakan teks PDF, OCR imej jika perlu, pemarkahan keserupaan TF-IDF dan penjanaan maklum balas berasaskan peraturan.",
     "the built-in fictional sample report": "contoh laporan rekaan terbina dalam",
-    "The goal is clear, truthful detail a reader can understand. This fictional example shows how specificity helps.": "Matlamatnya ialah butiran yang jelas, benar dan mudah difahami. Contoh rekaan ini menunjukkan kepentingan penerangan khusus.",
+    "Your report flags bullets without a measurable result and suggests one pattern. This fictional example follows it.": "Laporan anda menandakan poin tanpa hasil yang boleh diukur dan mencadangkan satu corak. Contoh rekaan ini mengikut corak itu.",
     "The layout and workflows were shaped to support resume preparation for UTS Computer Science students.": "Susun atur dan aliran kerja direka untuk menyokong penyediaan resume pelajar Sains Komputer UTS.",
     "The report turns gaps into priority actions, then checks resume readability and writing clarity. Use each suggestion only when it reflects your real work.": "Laporan menukar jurang kepada tindakan utama, kemudian menyemak kebolehbacaan resume dan kejelasan penulisan. Gunakan cadangan hanya jika ia mencerminkan kerja sebenar anda.",
     "These panels use the built-in fictional sample's role comparison, score evidence, and next edits. Open the linked report to see the exact screens.": "Panel ini menggunakan contoh rekaan terbina dalam untuk perbandingan peranan, bukti skor dan suntingan seterusnya. Buka laporan berkaitan untuk melihat skrin sebenar.",
@@ -829,20 +967,53 @@
     "The original file was not stored for this evaluation.": "Fail asal tidak disimpan untuk penilaian ini.",
     "Original resume image": "Imej resume asal",
     "PDF preview renderer did not load.": "Pemapar pratonton PDF tidak dimuatkan.",
-    "Could not load PDF preview renderer.": "Tidak dapat memuatkan pemapar pratonton PDF."
+    "Could not load PDF preview renderer.": "Tidak dapat memuatkan pemapar pratonton PDF.",
+    "Since your last check": "Sejak semakan lepas",
+    "Your progress": "Kemajuan anda",
+    "About the same": "Lebih kurang sama",
+    "Now shown in your resume": "Kini ada dalam resume anda",
+    "Still missing": "Masih tiada",
+    "No longer found": "Tidak lagi ditemui",
+    "ATS issues fixed": "Isu ATS dibaiki",
+    "ATS issues still open": "Isu ATS belum selesai",
+    "None yet": "Belum ada",
+    "None": "Tiada",
+    "Keyword match": "Padanan kata kunci",
+    "Edit your resume, then check it again with the same role. This card will show what improved and what is still missing.": "Sunting resume anda, kemudian semak semula dengan peranan yang sama. Kad ini akan menunjukkan apa yang bertambah baik dan apa yang masih tiada.",
+    "Suggested last time and still missing.": "Dicadangkan kali lepas dan masih tiada.",
+    "Found in your last check, missing now.": "Ditemui dalam semakan lepas, kini tiada.",
+    "Flagged in your last check too.": "Turut ditanda dalam semakan lepas.",
+    "Still missing since your last check": "Masih tiada sejak semakan lepas",
+    "Restore evidence that disappeared": "Pulihkan bukti yang hilang",
+    "Use the exact skill names from the job": "Gunakan nama kemahiran yang tepat seperti dalam kerja",
+    "Related-skill evidence": "Bukti kemahiran berkaitan",
+    "Skills proven by the tools you named": "Kemahiran yang dibuktikan oleh alat yang anda nyatakan",
+    "Counted as met. Write the skill words too, because ATS filters match exact words.": "Dikira dipenuhi. Tulis juga perkataan kemahiran itu kerana penapis ATS memadankan perkataan yang tepat.",
+    "proven by": "dibuktikan oleh",
+    "Job asks for:": "Kerja memerlukan:",
+    "Learning examples": "Contoh pembelajaran",
+    "Example resumes for your recommended roles": "Contoh resume untuk peranan yang disyorkan",
+    "Your selected role and the three recommended roles all scored below 40%, so example resumes for these roles are shown below. Read them to see what stronger evidence looks like, and add only what is true for you.": "Peranan pilihan anda dan tiga peranan yang disyorkan semuanya mendapat skor di bawah 40%, jadi contoh resume untuk peranan ini ditunjukkan di bawah. Baca contoh ini untuk melihat bukti yang lebih kukuh, dan tambah hanya perkara yang benar tentang anda.",
+    "The three recommended roles all scored below 40%, so example resumes for these roles are shown below. Read them to see what stronger evidence looks like, and add only what is true for you.": "Tiga peranan yang disyorkan semuanya mendapat skor di bawah 40%, jadi contoh resume untuk peranan ini ditunjukkan di bawah. Baca contoh ini untuk melihat bukti yang lebih kukuh, dan tambah hanya perkara yang benar tentang anda."
   };
   const dynamicTranslations = [
+    [/^Step (\d+) of (\d+)$/, (match) => `Langkah ${match[1]} daripada ${match[2]}`],
+    [/^Go to step (\d+)$/, (match) => `Pergi ke langkah ${match[1]}`],
     [/^Resend in ([0-9:]+s?)$/, (match) => `Hantar semula dalam ${match[1]}`],
     [/^Read the warning\. You can confirm in ([0-9]+)s\.$/, (match) => `Baca amaran ini. Anda boleh mengesahkan dalam ${match[1]}s.`],
     [/^Open account for (.+)$/, (match) => `Buka akaun untuk ${match[1]}`],
     [/^Open profile for (.+)$/, (match) => `Buka profil untuk ${match[1]}`],
     [/^Signed in as (.+)\. You can now check your resume\.$/, (match) => `Log masuk sebagai ${match[1]}. Anda kini boleh menyemak resume.`],
-    [/^Compared with (.+)\. Review the matched evidence and start with the suggested edits below\.$/, (match) => `Dibandingkan dengan ${match[1]}. Semak bukti yang sepadan dan mulakan dengan suntingan yang dicadangkan.`],
+    [/^Compared with (.+)\. Start with the suggested edits below\.$/, (match) => `Dibandingkan dengan ${match[1]}. Mulakan dengan suntingan yang dicadangkan di bawah.`],
     [/^The evidence for (.+) needs human review\. Use the findings below as guidance for your next edit\.$/, (match) => `Bukti untuk ${match[1]} memerlukan semakan manusia. Gunakan dapatan di bawah sebagai panduan untuk suntingan seterusnya.`],
     [/^Top detected role: (.+)\.$/, (match) => `Peranan teratas dikesan: ${match[1]}.`],
     [/^Compared role: (.+)\.$/, (match) => `Peranan perbandingan: ${match[1]}.`],
     [/^Stronger match: (.+) over (.+)\.$/, (match) => `Padanan lebih kuat: ${match[1]} berbanding ${match[2]}.`],
-    [/^Next edit for (.+): add evidence for (.+)\.$/, (match) => `Suntingan seterusnya untuk ${match[1]}: tambah bukti bagi ${match[2]}.`],
+    [/^Next: add evidence for (.+)\.$/, (match) => `Seterusnya: tambah bukti bagi ${match[1]}.`],
+    [/^Matched: (.+)\.$/, (match) => `Sepadan: ${match[1]}.`],
+    [/^Detected: (.+)\.$/, (match) => `Dikesan: ${match[1]}.`],
+    [/^(\d+) experience marker\(s\) found in the resume\.$/, (match) => `${match[1]} penanda pengalaman ditemui dalam resume.`],
+    [/^(\d+) found$/, (match) => `${match[1]} ditemui`],
     [/^Recommended: (.+) over (.+)$/, (match) => `Disyorkan: ${match[1]} berbanding ${match[2]}`],
     [/^Recommended: (.+)$/, (match) => `Disyorkan: ${match[1]}`],
     [/^Top Detected Role: (.+)$/, (match) => `Peranan teratas dikesan: ${match[1]}`],
@@ -854,7 +1025,6 @@
     [/^Experience markers: (\d+)$/, (match) => `Penanda pengalaman: ${match[1]}`],
     [/^Important keywords: (\d+)$/, (match) => `Kata kunci penting: ${match[1]}`],
     [/^Missing keywords: (\d+)$/, (match) => `Kata kunci yang kurang: ${match[1]}`],
-    [/^Target: (.+)$/, (match) => `Sasaran: ${match[1]}`],
     [/^File: (.+)$/, (match) => `Fail: ${match[1]}`],
     [/^Size: (.+)$/, (match) => `Saiz: ${match[1]}`],
     [/^Type: (.+)$/, (match) => `Jenis: ${match[1]}`],
@@ -864,7 +1034,15 @@
     [/^View report for (.+)$/, (match) => `Lihat laporan untuk ${match[1]}`],
     [/^Delete user account for (.+)\?$/, (match) => `Padam akaun pengguna untuk ${match[1]}?`],
     [/^Resume page (\d+) of (\d+)$/, (match) => `Halaman resume ${match[1]} daripada ${match[2]}`],
-    [/^Showing the first (\d+) of (\d+) pages\. Download the file to see the rest\.$/, (match) => `Memaparkan ${match[1]} halaman pertama daripada ${match[2]}. Muat turun fail untuk melihat selebihnya.`]
+    [/^Showing the first (\d+) of (\d+) pages\. Download the file to see the rest\.$/, (match) => `Memaparkan ${match[1]} halaman pertama daripada ${match[2]}. Muat turun fail untuk melihat selebihnya.`],
+    [/^First check for (.+)$/, (match) => `Semakan pertama untuk ${match[1]}`],
+    [/^Check (\d+) for (.+)$/, (match) => `Semakan ke-${match[1]} untuk ${match[2]}`],
+    [/^Compared with your check on (.+)$/, (match) => `Dibandingkan dengan semakan anda pada ${match[1]}`],
+    [/^([+-][\d.]+) points$/, (match) => `${match[1]} mata`],
+    [/^Still open: (.+)$/, (match) => `Belum selesai: ${match[1]}`],
+    [/^Your score rose by ([\d.]+) points since your last check \(([\d.]+) to ([\d.]+)\)\.(?: Now shown: (.+)\.)?$/, (match) => `Skor anda naik ${match[1]} mata sejak semakan lepas (${match[2]} kepada ${match[3]}).${match[4] ? ` Kini ditunjukkan: ${match[4]}.` : ""}`],
+    [/^Your score fell by ([\d.]+) points since your last check \(([\d.]+) to ([\d.]+)\)\.(?: No longer found: (.+)\.)?$/, (match) => `Skor anda turun ${match[1]} mata sejak semakan lepas (${match[2]} kepada ${match[3]}).${match[4] ? ` Tidak lagi ditemui: ${match[4]}.` : ""}`],
+    [/^Your score is about the same as your last check \(([\d.]+)\)\.(?: Still missing: (.+)\.)?$/, (match) => `Skor anda lebih kurang sama dengan semakan lepas (${match[1]}).${match[2] ? ` Masih tiada: ${match[2]}.` : ""}`]
   ];
   const translatedText = new WeakMap();
   const translatedAttributes = new WeakMap();
@@ -944,32 +1122,49 @@
       name.hidden = true;
       trigger.before(name);
     }
-    if (!document.querySelector("[data-language-switch]")) {
-      const switcher = document.createElement("div");
-      switcher.className = "account-language-switch";
-      switcher.dataset.languageSwitch = "";
-      switcher.setAttribute("role", "group");
-      switcher.setAttribute("aria-label", "Language / Bahasa");
-      [["en", "English", "EN"], ["ms", "Bahasa Melayu", "BM"]].forEach(([code, label, shortLabel]) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.dataset.languageOption = code;
-        button.setAttribute("aria-label", label);
-        button.title = label;
-        const full = document.createElement("span");
-        full.className = "account-language-full";
-        full.textContent = label;
-        const short = document.createElement("span");
-        short.className = "account-language-short";
-        short.textContent = shortLabel;
-        button.append(full, short);
-        button.addEventListener("click", () => setLanguage(code));
-        switcher.appendChild(button);
-      });
-      const name = document.querySelector("[data-header-account-name]");
-      (name || trigger).before(switcher);
-      setLanguage(language);
-    }
+  }
+
+  function setTheme(nextTheme) {
+    theme = nextTheme === "dark" ? "dark" : "light";
+    try { localStorage.setItem(THEME_KEY, theme); } catch (error) { /* Keep this page usable. */ }
+    document.documentElement.dataset.theme = theme;
+    document.querySelectorAll("[data-theme-option]").forEach((button) => {
+      const active = button.dataset.themeOption === theme;
+      button.setAttribute("aria-pressed", String(active));
+      button.classList.toggle("is-active", active);
+    });
+  }
+
+  // Settings > Display: language and colour theme, for guests and signed-in users.
+  const SUN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>';
+  const MOON_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6Z"/></svg>';
+  function addDisplaySettings(panel) {
+    if (!panel || panel.querySelector(".account-display-card")) return;
+    const card = document.createElement("div");
+    card.className = "account-settings-card account-display-card";
+    card.innerHTML =
+      '<h3>Display</h3>' +
+      '<p>Your choice is saved in this browser.</p>' +
+      '<div class="account-display-row"><span class="account-display-label" id="displayLanguageLabel">Language</span>' +
+        '<div class="account-segmented" role="group" aria-labelledby="displayLanguageLabel">' +
+          '<button type="button" data-language-option="en" data-no-translate>English</button>' +
+          '<button type="button" data-language-option="ms" data-no-translate>Bahasa Melayu</button>' +
+        '</div></div>' +
+      '<div class="account-display-row"><span class="account-display-label" id="displayThemeLabel">Appearance</span>' +
+        '<div class="account-segmented" role="group" aria-labelledby="displayThemeLabel">' +
+          '<button type="button" data-theme-option="light">' + SUN_ICON + '<span>Light</span></button>' +
+          '<button type="button" data-theme-option="dark">' + MOON_ICON + '<span>Dark</span></button>' +
+        '</div></div>';
+    card.querySelectorAll("[data-language-option]").forEach((button) => {
+      button.addEventListener("click", () => setLanguage(button.dataset.languageOption));
+    });
+    card.querySelectorAll("[data-theme-option]").forEach((button) => {
+      button.addEventListener("click", () => setTheme(button.dataset.themeOption));
+    });
+    const intro = panel.querySelector(".account-panel-intro");
+    (intro || panel.firstElementChild).after(card);
+    setTheme(theme);
+    setLanguage(language);
   }
 
   function updateHeaderAccount(user, photoUrl) {
@@ -1417,6 +1612,104 @@
     }
   }
 
+  // Live PIN feedback: once six digits are typed, ask the server whether the PIN
+  // matches and animate a tick or a cross inside the field.
+  const PIN_STATUS_MARKUP =
+    '<span class="pin-status-spinner" aria-hidden="true"></span>' +
+    '<svg class="pin-status-icon pin-status-ok" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M7.5 12.5l3 3 6-6.5"></path></svg>' +
+    '<svg class="pin-status-icon pin-status-bad" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8.5 8.5l7 7"></path><path d="M15.5 8.5l-7 7"></path></svg>';
+  const pinStatusControllers = new WeakMap();
+
+  function setPinStatus(input, state) {
+    const wrap = input.parentElement;
+    if (!wrap || !wrap.classList.contains("pin-status-wrap")) return;
+    if (state) wrap.dataset.pinStatus = state;
+    else delete wrap.dataset.pinStatus;
+    if (state === "invalid") input.setAttribute("aria-invalid", "true");
+    else input.removeAttribute("aria-invalid");
+  }
+
+  function attachPinStatus(input, options = {}) {
+    if (!input || !input.parentNode || pinStatusControllers.has(input)) return;
+    const { emailInput, sendButton, purpose, apiBaseUrl = "", onResult } = options;
+    const wrap = document.createElement("div");
+    wrap.className = "pin-status-wrap";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    wrap.insertAdjacentHTML("beforeend", PIN_STATUS_MARKUP);
+    input.classList.add("pin-status-input");
+
+    let timer = 0;
+    let sequence = 0;
+    // Remember the last answer so retyping the same PIN does not use up another attempt.
+    let lastCheck = null;
+
+    const reset = () => {
+      window.clearTimeout(timer);
+      sequence += 1;
+      lastCheck = null;
+      setPinStatus(input, "");
+    };
+
+    const report = (valid, detail) => {
+      if (typeof onResult === "function" && detail) onResult(valid, detail);
+    };
+
+    const check = async () => {
+      const pin = input.value.trim();
+      const email = String(emailInput ? emailInput.value : "").trim().toLowerCase();
+      if (!/^[0-9]{6}$/.test(pin) || !isValidEmail(email)) {
+        setPinStatus(input, "");
+        return;
+      }
+      const key = email + "|" + pin;
+      if (lastCheck && lastCheck.key === key) {
+        setPinStatus(input, lastCheck.valid ? "valid" : "invalid");
+        return;
+      }
+      const current = ++sequence;
+      setPinStatus(input, "checking");
+      try {
+        const response = await fetch(apiBaseUrl + "/auth/pin/check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, purpose, verification_pin: pin })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (current !== sequence) return;
+        if (response.ok || response.status === 429) {
+          const valid = Boolean(response.ok && payload.valid);
+          const detail = payload.detail || (valid ? "PIN verified." : "Invalid PIN.");
+          lastCheck = { key, valid };
+          setPinStatus(input, valid ? "valid" : "invalid");
+          report(valid, detail);
+        } else {
+          // No verdict (bad request or server error): leave the field neutral.
+          setPinStatus(input, "");
+        }
+      } catch (error) {
+        if (current === sequence) setPinStatus(input, "");
+      }
+    };
+
+    input.addEventListener("input", () => {
+      window.clearTimeout(timer);
+      sequence += 1;
+      setPinStatus(input, "");
+      // Short pause so pasted PINs and the page's digit sanitiser settle first.
+      timer = window.setTimeout(check, 200);
+    });
+    // A different email or a freshly sent PIN makes the previous answer stale.
+    if (emailInput) emailInput.addEventListener("input", reset);
+    if (sendButton) sendButton.addEventListener("click", reset);
+    pinStatusControllers.set(input, { reset });
+  }
+
+  function clearPinStatus(input) {
+    const controller = input && pinStatusControllers.get(input);
+    if (controller) controller.reset();
+  }
+
   function clearProfileSensitiveFields(elements) {
     if (elements.passwordInput) {
       elements.passwordInput.value = "";
@@ -1542,7 +1835,30 @@
       },
       job_description_analysis: {
         important_keywords: ["kubernetes", "systems design", "docker"],
-        missing_keywords: []
+        missing_keywords: [],
+        semantic_matches: [
+          { concept: "DevOps", evidence: ["Docker", "Kubernetes"], requirements: ["DevOps practices"] }
+        ]
+      },
+      progress: {
+        available: true,
+        target_role: "Computer Programmer",
+        check_number: 2,
+        previous_score: 79,
+        current_score: 87,
+        score_change: 8,
+        trend: "improved",
+        components: [
+          { key: "keyword_match", label: "Keyword match", previous: 78, current: 87, change: 9 },
+          { key: "resume_quality", label: "ATS format quality", previous: 80, current: 88, change: 8 }
+        ],
+        keywords_now_matched: ["Docker", "Kubernetes"],
+        keywords_still_missing: [],
+        keywords_no_longer_found: [],
+        ats_issues_fixed: ["Incomplete contact details"],
+        ats_issues_still_open: ["Limited measurable impact"],
+        ats_issues_new: [],
+        summary: "Your score rose by 8 points since your last check (79 to 87). Now shown: Docker, Kubernetes."
       },
       compatibility: {
         matching_percentage: 87,
@@ -1776,6 +2092,14 @@
     const emailInfoNote = modal && modal.querySelector("#profileEmailInfoNote");
     const deleteAccountCard = modal && modal.querySelector("#profileDeleteAccountCard");
     const openDeleteAccountButton = modal && modal.querySelector("#openDeleteAccountBtn");
+    const settingsPanel = modal && modal.querySelector('[data-account-panel="settings"]');
+    const securityCards = settingsPanel ? Array.from(settingsPanel.querySelectorAll(".account-settings-card")) : [];
+    const settingsTitle = settingsPanel && settingsPanel.querySelector(".account-panel-title");
+    const settingsIntro = settingsPanel && settingsPanel.querySelector(".account-panel-intro");
+    if (modal) {
+      modal.querySelectorAll('[data-account-view="settings"]').forEach((button) => button.removeAttribute("data-account-auth-only"));
+      addDisplaySettings(settingsPanel);
+    }
     let hasAccount = false;
     let currentView = "info";
     let currentUser = null;
@@ -1855,7 +2179,7 @@
     }
 
     function show(view) {
-      const allowedViews = hasAccount ? ["info", "settings", "history"] : ["access"];
+      const allowedViews = hasAccount ? ["info", "settings", "history"] : ["access", "settings"];
       currentView = allowedViews.includes(view) ? view : (hasAccount ? "info" : "access");
       buttons.forEach((button) => {
         const active = button.dataset.accountView === currentView;
@@ -1873,13 +2197,11 @@
     function clearDeletedAccountStorage(email) {
       try {
         localStorage.removeItem("analysisHistory_" + String(email || "").toLowerCase());
-        ["analysisResult", "analysisOwner", "pipelineStatus", "uploadedResumeName", "selectedJobRole", "selectedJobDescription", "analysisStartedAt"]
-          .forEach((key) => localStorage.removeItem(key));
-        ["resumeVisualPreviewDataUrl", "resumeVisualPreviewType", "resumeVisualPreviewName", "resumeVisualPreviewResultKey", "resumeRenderedPreviewDataUrl", "resumeRenderedPreviewName", "resumeRenderedPreviewResultKey"]
-          .forEach((key) => {
-            localStorage.removeItem(key);
-            sessionStorage.removeItem(key);
-          });
+        LATEST_REPORT_KEYS.forEach((key) => localStorage.removeItem(key));
+        REPORT_PREVIEW_KEYS.forEach((key) => {
+          localStorage.removeItem(key);
+          sessionStorage.removeItem(key);
+        });
         sessionStorage.removeItem(PIN_COOLDOWN_STORAGE_KEY);
       } catch (error) {
         // Storage can be unavailable in private browsing; the server data is already gone.
@@ -2031,8 +2353,14 @@
         modal.querySelectorAll("[data-account-auth-only]").forEach((element) => { element.hidden = !hasAccount; });
         modal.querySelectorAll("[data-account-guest-only]").forEach((element) => { element.hidden = hasAccount; });
         const isAdmin = Boolean(user && user.is_admin);
-        if (emailChangeCard) emailChangeCard.hidden = isAdmin;
-        if (deleteAccountCard) deleteAccountCard.hidden = isAdmin;
+        // Email, password and delete need an account; guests only see Display.
+        securityCards.forEach((card) => { card.hidden = !hasAccount; });
+        if (emailChangeCard) emailChangeCard.hidden = !hasAccount || isAdmin;
+        if (deleteAccountCard) deleteAccountCard.hidden = !hasAccount || isAdmin;
+        if (settingsTitle) settingsTitle.textContent = hasAccount ? "Preferences and security" : "Your preferences";
+        if (settingsIntro) settingsIntro.textContent = hasAccount
+          ? "Choose the language and colours, and manage your verified email and password."
+          : "Choose the language and colours for this site.";
         if (adminEmailNote) adminEmailNote.hidden = !isAdmin;
         if (emailInfoNote) emailInfoNote.textContent = isAdmin ? "Administrator email is managed separately." : "Email changes need verification.";
         goButtons.forEach((button) => { if (button.dataset.accountGo === "settings") button.hidden = isAdmin; });
@@ -2044,7 +2372,7 @@
           renderAvatarInitials();
         }
       }
-      if (!hasAccount) show("access");
+      if (!hasAccount) show(currentView === "settings" ? "settings" : "access");
       else if (hasAccount && currentView === "access") show("info");
     }
 
@@ -2359,6 +2687,8 @@
           try {
             if (id) await requestHistory("/analyses/" + id, "DELETE");
             removeLocalHistoryItem(item);
+            // Deleting the latest report also removes it from "Your report".
+            forgetLatestReport({ analysisId: id, historyKey: item.history_key });
             render();
           } catch (error) {
             showHistoryMessage("Could not delete this report.", true);
@@ -2425,6 +2755,8 @@
         try {
           await requestHistory("/analyses", "DELETE");
           saveHistory([]);
+          // The latest report is one of the cleared reports, so forget it too.
+          forgetLatestReport();
           render();
         } catch (error) {
           showHistoryMessage("Could not clear saved reports.", true);
@@ -2450,6 +2782,8 @@
     showToast,
     requestAuthPin,
     isPinCoolingDown,
+    attachPinStatus,
+    clearPinStatus,
     clearProfileSensitiveFields,
     populateProfileForm,
     setModalOpen,
@@ -2503,6 +2837,7 @@
     });
     window.addEventListener("storage", (event) => {
       if (event.key === LANGUAGE_KEY) setLanguage(event.newValue);
+      if (event.key === THEME_KEY) setTheme(event.newValue);
     });
   });
 

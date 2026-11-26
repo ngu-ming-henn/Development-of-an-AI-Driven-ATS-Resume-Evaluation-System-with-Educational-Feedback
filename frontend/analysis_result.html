@@ -156,7 +156,10 @@
         .report-nav-links { display: flex; align-items: center; gap: 22px; }
         .report-nav-links a { display: inline-flex; align-items: center; min-height: 38px; padding: 7px 10px; border-radius: 9px; color: #526276; font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: color .2s ease, background-color .2s ease; }
         .report-nav-links a.hidden { display: none; }
-        .report-nav-links a:hover, .report-nav-links a:focus-visible { background: #eff7ff; color: #0064c8; }
+        .report-nav-links a:focus-visible { background: #eff7ff; color: #0064c8; }
+        @media (hover: hover) and (pointer: fine) {
+            .report-nav-links a:hover { background: #eff7ff; color: #0064c8; }
+        }
         .report-nav-links .report-nav-return { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border: 1px solid #cfe5fa; border-radius: 9px; background: #f3f9ff; color: #0064c8; font-size: 12px; font-weight: 800; }
         .report-nav-links .report-nav-return:hover, .report-nav-links .report-nav-return:focus-visible { border-color: #9bc9f2; background: #e4f2ff; }
         .report-nav-return svg { width: 15px; height: 15px; }
@@ -199,6 +202,41 @@
         .report-quick-list span { color: var(--studio-teal-dark); font-size: .75rem; font-weight: 800; letter-spacing: .12em; }
         .report-quick-list h3 { margin-top: .55rem; color: var(--studio-ink); font-size: .95rem; font-weight: 800; }
         .report-quick-list p { margin-top: .4rem; color: var(--studio-muted); font-size: .84rem; line-height: 1.55; }
+        /* Adaptive feedback: progress since the last check for the same role. */
+        .report-progress { margin: clamp(1.25rem,3vw,2rem) 0 0; padding: clamp(1.3rem,3vw,2rem); border: 1px solid #cfe5fa; border-radius: 22px; background: linear-gradient(180deg,#f4f9ff,#fff 70%); }
+        .report-progress-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .4rem 1rem; }
+        .report-progress h2 { margin-top: .35rem; font-size: 1.35rem; font-weight: 800; letter-spacing: -.025em; }
+        .report-progress-meta { display: flex; flex-wrap: wrap; gap: .2rem .85rem; color: var(--studio-muted); font-size: .82rem; }
+        .report-progress-score { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem .9rem; margin-top: 1rem; }
+        .report-progress-score .progress-from { color: var(--studio-muted); font-size: 1.2rem; font-weight: 700; }
+        .report-progress-score .progress-to { color: var(--studio-ink); font-family: Manrope,sans-serif; font-size: 2rem; font-weight: 800; letter-spacing: -.04em; }
+        .progress-delta { display: inline-flex; align-items: center; padding: .3rem .75rem; border-radius: 999px; font-size: .8rem; font-weight: 800; }
+        .progress-delta[data-trend="improved"] { background: #dcf5ea; color: #0b6b43; }
+        .progress-delta[data-trend="declined"] { background: #fde5e5; color: #a1262b; }
+        .progress-delta[data-trend="unchanged"] { background: #eef2f6; color: #44556a; }
+        .report-progress-summary { max-width: 62rem; margin-top: .7rem; color: var(--studio-muted); font-size: .9rem; line-height: 1.6; }
+        .report-progress-components { display: flex; flex-wrap: wrap; gap: .35rem 1rem; margin-top: .85rem; color: var(--studio-muted); font-size: .8rem; }
+        .report-progress-components strong { color: var(--studio-ink); }
+        .report-progress-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .75rem; margin-top: 1.1rem; }
+        .report-progress-grid article { min-width: 0; padding: .9rem 1rem; border: 1px solid #dbe8f4; border-radius: 14px; background: #fff; }
+        .report-progress-grid h3 { color: var(--studio-muted); font-size: .74rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+        .progress-chips { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .55rem; }
+        .progress-chip { padding: .2rem .6rem; border-radius: 999px; background: #eef4fa; color: #20384f; font-size: .75rem; font-weight: 700; overflow-wrap: anywhere; }
+        .progress-chip[data-tone="good"] { background: #dcf5ea; color: #0b6b43; }
+        .progress-chip[data-tone="warn"] { background: #fff1d6; color: #7a4b00; }
+        .progress-chip[data-tone="bad"] { background: #fde5e5; color: #a1262b; }
+        .progress-empty { margin-top: .5rem; color: var(--studio-muted); font-size: .8rem; }
+        .action-progress-note { display: inline-flex; width: max-content; max-width: 100%; margin-top: .5rem; padding: .15rem .6rem; border-radius: 999px; background: #fff1d6; color: #7a4b00; font-size: .72rem; font-style: normal; font-weight: 800; }
+        /* Semantic matching: requirements proven by related skills. */
+        .related-skill-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .6rem; margin-top: 1rem; }
+        .related-skill-list li { min-width: 0; padding: .8rem 1rem; border: 1px solid var(--studio-border); border-radius: 12px; background: #f8fbff; font-size: .86rem; line-height: 1.5; }
+        .related-skill-list strong { color: var(--studio-ink); }
+        .related-skill-list .related-skill-proof { color: var(--studio-muted); }
+        .related-skill-list small { display: block; margin-top: .2rem; color: var(--studio-muted); font-size: .76rem; }
+        @media (max-width: 700px) {
+            .report-progress-grid, .related-skill-list { grid-template-columns: 1fr; }
+            .report-progress-score .progress-to { font-size: 1.7rem; }
+        }
         .report-tabs { display: flex; gap: .45rem; overflow-x: auto; margin: 1.3rem 0 2.5rem; padding: .35rem; border: 1px solid var(--studio-border); border-radius: 12px; background: white; scrollbar-width: thin; }
         .report-tabs a { flex: 0 0 auto; padding: .6rem .9rem; border-radius: 8px; color: var(--studio-muted); font-size: .86rem; font-weight: 700; white-space: nowrap; text-decoration: none; }
         .report-tabs a:focus-visible { background: #eaf4f6; color: var(--studio-teal-dark); }
@@ -214,16 +252,12 @@
         .report-shell .evidence-ring { background: conic-gradient(var(--studio-teal) calc(var(--score) * 1%), #e0e7ef 0); }
         .report-shell .evidence-ring span { color: var(--studio-ink); }
         .report-shell .evidence-ring .soft-count { font-size: .72rem; }
+        /* Soft skills are counted, not scored: four segments, one for each signal
+           found (the card lists up to four), instead of a percentage ring. */
+        .report-shell .evidence-ring.is-count { background: conic-gradient(var(--count-1, #e0e7ef) 0 82deg, transparent 82deg 90deg, var(--count-2, #e0e7ef) 90deg 172deg, transparent 172deg 180deg, var(--count-3, #e0e7ef) 180deg 262deg, transparent 262deg 270deg, var(--count-4, #e0e7ef) 270deg 352deg, transparent 352deg 360deg); }
         .report-shell .priority-action-grid article { min-height: auto; }
         .career-footer { background: #122b3b; color: #fff; }
         .career-container { width: min(1200px, calc(100% - 48px)); margin-inline: auto; }
-        .career-footer-cta { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 32px; padding-block: clamp(42px, 6vw, 68px); border-bottom: 1px solid rgba(220,241,250,.18); }
-        .career-footer-kicker { margin: 0 0 12px; color: #9fe4eb; font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-        .career-footer-cta h2 { max-width: 670px; margin: 0; font-family: Manrope,Inter,sans-serif; font-size: clamp(27px, 3.3vw, 43px); font-weight: 800; letter-spacing: -.045em; line-height: 1.15; }
-        .career-footer-cta p:not(.career-footer-kicker) { max-width: 610px; margin: 14px 0 0; color: #bcd0da; font-size: 14px; line-height: 1.65; }
-        .career-footer-cta-button { min-height: 50px; display: inline-flex; align-items: center; justify-content: center; gap: 18px; padding: 12px 20px; border-radius: 12px; background: #fff; color: #075f83; font-size: 13px; font-weight: 800; text-decoration: none; white-space: nowrap; box-shadow: 0 10px 26px rgba(0,0,0,.13); transition: background-color .2s ease, transform .2s ease, box-shadow .2s ease; }
-        .career-footer-cta-button:hover { background: #e8f7fa; box-shadow: 0 14px 30px rgba(0,0,0,.18); transform: translateY(-2px); }
-        .career-footer-cta-button svg { width: 18px; height: 18px; }
         .career-footer-inner { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(130px, .55fr) minmax(160px, .65fr); gap: clamp(26px, 5vw, 72px); padding-block: 43px 48px; }
         .career-footer-identity { max-width: 410px; }
         .career-footer-lockup { display: inline-flex; align-items: center; gap: 11px; color: #fff; text-decoration: none; }
@@ -333,6 +367,10 @@
         .report-quick-list span { grid-row: 1 / span 2; padding-top: .2rem; font-size: .7rem; }
         .report-quick-list h3 { margin: 0; font-size: 1rem; line-height: 1.45; }
         .report-quick-list p { margin-top: .25rem; font-size: .86rem; }
+        .report-quick-list .action-progress-note { grid-column: 2; }
+        .report-quick-list .quick-keywords { grid-column: 2; }
+        .quick-keywords { display: flex; flex-wrap: wrap; gap: .35rem; margin: .55rem 0 0; padding: 0; list-style: none; }
+        .quick-keywords li { padding: .15rem .6rem; border-radius: 999px; background: #e8f1fa; color: #123a5c; font-size: .74rem; font-weight: 700; }
         .report-tabs { position: sticky; top: 4.65rem; z-index: 30; margin-bottom: 3.75rem; box-shadow: none; }
         .report-tabs a { transition: background-color .18s ease, color .18s ease; }
         .report-section { margin-bottom: 4rem; }
@@ -405,17 +443,26 @@
         .generated-resume-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
         .generated-resume-actions .report-action { min-height: 2.65rem; padding: .55rem .85rem; font-size: .8rem; }
         .generated-resume-frame { width: 100%; height: min(74vh, 740px); min-height: 410px; border: 1px solid var(--studio-border); border-radius: 12px; background: #fff; }
+        .role-examples { margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid var(--studio-border); }
+        .role-examples-note { margin: .6rem 0 0; padding: .75rem .9rem; border-radius: 12px; background: #fff7e6; color: #6b4300; font-size: .88rem; line-height: 1.55; }
+        .role-example-tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+        .role-example-tab { display: inline-flex; align-items: center; gap: .45rem; min-height: 36px; padding: .35rem .9rem; border: 1px solid var(--studio-border); border-radius: 999px; background: #fff; color: #17323f; font-size: .8rem; font-weight: 700; cursor: pointer; }
+        .role-example-tab span { color: #6b7c86; font-weight: 600; }
+        .role-example-tab[aria-selected="true"] { border-color: #176b89; background: #176b89; color: #fff; }
+        .role-example-tab[aria-selected="true"] span { color: #d8eef6; }
         .report-reveal { opacity: 0; filter: blur(8px); transform: translate3d(var(--reveal-x,0),22px,0); transition: opacity .75s ease, filter .75s ease, transform .75s cubic-bezier(.2,.8,.2,1); }
         .report-reveal.is-visible { opacity: 1; filter: blur(0); transform: translate3d(0,0,0); }
         .report-reveal[data-reveal-side="left"] { --reveal-x: -24px; }
         .report-reveal[data-reveal-side="right"] { --reveal-x: 24px; }
+        /* Sections that have not scrolled into view yet start 24px to the side; clip
+           that offset so it never widens the page on tablets and small laptops.
+           clip (unlike hidden) keeps the sticky report tabs working. */
+        .report-main { overflow-x: clip; }
         @media (max-width: 980px) {
             .report-quick { grid-template-columns: 1fr; gap: 1.3rem; }
             .report-quick h2 { max-width: none; }
             .report-nav-inner { grid-template-columns: minmax(0, 1fr) auto auto; gap: 18px; }
             .report-nav-links { gap: 18px; }
-            .career-footer-cta { grid-template-columns: 1fr; gap: 23px; }
-            .career-footer-cta-button { justify-self: start; }
             .career-footer-inner { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 34px 24px; }
             .career-footer-identity { grid-column: 1 / -1; }
         }
@@ -444,8 +491,7 @@
         }
         @media (max-width: 600px) {
             .career-container { width: min(100% - 32px, 1200px); }
-            .career-footer-inner { grid-template-columns: 1fr; }
-            .career-footer-identity { grid-column: auto; }
+            .career-footer-inner { gap: 30px 18px; }
             /* One sticky row under the header that scrolls sideways; the active tab is kept in view. */
             .report-tabs { top: var(--report-nav-height, 5.5rem); gap: .25rem; overflow-x: auto; overscroll-behavior-x: contain; margin: 1.4rem 0 2rem; padding: .3rem; background: rgba(255,255,255,.97); box-shadow: 0 8px 18px rgba(22,35,56,.06); scrollbar-width: none; }
             .report-tabs::-webkit-scrollbar { display: none; }
@@ -470,6 +516,8 @@
             .report-quick a { padding: .25rem 0; }
             .report-quick-list article { grid-template-columns: minmax(0,1fr); gap: .3rem; padding: .95rem; }
             .report-quick-list span { grid-row: auto; padding-top: 0; }
+            .report-quick-list .action-progress-note { grid-column: auto; }
+            .report-quick-list .quick-keywords { grid-column: auto; }
             .report-quick-list h3 { font-size: .96rem; }
             .report-quick-list p { margin-top: 0; }
             .report-shell :is(h1,h2,h3,h4,p) { overflow-wrap: anywhere; }
@@ -514,11 +562,566 @@
         .sample-resume-sheet ul { margin: 0; padding-left: 1rem; color: #26394c; font-size: .78rem; line-height: 1.55; }
         .sample-resume-sheet li + li { margin-top: .35rem; }
         .sample-preview-note { margin: .75rem 0 0; color: #526174; font-size: .74rem; line-height: 1.5; }
+        /* Minimize controls for the long report blocks. Phones start minimized
+           ("Since your last check", ATS Feedback); the Priority Improvement Plan
+           starts as numbered rows on every screen because "Your next 3 edits"
+           already shows the first three in full. */
+        .report-collapse-toggle { display: inline-flex; flex: none; align-items: center; gap: .4rem; min-height: 38px; padding: .45rem .85rem; border: 1px solid #c4dbef; border-radius: 10px; background: #fff; color: var(--studio-teal-dark); font-size: .8rem; font-weight: 800; line-height: 1.2; white-space: nowrap; cursor: pointer; transition: border-color .2s ease, background-color .2s ease; }
+        .report-collapse-toggle:hover { border-color: var(--studio-teal); background: #f5faff; }
+        .report-collapse-toggle:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: 2px; }
+        .report-collapse-toggle svg { width: 16px; height: 16px; transition: transform .25s ease; }
+        .report-collapse-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+        .report-collapse-toggle[hidden] { display: none; }
+        .report-progress-head { align-items: center; }
+        .report-progress-head > div:first-child { margin-right: auto; }
+        .report-plan-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; align-self: flex-start; }
+        .report-feedback-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+        @media screen {
+            #reportProgressBody.is-collapsed > :not(.report-progress-score) { display: none; }
+            #structuredFeedbackList.is-collapsed > li > span:last-child { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
+        }
+        /* Priority plan: each action is a numbered row that opens on tap. */
+        .priority-action-grid { align-items: start; }
+        .priority-action-grid > .priority-action { min-width: 0; overflow: hidden; }
+        .priority-action-summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .85rem; padding: 1rem 1.1rem; cursor: pointer; list-style: none; }
+        .priority-action-summary::-webkit-details-marker { display: none; }
+        .priority-action-summary::marker { content: ""; }
+        .priority-action-summary:hover .priority-action-chevron { color: var(--studio-teal-dark); }
+        .priority-action-summary:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: -3px; border-radius: inherit; }
+        .priority-action-number { display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 999px; font-weight: 800; }
+        .priority-action-title { margin: 0; font-size: 1rem; font-weight: 800; line-height: 1.3; }
+        .priority-action-title small { display: block; margin-bottom: .2rem; color: var(--studio-muted); font-size: .66rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+        .priority-action-chevron { width: 18px; height: 18px; color: #8a98a8; transition: transform .25s ease, color .2s ease; }
+        .priority-action-details[open] .priority-action-chevron { transform: rotate(180deg); }
+        .priority-action-body { padding: 0 1.1rem 1.15rem; }
+        .priority-action-body > :first-child { margin-top: 0; }
+        .priority-action-details[open] .priority-action-body { animation: priorityActionOpen .3s ease both; }
+        @keyframes priorityActionOpen { from { opacity: 0; transform: translateY(-4px); } }
+        /* Top 3 role matches: number, role and score; tap a card for the evidence. */
+        .role-match-grid { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 1rem; }
+        @media (min-width: 1024px) { .role-match-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        .role-match { min-width: 0; overflow: hidden; }
+        .role-match-summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: .75rem; padding: 1rem; cursor: pointer; list-style: none; }
+        .role-match-summary::-webkit-details-marker { display: none; }
+        .role-match-summary::marker { content: ""; }
+        .role-match-summary:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: -3px; border-radius: inherit; }
+        .role-match-name { margin: 0; font-size: 1.02rem; font-weight: 800; line-height: 1.25; overflow-wrap: normal; }
+        .role-match-name small { display: block; margin-top: .25rem; color: var(--studio-muted); font-size: .62rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+        .role-match-score { font-size: .92rem; font-weight: 800; white-space: nowrap; }
+        .role-match-chevron { width: 18px; height: 18px; color: #8a98a8; transition: transform .25s ease; }
+        .role-match-details[open] .role-match-chevron { transform: rotate(180deg); }
+        .role-match-body { padding: 0 1rem 1rem; }
+        .role-match-details[open] .role-match-body { animation: priorityActionOpen .3s ease both; }
+        /* iPad: score parts and the assessment summary stack until 1024px. */
+        .report-overview-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; align-items: stretch; }
+        @media (min-width: 1024px) { .report-overview-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
+        @media (min-width: 1024px) and (max-width: 1279px) {
+            .report-overview-main article.items-center { flex-direction: column; align-items: flex-start; }
+        }
+        /* One strategy card: keywords to add and the evidence that stays. */
+        .report-strategy-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.5rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--studio-border); }
+        .report-strategy-label { margin: 0 0 .55rem; color: var(--studio-muted); font-size: .7rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        /* Lists that come in one item after another (01, 02, 03 and the ticks). */
+        .tick-flow > li > .tick-mark { display: inline-grid; flex: none; place-items: center; width: 1.35rem; height: 1.35rem; margin-top: .05rem; border-radius: 999px; background: #e3f1fd; color: var(--studio-teal-dark); font-size: .72rem; font-weight: 800; line-height: 1; }
+        .flow-list.flow-ready > * { opacity: 0; }
+        .flow-list.flow-ready.is-flowing > * { animation: tickFlowIn .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--flow-index, 0) * 130ms); }
+        .tick-flow.flow-ready.is-flowing > li > .tick-mark { animation: tickFlowPop .5s cubic-bezier(.3,1.5,.5,1) both; animation-delay: calc(var(--flow-index, 0) * 130ms + 150ms); }
+        @keyframes tickFlowIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+        @keyframes tickFlowPop { from { opacity: 0; transform: scale(.2); } 70% { opacity: 1; transform: scale(1.2); } to { opacity: 1; transform: scale(1); } }
+        @media (max-width: 700px) {
+            /* Phones: the button sits under the content it opens, full width. */
+            #reportProgress:not([hidden]), .report-feedback-block { display: flex; flex-direction: column; }
+            .report-progress-head, .report-feedback-head { display: contents; }
+            .report-progress-head > div:first-child { order: 1; margin-right: 0; }
+            .report-progress-meta { order: 2; margin-top: .35rem; }
+            #reportProgressBody { order: 3; }
+            .report-feedback-head > div { order: 1; }
+            #structuredFeedbackList { order: 2; }
+            .report-progress-head .report-collapse-toggle, .report-feedback-head .report-collapse-toggle { order: 4; align-self: stretch; justify-content: center; margin-top: 1rem; }
+            .report-strategy-groups { grid-template-columns: 1fr; }
+            .priority-action-summary { gap: .75rem; padding: .85rem .95rem; }
+            .priority-action-number { width: 2rem; height: 2rem; font-size: .9rem; }
+            .priority-action-title { font-size: .95rem; }
+            .priority-action-body { padding: 0 .95rem 1rem; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .report-collapse-toggle, .report-collapse-toggle svg, .priority-action-chevron { transition: none; }
+            .priority-action-details[open] .priority-action-body { animation: none; }
+            .flow-list.flow-ready > *, .flow-list.flow-ready.is-flowing > *, .tick-flow.flow-ready.is-flowing > li > .tick-mark { opacity: 1; animation: none; }
+            .role-match-chevron { transition: none; }
+        }
+        /* Hero score: counts up with a bar and a band chip. Tapping it replays the
+           count and opens the parts that make up the score (open on wide screens,
+           closed on phones). */
+        .report-score-button { display: grid; justify-items: start; gap: .6rem; width: 100%; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .report-score-button:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: 6px; border-radius: 12px; }
+        .report-score-button .report-score-number { margin: 1rem 0 .2rem; }
+        .report-score-number #overallScore { display: inline-block; font-variant-numeric: tabular-nums; transform-origin: left bottom; }
+        .report-score-button.is-bumped #overallScore { animation: reportScorePop .55s cubic-bezier(.3,1.5,.5,1); }
+        @keyframes reportScorePop { 35% { transform: scale(1.08); } }
+        .report-score-meter { display: block; width: min(100%, 15rem); height: .45rem; overflow: hidden; border-radius: 999px; background: #dfeaf5; }
+        .report-score-meter > span { display: block; width: 0; height: 100%; border-radius: inherit; background: #087fec; transition: width 1s cubic-bezier(.22,1,.36,1); }
+        .report-score-band { display: inline-flex; align-items: center; gap: .45rem; padding: .32rem .75rem; border-radius: 999px; background: #e5f2ff; color: #0058b0; font-size: .76rem; font-weight: 800; line-height: 1.3; }
+        .report-score-band::before { content: ""; flex: none; width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; }
+        .report-score-band[data-band="low"] { background: #fde5e5; color: #a1262b; }
+        .report-score-band[data-band="needs"] { background: #fff1d6; color: #7a4b00; }
+        .report-score-band[data-band="strong"] { background: #dcf5ea; color: #0b6b43; }
+        .report-score-hint { display: inline-flex; align-items: center; gap: .35rem; color: var(--studio-teal-dark); font-size: .78rem; font-weight: 800; }
+        .report-score-hint svg { width: 16px; height: 16px; flex: none; transition: transform .25s ease; }
+        .report-score-button[aria-expanded="true"] .report-score-hint svg { transform: rotate(180deg); }
+        .report-score-parts { margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid #dbe8f4; }
+        .report-score-parts ul { display: grid; gap: .7rem; margin: 0; padding: 0; list-style: none; }
+        .score-part { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: .3rem .75rem; font-size: .82rem; }
+        .score-part-label { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .45rem; color: var(--studio-ink); font-weight: 700; }
+        .score-part-label em { padding: .05rem .5rem; border-radius: 999px; background: #fff1d6; color: #7a4b00; font-size: .66rem; font-style: normal; font-weight: 800; }
+        .score-part strong { color: var(--studio-ink); font-variant-numeric: tabular-nums; }
+        .score-part-track { grid-column: 1 / -1; display: block; height: .4rem; overflow: hidden; border-radius: 999px; background: #e3ebf3; }
+        .score-part-track > span { display: block; width: calc(var(--part, 0) * 1%); height: 100%; border-radius: inherit; background: #087fec; transform-origin: left center; }
+        .score-part[data-weakest="true"] .score-part-track > span { background: #e08a1e; }
+        .report-score-parts.is-playing .score-part-track > span { animation: reportBarFill .8s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(var(--flow-index, 0) * 110ms); }
+        @keyframes reportBarFill { from { transform: scaleX(0); } }
+        .report-score-parts .report-score-note { max-width: none; margin-top: .85rem; font-size: .76rem; }
+        /* Assessment summary: the verdict, three short points, and the method on tap. */
+        .report-summary-card { border: 1px solid #172b3e; background: #172b3e; color: #fff; }
+        .report-summary-mark { color: #8fc8ff; }
+        .report-summary-eyebrow { color: rgba(255,255,255,.62); font-size: .75rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        .report-summary-band { margin: 0 0 1.1rem; color: #fff; font-family: Manrope,Inter,sans-serif; font-size: clamp(1.3rem,2.4vw,1.6rem); font-weight: 800; letter-spacing: -.025em; line-height: 1.2; }
+        .report-summary-points { display: grid; gap: .85rem; margin: 0; padding: 0; list-style: none; }
+        .report-summary-points li { display: grid; grid-template-columns: 2rem minmax(0,1fr); align-items: start; gap: .75rem; color: rgba(255,255,255,.88); font-size: .9rem; line-height: 1.5; }
+        .report-summary-points svg { width: 2rem; height: 2rem; padding: .42rem; border-radius: 10px; background: rgba(143,200,255,.13); color: #8fc8ff; }
+        .report-summary-points li > span { padding-top: .2rem; overflow-wrap: anywhere; }
+        .report-summary-more { margin-top: auto; padding-top: 1.25rem; }
+        .report-summary-more > summary { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,.12); color: #b9dcff; font-size: .82rem; font-weight: 800; cursor: pointer; list-style: none; }
+        .report-summary-more > summary::-webkit-details-marker { display: none; }
+        .report-summary-more > summary::marker { content: ""; }
+        .report-summary-more > summary:focus-visible { outline: 3px solid rgba(143,200,255,.45); outline-offset: 3px; border-radius: 6px; }
+        .report-summary-more > summary svg { width: 16px; height: 16px; flex: none; transition: transform .25s ease; }
+        .report-summary-more[open] > summary svg { transform: rotate(180deg); }
+        .report-summary-more p { margin: .75rem 0 0; color: rgba(255,255,255,.74); font-size: .8rem; line-height: 1.6; }
+        .report-summary-weights { display: grid; gap: .4rem; margin: .8rem 0 0; padding: 0; list-style: none; font-size: .78rem; }
+        .report-summary-weights li { display: flex; justify-content: space-between; gap: .75rem; padding-bottom: .4rem; border-bottom: 1px dashed rgba(255,255,255,.14); color: rgba(255,255,255,.82); }
+        .report-summary-weights small { color: rgba(255,255,255,.55); font-size: .72rem; }
+        .report-summary-weights strong { color: #fff; white-space: nowrap; }
+        .report-summary-more[open] > :not(summary) { animation: priorityActionOpen .3s ease both; }
+        /* "Your next 3 edits": number and title; tap a row (or Show details) for the how-to. */
+        .report-quick-list article { display: block; padding: 0; overflow: hidden; }
+        .quick-edit-summary { display: grid; grid-template-columns: 5.5rem minmax(0,1fr) auto; align-items: center; gap: .15rem 1.3rem; padding: 1.1rem 1.3rem; cursor: pointer; list-style: none; }
+        .quick-edit-summary::-webkit-details-marker { display: none; }
+        .quick-edit-summary::marker { content: ""; }
+        .quick-edit-summary:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: -3px; border-radius: inherit; }
+        .report-quick-list .quick-edit-number { grid-row: auto; padding-top: 0; }
+        .quick-edit-chevron { width: 18px; height: 18px; color: #8a98a8; transition: transform .25s ease; }
+        .quick-edit-details[open] .quick-edit-chevron { transform: rotate(180deg); }
+        .quick-edit-body { padding: 0 1.3rem 1.1rem calc(5.5rem + 2.6rem); }
+        .quick-edit-details[open] .quick-edit-body { animation: priorityActionOpen .3s ease both; }
+        .report-quick-head .report-collapse-toggle { display: flex; width: max-content; margin-top: .9rem; }
+        /* Related-skill evidence: a tick, the skill and the tools that prove it; tap a
+           row to see what the job asks for. */
+        .related-skill-list li { padding: 0; overflow: hidden; }
+        .related-skill-summary { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: .75rem; padding: .75rem .9rem; list-style: none; }
+        details > .related-skill-summary { cursor: pointer; }
+        div.related-skill-summary { grid-template-columns: auto minmax(0,1fr); }
+        .related-skill-summary::-webkit-details-marker { display: none; }
+        .related-skill-summary::marker { content: ""; }
+        .related-skill-summary:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: -3px; border-radius: inherit; }
+        .related-skill-check { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 999px; background: #dcf5ea; color: #0b6b43; }
+        .related-skill-check svg { width: 15px; height: 15px; }
+        .related-skill-main { display: grid; gap: .35rem; min-width: 0; }
+        .related-skill-main strong { font-size: .92rem; line-height: 1.3; }
+        .related-skill-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+        .related-skill-list .related-skill-proof { font-size: .74rem; }
+        .related-skill-tool { padding: .12rem .55rem; border-radius: 999px; background: #e8f1fa; color: #123a5c; font-size: .74rem; font-weight: 700; }
+        .related-skill-chevron { width: 18px; height: 18px; color: #8a98a8; transition: transform .25s ease; }
+        .related-skill[open] .related-skill-chevron { transform: rotate(180deg); }
+        .related-skill-ask { margin: 0; padding: 0 .9rem .85rem calc(.9rem + 1.75rem + .75rem); color: var(--studio-muted); font-size: .8rem; line-height: 1.55; }
+        .related-skill-ask span { color: var(--studio-ink); font-weight: 800; }
+        .related-skill[open] .related-skill-ask { animation: priorityActionOpen .3s ease both; }
+        /* ATS checks: a quality meter, the method behind an info fold, and issues shown
+           as category icons that open for the fix. */
+        .ats-meter { max-width: 34rem; margin-top: 1.1rem; }
+        .ats-meter-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem .8rem; }
+        .ats-meter-row strong { color: var(--studio-ink); font-size: .92rem; font-weight: 800; }
+        .ats-risk { padding: .22rem .65rem; border-radius: 999px; background: #e5f2ff; color: #0058b0; font-size: .72rem; font-weight: 800; }
+        .ats-risk[data-risk="low"] { background: #dcf5ea; color: #0b6b43; }
+        .ats-risk[data-risk="medium"] { background: #fff1d6; color: #7a4b00; }
+        .ats-risk[data-risk="high"] { background: #fde5e5; color: #a1262b; }
+        .ats-meter-track { display: block; height: .55rem; margin-top: .55rem; overflow: hidden; border-radius: 999px; background: #e3ebf3; }
+        .ats-meter-track > span { display: block; width: 0; height: 100%; border-radius: inherit; background: #087fec; transform-origin: left center; }
+        .ats-meter[data-risk="low"] .ats-meter-track > span { background: #1f9d63; }
+        .ats-meter[data-risk="medium"] .ats-meter-track > span { background: #e08a1e; }
+        .ats-meter[data-risk="high"] .ats-meter-track > span { background: #d0393f; }
+        .ats-meter.flow-ready .ats-meter-track > span { transform: scaleX(0); }
+        .ats-meter.flow-ready.is-flowing .ats-meter-track > span { transform: none; animation: reportBarFill 1s cubic-bezier(.22,1,.36,1) .15s both; }
+        .ats-how { max-width: 46rem; margin-top: .9rem; }
+        .ats-how > summary { display: inline-flex; align-items: center; gap: .4rem; color: var(--studio-teal-dark); font-size: .82rem; font-weight: 800; cursor: pointer; list-style: none; }
+        .ats-how > summary::-webkit-details-marker { display: none; }
+        .ats-how > summary::marker { content: ""; }
+        .ats-how > summary:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: 3px; border-radius: 6px; }
+        .ats-how > summary svg { width: 16px; height: 16px; flex: none; }
+        .ats-how-chevron { transition: transform .25s ease; }
+        .ats-how[open] .ats-how-chevron { transform: rotate(180deg); }
+        .ats-how p { margin: .6rem 0 0; padding: .8rem .95rem; border-radius: 12px; background: #f4f8fc; color: var(--studio-muted); font-size: .84rem; line-height: 1.6; }
+        .ats-how[open] p { animation: priorityActionOpen .3s ease both; }
+        .ats-issue-list { display: grid; gap: .6rem; margin: 0; padding: 0; list-style: none; }
+        .ats-issue { overflow: hidden; border: 1px solid #f1dfc0; border-radius: 14px; background: #fffaf2; }
+        .ats-issue-summary { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: .8rem; padding: .8rem .9rem; cursor: pointer; list-style: none; }
+        .ats-issue-summary::-webkit-details-marker { display: none; }
+        .ats-issue-summary::marker { content: ""; }
+        .ats-issue-summary:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: -3px; border-radius: inherit; }
+        .ats-issue-icon { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 12px; background: #ffe9c7; color: #8a4f00; }
+        .ats-issue-icon svg { width: 20px; height: 20px; }
+        .ats-issue-title { display: grid; gap: .1rem; min-width: 0; color: var(--studio-ink); font-size: .92rem; font-weight: 800; line-height: 1.3; }
+        .ats-issue-title small { color: #8a5a12; font-size: .64rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        .ats-issue-chevron { width: 18px; height: 18px; color: #a08355; transition: transform .25s ease; }
+        .ats-issue-details[open] .ats-issue-chevron { transform: rotate(180deg); }
+        .ats-issue-text { margin: 0; padding: 0 .9rem .9rem calc(.9rem + 2.4rem + .8rem); color: var(--studio-muted); font-size: .86rem; line-height: 1.6; }
+        .ats-issue-details[open] .ats-issue-text { animation: priorityActionOpen .3s ease both; }
+        .ats-all-clear { display: flex; align-items: center; gap: .6rem; padding: .8rem .9rem; border-radius: 14px; background: #e3f6ec; color: #0b6b43; font-size: .88rem; font-weight: 700; }
+        .ats-all-clear svg, .ats-pass-chip svg { flex: none; }
+        .ats-all-clear svg { width: 18px; height: 18px; }
+        .ats-pass-list { display: flex; flex-wrap: wrap; gap: .45rem; }
+        .ats-pass-chip { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .7rem; border-radius: 999px; background: #e3f6ec; color: #0b6b43; font-size: .76rem; font-weight: 700; }
+        .ats-pass-chip svg { width: 14px; height: 14px; }
+        @media (max-width: 700px) {
+            /* The score sits beside its band and hint; the bar runs underneath. */
+            .report-score-card { display: block; }
+            .report-score-button { grid-template-columns: auto minmax(0,1fr); align-items: center; gap: .45rem 1.1rem; }
+            .report-score-button .report-score-number { grid-column: 1; grid-row: 1 / span 2; margin: 0; }
+            .report-score-band { grid-column: 2; grid-row: 1; align-self: end; }
+            .report-score-hint { grid-column: 2; grid-row: 2; align-self: start; }
+            .report-score-meter { grid-column: 1 / -1; grid-row: 3; width: 100%; }
+            /* The Show details button sits under the edits, full width. */
+            .report-quick { row-gap: 0; }
+            .report-quick-head { display: contents; }
+            .report-quick-head > a { justify-self: start; }
+            .report-quick-list { margin-top: 1rem; }
+            .report-quick-head .report-collapse-toggle { order: 1; align-self: stretch; justify-content: center; width: auto; margin-top: 1rem; }
+            .quick-edit-summary { grid-template-columns: 4.5rem minmax(0,1fr) auto; }
+            .quick-edit-body { padding-left: calc(4.5rem + 2.6rem); }
+        }
+        @media (max-width: 639px) {
+            /* Three rings in one row; the tapped ring's detail shows underneath. */
+            .evidence-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+            .evidence-tile { flex-direction: column; justify-content: flex-start; gap: .5rem; padding: .8rem .35rem .7rem; text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: border-color .2s ease, box-shadow .2s ease; }
+            .evidence-tile .evidence-ring { width: 3.6rem; height: 3.6rem; }
+            .evidence-tile .evidence-ring::after { inset: .35rem; }
+            .evidence-tile .evidence-ring span { font-size: .86rem; }
+            .evidence-tile .evidence-ring .soft-count { font-size: .62rem; }
+            .evidence-tile > .min-w-0 > p:first-child { margin: 0; font-size: .6rem; letter-spacing: .06em; line-height: 1.3; }
+            .evidence-tile h4, .evidence-tile [data-evidence-detail] { display: none; }
+            .evidence-tile[aria-pressed="true"] { border-color: var(--studio-teal); box-shadow: 0 0 0 3px rgba(8,127,236,.14); }
+            .evidence-tile:focus-visible { outline: 3px solid rgba(8,127,236,.35); outline-offset: 2px; }
+            .evidence-tile-detail { display: grid; gap: .15rem; margin: 0; padding: .8rem .95rem; border: 1px solid var(--studio-border); border-radius: 14px; background: #f8fbff; color: var(--studio-muted); font-size: .84rem; line-height: 1.5; }
+            .evidence-tile-detail strong { color: var(--studio-ink); font-size: .88rem; }
+        }
+        @media (min-width: 640px) {
+            .evidence-tile-detail { display: none; }
+        }
+        @media (max-width: 480px) {
+            .quick-edit-summary { grid-template-columns: minmax(0,1fr) auto; gap: .3rem .75rem; padding: .95rem; }
+            .report-quick-list .quick-edit-number { grid-column: 1; grid-row: 1; }
+            .quick-edit-summary h3 { grid-column: 1; grid-row: 2; }
+            .quick-edit-chevron { grid-column: 2; grid-row: 1 / span 2; }
+            .quick-edit-body { padding: 0 .95rem .95rem; }
+            .ats-issue-text { padding-left: .9rem; }
+            .related-skill-ask { padding-left: .9rem; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .report-score-button.is-bumped #overallScore, .report-score-parts.is-playing .score-part-track > span, .ats-meter.flow-ready.is-flowing .ats-meter-track > span { animation: none; }
+            .ats-meter.flow-ready .ats-meter-track > span { transform: none; }
+            .report-score-meter > span, .report-score-hint svg, .quick-edit-chevron, .related-skill-chevron, .ats-issue-chevron, .ats-how-chevron, .report-summary-more > summary svg, .evidence-tile { transition: none; }
+            .quick-edit-details[open] .quick-edit-body, .related-skill[open] .related-skill-ask, .ats-issue-details[open] .ats-issue-text, .ats-how[open] p, .report-summary-more[open] > :not(summary) { animation: none; }
+        }
         @media print {
             .report-hero::before, .report-hero::after { animation: none !important; }
             .report-reveal { opacity: 1 !important; filter: none !important; transform: none !important; }
+            .report-collapse-toggle, .report-score-hint { display: none !important; }
+            .flow-list > *, .tick-flow > li > .tick-mark { opacity: 1 !important; transform: none !important; animation: none !important; }
+            .ats-meter-track > span, .score-part-track > span { transform: none !important; animation: none !important; }
         }
     </style>
+<style id="darkThemeGenerated">
+@media screen{
+html[data-theme="dark"] body{background-color:#151a20;color:#d1d7de}
+html[data-theme="dark"] .app-toast{background-image:none;background-color:#1f252c;border-color:rgba(0, 37, 85, 0.14);color:#a7d2ff;box-shadow:0 18px 45px rgba(0, 37, 85, 0.16)}
+html[data-theme="dark"] .app-toast-success{border-left-color:#0f8a4b}
+html[data-theme="dark"] .app-toast-success .app-toast-icon{color:#5ac280}
+html[data-theme="dark"] .app-toast-error{border-left-color:#ba1a1a}
+html[data-theme="dark"] .app-toast-error .app-toast-icon{color:#ff7768}
+html[data-theme="dark"] .app-toast-info{border-left-color:#0060ac}
+html[data-theme="dark"] .app-toast-info .app-toast-icon{color:#69b8ff}
+html[data-theme="dark"] .evidence-ring{background-image:conic-gradient(#0060ac calc(var(--score) * 1%), #242930 0);background-color:transparent}
+html[data-theme="dark"] .evidence-ring::after{background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .evidence-ring span{color:#a7d2ff}
+html[data-theme="dark"] body{background-image:none;background-color:var(--studio-canvas);color:var(--studio-ink)}
+html[data-theme="dark"] .report-nav{border-bottom-color:var(--studio-border);background-image:none;background-color:rgba(31,37,44,.96)}
+html[data-theme="dark"] .report-brand{color:var(--studio-ink)}
+html[data-theme="dark"] .report-brand-mark{background-image:none;background-color:var(--studio-teal);color:#fff}
+html[data-theme="dark"] .report-brand-name small{color:#5db0ff}
+html[data-theme="dark"] .report-brand-name strong{color:var(--studio-ink)}
+html[data-theme="dark"] .report-nav-links a{color:#a2b4cb}
+html[data-theme="dark"] .report-nav-links a:focus-visible{background-image:none;background-color:#131d25;color:#5db0ff}
+@media (hover: hover) and (pointer: fine){
+html[data-theme="dark"] .report-nav-links a:hover{background-image:none;background-color:#131d25;color:#5db0ff}
+}
+html[data-theme="dark"] .report-nav-links .report-nav-return{border-color:#273f54;background-image:none;background-color:#161b21;color:#5db0ff}
+html[data-theme="dark"] .report-nav-links .report-nav-return:hover,html[data-theme="dark"] .report-nav-links .report-nav-return:focus-visible{border-color:#2c465d;background-image:none;background-color:#13212d}
+html[data-theme="dark"] .report-nav #openAuthModalBtn{background-image:none;background-color:#0064c8;color:#fff}
+html[data-theme="dark"] .report-nav #openAuthModalBtn:hover{background-image:none;background-color:#0055aa}
+html[data-theme="dark"] .report-empty{border-color:var(--studio-border);background-image:none;background-color:#1f252c;box-shadow:0 12px 36px rgba(22,35,56,.06)}
+html[data-theme="dark"] .report-empty-icon{background-image:none;background-color:#0f241e;color:var(--studio-teal-text, var(--studio-teal))}
+html[data-theme="dark"] .report-empty p{color:var(--studio-muted)}
+html[data-theme="dark"] .studio-button{background-image:none;background-color:var(--studio-teal-dark);color:white}
+html[data-theme="dark"] .studio-button:hover{background-image:none;background-color:#0055aa}
+html[data-theme="dark"] .report-shell{color:var(--studio-ink)}
+html[data-theme="dark"] .report-shell :is(.bg-surface-container-lowest, .bg-surface-container-low){background-color:#1f252c}
+html[data-theme="dark"] .report-shell :is(.bg-primary, .bg-primary-container){background-color:var(--studio-ink)}
+html[data-theme="dark"] .report-shell .bg-secondary{background-color:var(--studio-teal)}
+html[data-theme="dark"] .report-shell :is(.text-primary, .text-on-surface){color:var(--studio-ink)}
+html[data-theme="dark"] .report-shell .text-secondary{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-shell .text-on-surface-variant{color:var(--studio-muted)}
+html[data-theme="dark"] .report-shell .bg-gradient-to-r{background-image:none;background-color:var(--studio-teal)}
+html[data-theme="dark"] .report-shell :is(button, a, input):focus-visible,html[data-theme="dark"] .report-nav :is(button, a):focus-visible,html[data-theme="dark"] .report-empty a:focus-visible{outline-color:#176b89}
+html[data-theme="dark"] .report-hero{background-image:none;background-color:#1f252c;border-color:var(--studio-border);box-shadow:0 12px 36px rgba(22,35,56,.07)}
+html[data-theme="dark"] .report-eyebrow{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-hero-copy{color:var(--studio-muted)}
+html[data-theme="dark"] .report-score-card{background-image:none;background-color:#171c22;border-color:#2a4045}
+html[data-theme="dark"] .report-score-label{color:var(--studio-muted)}
+html[data-theme="dark"] .report-score-number{color:var(--studio-ink)}
+html[data-theme="dark"] .report-score-number span:last-child{color:var(--studio-muted)}
+html[data-theme="dark"] .report-score-note{color:var(--studio-muted)}
+html[data-theme="dark"] .report-quick{border-color:var(--studio-border);background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .report-quick a{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-quick-list article{border-color:var(--studio-border);background-image:none;background-color:#14191f}
+html[data-theme="dark"] .report-quick-list span{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-quick-list h3{color:var(--studio-ink)}
+html[data-theme="dark"] .report-quick-list p{color:var(--studio-muted)}
+html[data-theme="dark"] .report-progress{border-color:#273f54;background-image:linear-gradient(180deg,#161a21,#1f252c 70%);background-color:transparent}
+html[data-theme="dark"] .report-progress-meta{color:var(--studio-muted)}
+html[data-theme="dark"] .report-progress-score .progress-from{color:var(--studio-muted)}
+html[data-theme="dark"] .report-progress-score .progress-to{color:var(--studio-ink)}
+html[data-theme="dark"] .progress-delta[data-trend="improved"]{background-image:none;background-color:#11251d;color:#78ca9c}
+html[data-theme="dark"] .progress-delta[data-trend="declined"]{background-image:none;background-color:#2f1c1c;color:#ff8883}
+html[data-theme="dark"] .progress-delta[data-trend="unchanged"]{background-image:none;background-color:#1a1f25;color:#a7bbd3}
+html[data-theme="dark"] .report-progress-summary{color:var(--studio-muted)}
+html[data-theme="dark"] .report-progress-components{color:var(--studio-muted)}
+html[data-theme="dark"] .report-progress-components strong{color:var(--studio-ink)}
+html[data-theme="dark"] .report-progress-grid article{border-color:#2f3d49;background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .report-progress-grid h3{color:var(--studio-muted)}
+html[data-theme="dark"] .progress-chip{background-image:none;background-color:#191e24;color:#aecbe8}
+html[data-theme="dark"] .progress-chip[data-tone="good"]{background-image:none;background-color:#11251d;color:#78ca9c}
+html[data-theme="dark"] .progress-chip[data-tone="warn"]{background-image:none;background-color:#241c0c;color:#e0ab6f}
+html[data-theme="dark"] .progress-chip[data-tone="bad"]{background-image:none;background-color:#2f1c1c;color:#ff8883}
+html[data-theme="dark"] .progress-empty{color:var(--studio-muted)}
+html[data-theme="dark"] .action-progress-note{background-image:none;background-color:#241c0c;color:#e0ab6f}
+html[data-theme="dark"] .related-skill-list li{border-color:var(--studio-border);background-image:none;background-color:#14191f}
+html[data-theme="dark"] .related-skill-list strong{color:var(--studio-ink)}
+html[data-theme="dark"] .related-skill-list .related-skill-proof{color:var(--studio-muted)}
+html[data-theme="dark"] .related-skill-list small{color:var(--studio-muted)}
+html[data-theme="dark"] .report-tabs{border-color:var(--studio-border);background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .report-tabs a{color:var(--studio-muted)}
+html[data-theme="dark"] .report-tabs a:focus-visible{background-image:none;background-color:#1a1e25;color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+@media (hover: hover){
+html[data-theme="dark"] .report-tabs a:hover{background-image:none;background-color:#1a1e25;color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+}
+html[data-theme="dark"] .report-tabs a[aria-current="location"],html[data-theme="dark"] .report-tabs a[aria-current="location"]:hover{background-image:none;background-color:#13202d;color:#5eb1ff;box-shadow:inset 0 -2px 0 #0877de}
+html[data-theme="dark"] .report-sample-banner{border-color:#2d3f45;background-image:none;background-color:#181d23;color:#88c6e3}
+html[data-theme="dark"] .report-shell section > div:is(.bg-surface-container-lowest,.bg-surface-container-high){border-color:var(--studio-border);box-shadow:0 12px 36px rgba(22,35,56,.04)}
+html[data-theme="dark"] .report-shell .evidence-ring{background-image:conic-gradient(var(--studio-teal) calc(var(--score) * 1%), #222830 0);background-color:transparent}
+html[data-theme="dark"] .report-shell .evidence-ring span{color:var(--studio-ink)}
+html[data-theme="dark"] .report-shell .evidence-ring.is-count{background-image:conic-gradient(var(--count-1, #222830) 0 82deg, transparent 82deg 90deg, var(--count-2, #222830) 90deg 172deg, transparent 172deg 180deg, var(--count-3, #222830) 180deg 262deg, transparent 262deg 270deg, var(--count-4, #222830) 270deg 352deg, transparent 352deg 360deg);background-color:transparent}
+html[data-theme="dark"] .career-footer{background-image:none;background-color:#122b3b;color:#fff}
+html[data-theme="dark"] .career-footer-lockup{color:#fff}
+html[data-theme="dark"] .career-footer-mark{border-color:rgba(179,234,242,.3);background-image:none;background-color:var(--studio-teal)}
+html[data-theme="dark"] .career-footer-brand small{color:#9fe4eb}
+html[data-theme="dark"] .career-footer-copy{color:#b7cbd4}
+html[data-theme="dark"] .career-footer-group h3{color:#fff}
+html[data-theme="dark"] .career-footer-links a,html[data-theme="dark"] .career-footer-links button{border-color:currentcolor;background-image:none;background-color:transparent;color:#b7cbd4}
+html[data-theme="dark"] .career-footer-links a:hover,html[data-theme="dark"] .career-footer-links button:hover{color:#fff}
+html[data-theme="dark"] .career-footer-bottom{border-top-color:rgba(255,255,255,.13);color:#a8c0cc}
+html[data-theme="dark"] .report-nav{box-shadow:none}
+html[data-theme="dark"] .report-hero{background-image:none;background-color:#15191f;border-color:#2f3b47;box-shadow:none}
+html[data-theme="dark"] .report-hero::before{background-image:radial-gradient(circle, rgba(8,127,236,.09), rgba(8,127,236,.035) 45%, transparent 72%);background-color:transparent}
+html[data-theme="dark"] .report-hero::after{border-color:rgba(8,127,236,.18)}
+html[data-theme="dark"] .report-hero-copy + .report-hero-copy{border-top-color:#2f3d49}
+html[data-theme="dark"] .report-hero-copy strong{color:var(--studio-ink)}
+html[data-theme="dark"] .report-score-card{background-image:none;background-color:transparent;border-color:currentcolor;border-left-color:#2e404e;box-shadow:none}
+html[data-theme="dark"] .report-score-number #overallScore{color:var(--studio-teal-text, var(--studio-teal))}
+html[data-theme="dark"] .report-quick{border-color:#2f3b47;background-image:none;background-color:#1f252c;box-shadow:0 12px 36px rgba(22,35,56,.05)}
+html[data-theme="dark"] .report-quick-list article{border-color:#2f3d49;background-image:none;background-color:#14191f}
+html[data-theme="dark"] .quick-keywords li{background-image:none;background-color:#16202b;color:#a1ccf5}
+html[data-theme="dark"] .report-tabs{box-shadow:none}
+html[data-theme="dark"] .report-sample-banner{border-color:#264157;background-image:none;background-color:#111e2a;color:#94c6f6}
+html[data-theme="dark"] .report-shell section > div:is(.bg-surface-container-lowest,.bg-surface-container-high){box-shadow:none}
+html[data-theme="dark"] .report-shell #overview > .grid > div:first-child > div:first-child,html[data-theme="dark"] .report-shell #job-match > div,html[data-theme="dark"] .report-shell #ats-checks > div{border-color:var(--studio-border);background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .report-shell #overview > .grid > div:first-child > .grid article{border-color:var(--studio-border);background-image:none;background-color:#14191f;box-shadow:none}
+html[data-theme="dark"] .report-shell #overview > .grid > div:last-child{background-image:none;background-color:#172b3e;border-color:#172b3e}
+html[data-theme="dark"] .metric-row > span:nth-child(2){color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .priority-action-grid article{border-color:var(--studio-border);box-shadow:0 6px 20px rgba(23,43,56,.035)}
+html[data-theme="dark"] .report-workspace-intro > p:last-child{color:var(--studio-muted)}
+html[data-theme="dark"] .submission-card,html[data-theme="dark"] .report-work-card,html[data-theme="dark"] .generated-resume-panel{border-color:var(--studio-border);background-image:none;background-color:#1f252c;box-shadow:0 8px 28px rgba(23,43,56,.045)}
+html[data-theme="dark"] .submission-card h3,html[data-theme="dark"] .report-work-card h3{color:var(--studio-ink)}
+html[data-theme="dark"] .submission-meta{border-color:var(--studio-border)}
+html[data-theme="dark"] .submission-meta-item{background-image:none;background-color:#151a20}
+html[data-theme="dark"] .submission-meta-item + .submission-meta-item{border-left-color:var(--studio-border)}
+html[data-theme="dark"] .submission-meta-item p:first-child{color:var(--studio-muted)}
+html[data-theme="dark"] .report-work-card p:not(.report-eyebrow){color:var(--studio-muted)}
+html[data-theme="dark"] .report-work-card input{border-color:var(--studio-border);background-image:none;background-color:#151a20}
+html[data-theme="dark"] .report-work-card input:focus{background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .report-export-card{background-image:linear-gradient(145deg, #173e55, #172f45);background-color:transparent;border-color:#173e55;color:#fff}
+html[data-theme="dark"] .report-export-card h3{color:#fff}
+html[data-theme="dark"] .report-export-card .report-eyebrow{color:#acd8e5}
+html[data-theme="dark"] .report-export-card p:not(.report-eyebrow){color:#d8eaf0}
+html[data-theme="dark"] .report-action{border-color:transparent}
+html[data-theme="dark"] .report-action-primary{background-image:none;background-color:var(--studio-teal-dark);color:#fff;box-shadow:0 8px 19px rgba(23,107,137,.17)}
+html[data-theme="dark"] .report-action-primary:hover:not(:disabled){background-image:none;background-color:#0055aa;box-shadow:0 12px 24px rgba(23,107,137,.22)}
+html[data-theme="dark"] .report-action-light{background-image:none;background-color:#1f252c;color:#a2cce8}
+html[data-theme="dark"] .report-action-light:hover:not(:disabled){background-image:none;background-color:#132126}
+html[data-theme="dark"] .report-action-outline{border-color:var(--studio-border);background-image:none;background-color:#1f252c;color:var(--studio-ink)}
+html[data-theme="dark"] .report-action-outline:hover:not(:disabled){border-color:var(--studio-teal);background-image:none;background-color:#171c22}
+html[data-theme="dark"] .report-export-card .report-action-outline{border-color:rgba(255,255,255,.36);background-image:none;background-color:transparent;color:#fff}
+html[data-theme="dark"] .report-export-card .report-action-outline:hover:not(:disabled){background-image:none;background-color:rgba(255,255,255,.1)}
+html[data-theme="dark"] .report-preview-dialog{border-color:#2f414b;background-image:none;background-color:#1f252c;color:#bad3e4;box-shadow:0 28px 90px rgba(9,32,47,.32)}
+html[data-theme="dark"] .report-preview-dialog::backdrop{background-image:none;background-color:rgba(9,27,42,.7)}
+html[data-theme="dark"] .report-preview-header{border-bottom-color:#333d43;background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .report-preview-title{color:#bad3e4}
+html[data-theme="dark"] .report-preview-description{color:#9db4c4}
+html[data-theme="dark"] .report-preview-close{border-color:#333d43;background-image:none;background-color:#161b21;color:#a3cce9}
+html[data-theme="dark"] .report-preview-close:hover,html[data-theme="dark"] .report-preview-close:focus-visible{border-color:#176b89;background-image:none;background-color:#132228}
+html[data-theme="dark"] .report-preview-frame{border-color:currentcolor;background-image:none;background-color:#191e24}
+html[data-theme="dark"] .report-back-link{color:#d8eaf0}
+html[data-theme="dark"] .report-back-link:hover{color:#fff}
+html[data-theme="dark"] .generated-resume-frame{border-color:var(--studio-border);background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .role-examples{border-top-color:var(--studio-border)}
+html[data-theme="dark"] .role-examples-note{background-image:none;background-color:#211909;color:#e1b27a}
+html[data-theme="dark"] .role-example-tab{border-color:var(--studio-border);background-image:none;background-color:#1f252c;color:#b2d1e2}
+html[data-theme="dark"] .role-example-tab span{color:#98aab5}
+html[data-theme="dark"] .role-example-tab[aria-selected="true"]{border-color:#176b89;background-image:none;background-color:#176b89;color:#fff}
+html[data-theme="dark"] .role-example-tab[aria-selected="true"] span{color:#d8eef6}
+@media (max-width: 850px){
+html[data-theme="dark"] .submission-meta-item:nth-child(3){border-left-color:currentcolor}
+html[data-theme="dark"] .submission-meta-item:nth-child(n+3){border-top-color:var(--studio-border)}
+}
+@media (max-width: 700px){
+html[data-theme="dark"] .report-score-card{border-left-color:currentcolor;border-top-color:#2e404e}
+}
+@media (max-width: 600px){
+html[data-theme="dark"] .report-tabs{background-image:none;background-color:rgba(31,37,44,.97);box-shadow:0 8px 18px rgba(22,35,56,.06)}
+}
+@media (max-width: 480px){
+html[data-theme="dark"] .submission-meta-item + .submission-meta-item{border-left-color:currentcolor;border-top-color:var(--studio-border)}
+}
+html[data-theme="dark"] .sample-preview-card{border-color:#313e49;background-image:none;background-color:#161a20}
+html[data-theme="dark"] .sample-preview-heading{color:#69b8ff}
+html[data-theme="dark"] .sample-preview-intro{color:#a4b4ca}
+html[data-theme="dark"] .sample-preview-choices button{border-color:#2f414f;background-image:none;background-color:#1f252c;color:#a0beda}
+html[data-theme="dark"] .sample-preview-choices button[aria-pressed="true"]{border-color:#0064c8;background-image:none;background-color:#131f2c;color:#7abdff;box-shadow:inset 0 0 0 1px #0064c8}
+html[data-theme="dark"] .sample-preview-choices button:focus-visible{outline-color:#2e485f}
+html[data-theme="dark"] .sample-preview-paper-wrap{border-color:#353f4a;background-image:none;background-color:#1d2228}
+html[data-theme="dark"] .sample-resume-sheet{background-image:none;background-color:#fff;color:#1d2b3a;box-shadow:0 8px 26px rgba(31,54,77,.12)}
+html[data-theme="dark"] .sample-resume-sheet .sample-resume-kicker{color:#0060ac}
+html[data-theme="dark"] .sample-resume-sheet h3{color:#172535}
+html[data-theme="dark"] .sample-resume-sheet .sample-resume-role{color:#567086}
+html[data-theme="dark"] .sample-resume-sheet h4{border-bottom-color:#dce5ee;color:#005eac}
+html[data-theme="dark"] .sample-resume-sheet ul{color:#26394c}
+html[data-theme="dark"] .sample-preview-note{color:#a4b4ca}
+html[data-theme="dark"] .report-collapse-toggle{border-color:#284156;background-image:none;background-color:#1f252c;color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-collapse-toggle:hover{border-color:var(--studio-teal);background-image:none;background-color:#151a20}
+html[data-theme="dark"] .report-collapse-toggle:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .priority-action-summary:hover .priority-action-chevron{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .priority-action-summary:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .priority-action-title small{color:var(--studio-muted)}
+html[data-theme="dark"] .priority-action-chevron{color:#8a98a8}
+html[data-theme="dark"] .role-match-summary:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .role-match-name small{color:var(--studio-muted)}
+html[data-theme="dark"] .role-match-chevron{color:#8a98a8}
+html[data-theme="dark"] .report-strategy-groups{border-top-color:var(--studio-border)}
+html[data-theme="dark"] .report-strategy-label{color:var(--studio-muted)}
+html[data-theme="dark"] .tick-flow > li > .tick-mark{background-image:none;background-color:#13212d;color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-score-button{border-color:currentcolor;background-image:none;background-color:transparent;color:inherit}
+html[data-theme="dark"] .report-score-button:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .report-score-meter{background-image:none;background-color:#1e2833}
+html[data-theme="dark"] .report-score-meter > span{background-image:none;background-color:#087fec}
+html[data-theme="dark"] .report-score-band{background-image:none;background-color:#13202d;color:#6cb7ff}
+html[data-theme="dark"] .report-score-band::before{background-image:none;background-color:currentColor}
+html[data-theme="dark"] .report-score-band[data-band="low"]{background-image:none;background-color:#2f1c1c;color:#ff8883}
+html[data-theme="dark"] .report-score-band[data-band="needs"]{background-image:none;background-color:#241c0c;color:#e0ab6f}
+html[data-theme="dark"] .report-score-band[data-band="strong"]{background-image:none;background-color:#11251d;color:#78ca9c}
+html[data-theme="dark"] .report-score-hint{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-score-parts{border-top-color:#2f3d49}
+html[data-theme="dark"] .score-part-label{color:var(--studio-ink)}
+html[data-theme="dark"] .score-part-label em{background-image:none;background-color:#241c0c;color:#e0ab6f}
+html[data-theme="dark"] .score-part strong{color:var(--studio-ink)}
+html[data-theme="dark"] .score-part-track{background-image:none;background-color:#20282f}
+html[data-theme="dark"] .score-part-track > span{background-image:none;background-color:#087fec}
+html[data-theme="dark"] .score-part[data-weakest="true"] .score-part-track > span{background-image:none;background-color:#503416}
+html[data-theme="dark"] .report-summary-card{border-color:#172b3e;background-image:none;background-color:#172b3e;color:#fff}
+html[data-theme="dark"] .report-summary-mark{color:#8fc8ff}
+html[data-theme="dark"] .report-summary-eyebrow{color:rgba(255,255,255,.62)}
+html[data-theme="dark"] .report-summary-band{color:#fff}
+html[data-theme="dark"] .report-summary-points li{color:rgba(255,255,255,.88)}
+html[data-theme="dark"] .report-summary-points svg{background-image:none;background-color:rgba(143,200,255,.13);color:#8fc8ff}
+html[data-theme="dark"] .report-summary-more > summary{border-top-color:rgba(255,255,255,.12);color:#b9dcff}
+html[data-theme="dark"] .report-summary-more > summary:focus-visible{outline-color:rgba(143,200,255,.45)}
+html[data-theme="dark"] .report-summary-more p{color:rgba(255,255,255,.74)}
+html[data-theme="dark"] .report-summary-weights li{border-bottom-color:rgba(255,255,255,.14);color:rgba(255,255,255,.82)}
+html[data-theme="dark"] .report-summary-weights small{color:rgba(255,255,255,.55)}
+html[data-theme="dark"] .report-summary-weights strong{color:#fff}
+html[data-theme="dark"] .quick-edit-summary:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .quick-edit-chevron{color:#8a98a8}
+html[data-theme="dark"] .related-skill-summary:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .related-skill-check{background-image:none;background-color:#11251d;color:#78ca9c}
+html[data-theme="dark"] .related-skill-tool{background-image:none;background-color:#16202b;color:#a1ccf5}
+html[data-theme="dark"] .related-skill-chevron{color:#8a98a8}
+html[data-theme="dark"] .related-skill-ask{color:var(--studio-muted)}
+html[data-theme="dark"] .related-skill-ask span{color:var(--studio-ink)}
+html[data-theme="dark"] .ats-meter-row strong{color:var(--studio-ink)}
+html[data-theme="dark"] .ats-risk{background-image:none;background-color:#13202d;color:#6cb7ff}
+html[data-theme="dark"] .ats-risk[data-risk="low"]{background-image:none;background-color:#11251d;color:#78ca9c}
+html[data-theme="dark"] .ats-risk[data-risk="medium"]{background-image:none;background-color:#241c0c;color:#e0ab6f}
+html[data-theme="dark"] .ats-risk[data-risk="high"]{background-image:none;background-color:#2f1c1c;color:#ff8883}
+html[data-theme="dark"] .ats-meter-track{background-image:none;background-color:#20282f}
+html[data-theme="dark"] .ats-meter-track > span{background-image:none;background-color:#087fec}
+html[data-theme="dark"] .ats-meter[data-risk="low"] .ats-meter-track > span{background-image:none;background-color:#1f9d63}
+html[data-theme="dark"] .ats-meter[data-risk="medium"] .ats-meter-track > span{background-image:none;background-color:#503416}
+html[data-theme="dark"] .ats-meter[data-risk="high"] .ats-meter-track > span{background-image:none;background-color:#d0393f}
+html[data-theme="dark"] .ats-how > summary{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .ats-how > summary:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .ats-how p{background-image:none;background-color:#161b21;color:var(--studio-muted)}
+html[data-theme="dark"] .ats-issue{border-color:#4a3a1c;background-image:none;background-color:#14191f}
+html[data-theme="dark"] .ats-issue-summary:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .ats-issue-icon{background-image:none;background-color:#292010;color:#e5a365}
+html[data-theme="dark"] .ats-issue-title{color:var(--studio-ink)}
+html[data-theme="dark"] .ats-issue-title small{color:#d9a564}
+html[data-theme="dark"] .ats-issue-chevron{color:#b99c6d}
+html[data-theme="dark"] .ats-issue-text{color:var(--studio-muted)}
+html[data-theme="dark"] .ats-all-clear{background-image:none;background-color:#11231b;color:#78ca9c}
+html[data-theme="dark"] .ats-pass-chip{background-image:none;background-color:#11231b;color:#78ca9c}
+@media (max-width: 639px){
+html[data-theme="dark"] .evidence-tile[aria-pressed="true"]{border-color:var(--studio-teal);box-shadow:0 0 0 3px rgba(8,127,236,.14)}
+html[data-theme="dark"] .evidence-tile:focus-visible{outline-color:rgba(8,127,236,.35)}
+html[data-theme="dark"] .evidence-tile-detail{border-color:var(--studio-border);background-image:none;background-color:#14191f;color:var(--studio-muted)}
+html[data-theme="dark"] .evidence-tile-detail strong{color:var(--studio-ink)}
+}
+}
+</style>
+<style id="darkThemeTweaks">
+/* Dark theme: hand-tuned rules for this page (tools/build_dark_theme.py never changes this block). */
+@media screen {
+  html[data-theme="dark"] {
+    --studio-canvas: #1f252c; --studio-ink: #e3eaf3; --studio-muted: #a2b4cb; --studio-border: #323d48;
+    --studio-teal: #2f8ff0; --studio-teal-text: #66b2ff;
+    --studio-teal-dark: #0d6fd6; --studio-teal-dark-text: #66b2ff;
+  }
+  /* The light theme paints these with the ink colour, which is light here. */
+  html[data-theme="dark"] .report-shell :is(.priority-action-number, .role-match-rank, .role-match-badge).bg-primary { background-color: #0d6fd6; color: #fff; }
+  html[data-theme="dark"] .tick-flow > li > .tick-mark { background: #183252; color: #8cc4ff; }
+  /* Amber bars (weakest score part, medium ATS risk) stay bright enough to read. */
+  html[data-theme="dark"] :is(.ats-meter[data-risk="medium"] .ats-meter-track, .score-part[data-weakest="true"] .score-part-track) > span { background-color: #e39a3b; }
+  /* The summary card stays a deep blue panel, a little lighter than the page. */
+  html[data-theme="dark"] .report-summary-card { background-color: #132a40; border-color: #27455f; }
+}
+</style>
 </head>
 <body class="min-h-screen bg-background text-on-background">
 <!-- TopNavBar Shell -->
@@ -527,6 +1130,7 @@
 <a class="report-brand" href="home_page.html" aria-label="UTS CS Career Navigator home"><span class="report-brand-mark" aria-hidden="true"><svg width="25" height="25" viewBox="0 0 32 32" fill="none"><path d="M7 7v10c0 6 3.4 9 9 9s9-3 9-9V7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 11h8M12 15h8" stroke="#B7ECF2" stroke-width="2" stroke-linecap="round"/></svg></span><span class="report-brand-name"><small>UTS CS</small><strong>Career Navigator</strong></span></a>
 <div class="report-nav-links">
 <a href="home_page.html#how-it-works">How it works</a>
+<a href="home_page.html#feedback-overview">Feedback</a>
 <a href="home_page.html#sample-results">Sample results</a>
 <a class="report-nav-return hidden" id="returnToRealReportLink" href="analysis_result.html" aria-label="Return to your latest resume report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h7l4 4V20.5H7a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z"/><path d="M14 3.5v4h4M9 12h6M9 15.5h6"/></svg><span>Your report</span></a>
 <a class="hidden" href="job_data_insights.html" data-admin-link>Admin insights</a>
@@ -556,16 +1160,29 @@
 <span class="report-eyebrow" id="reportEyebrow">Resume feedback</span>
 <h1 id="reportTitle">Your resume, clearly reviewed.</h1>
 <p class="report-hero-copy" id="reportSummaryRole">Your role comparison and resume evidence appear below.</p>
-<p class="report-hero-copy"><strong>Matched evidence:</strong> <span id="reportSummaryEvidence">Your matched resume signals will appear here.</span></p>
 </div>
-<div class="report-score-card" aria-label="Final readiness score">
-<div><p class="report-score-label">UTS CS Readiness Score</p><div class="report-score-number"><span id="overallScore">—</span><span>/100</span></div></div>
-<p class="report-score-note">Evidence match and ATS feedback. This is not a hiring probability.</p>
+<!-- The score counts up; tap it to replay and to see the parts that make it up. -->
+<div class="report-score-card">
+<p class="report-score-label">UTS CS Readiness Score</p>
+<button class="report-score-button" id="reportScoreButton" type="button" aria-expanded="false" aria-controls="reportScoreParts">
+<span class="report-score-number"><span id="overallScore">—</span><span>/100</span></span>
+<span class="report-score-meter" aria-hidden="true"><span id="overallScoreMeter"></span></span>
+<span class="report-score-band" id="reportScoreBand">Score pending</span>
+<span class="report-score-hint" id="reportScoreHintRow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span id="reportScoreHint">See what makes up this score</span></span>
+</button>
+<div class="report-score-parts" id="reportScoreParts" hidden>
+<ul id="reportScorePartList"></ul>
+<p class="report-score-note">Evidence match and ATS feedback, not a hiring probability.</p>
+</div>
 </div>
 </section>
+<section class="report-progress" id="reportProgress" aria-labelledby="reportProgressTitle" hidden>
+<div class="report-progress-head"><div><span class="report-eyebrow">Since your last check</span><h2 id="reportProgressTitle">Your progress</h2></div><p class="report-progress-meta" id="reportProgressMeta"></p><button class="report-collapse-toggle" type="button" data-collapse-toggle="progress" data-collapse-default="phone" aria-controls="reportProgressBody" aria-expanded="true" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span data-collapse-label>Minimize</span></button></div>
+<div id="reportProgressBody" aria-live="polite"></div>
+</section>
 <section class="report-quick" aria-labelledby="quickActionsTitle">
-<div class="report-quick-head"><div><span class="report-eyebrow">Start here</span><h2 id="quickActionsTitle">Your next three edits</h2></div><a href="#improve">Read the full improvement plan</a></div>
-<div class="report-quick-list" id="quickActionList" aria-live="polite"></div>
+<div class="report-quick-head"><div><span class="report-eyebrow">Start here</span><h2 id="quickActionsTitle">Your next three edits</h2></div><a href="#improve">Read the full improvement plan</a><button class="report-collapse-toggle" type="button" data-collapse-toggle="quick" data-collapse-mode="items" data-collapse-default="phone" aria-controls="quickActionList" aria-expanded="true" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span data-collapse-label>Minimize</span></button></div>
+<div class="report-quick-list flow-list" id="quickActionList" aria-live="polite"></div>
 </section>
 <nav class="report-tabs" aria-label="Report sections">
 <a href="#overview">Overview</a><a href="#job-match">Job match</a><a href="#improve">Improve</a><a href="#ats-checks">ATS checks</a><a href="#resume-draft">Resume draft</a>
@@ -573,9 +1190,9 @@
 <section class="report-section mb-12" id="overview">
 <p class="report-eyebrow mb-2">Understand your result</p><h2 class="report-section-title">What the analysis found</h2>
 <!-- Evidence and score detail -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+<div class="report-overview-grid">
 <!-- Score Breakdown -->
-<div class="md:col-span-2 h-full flex flex-col space-y-4">
+<div class="report-overview-main h-full flex flex-col space-y-4">
 <div class="bg-surface-container-lowest p-6 sm:p-8 rounded-xl">
 <div>
 <h3 class="text-xl font-bold text-primary mb-6">Score Components</h3>
@@ -603,54 +1220,54 @@
 </div>
 </div>
 </div>
-<div class="flex gap-2 flex-wrap mt-6 pt-5 border-t border-outline-variant/50" id="matchedSignalsChipList">
-<span class="px-3 py-1 bg-secondary-container/20 text-on-secondary-container rounded-full text-xs font-semibold">Matched resume signals will appear here.</span>
 </div>
-</div>
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-<article class="rounded-xl bg-surface-container-lowest border border-outline-variant/60 p-4 flex items-center gap-3 shadow-sm">
+<!-- Phones: the three rings sit in one row; tap a ring to read its detail below. -->
+<div class="evidence-tiles grid grid-cols-1 sm:grid-cols-3 gap-4" id="evidenceTiles">
+<article class="evidence-tile rounded-xl bg-surface-container-lowest border border-outline-variant/60 p-4 flex items-center gap-3 shadow-sm" data-evidence-tile="hard" data-title="Technical Fit">
 <div class="evidence-ring" id="hardSkillsRing" style="--score: 0;"><span id="hardSkillsScore">-</span></div>
 <div class="min-w-0">
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-1">Hard Skills</p>
 <h4 class="text-sm font-extrabold text-primary">Technical Fit</h4>
-<p class="text-xs text-on-surface-variant leading-snug mt-1" id="hardSkillsDetail">Tools, languages, and role keywords.</p>
+<p class="text-xs text-on-surface-variant leading-snug mt-1" id="hardSkillsDetail" data-evidence-detail>Tools, languages, and role keywords.</p>
 </div>
 </article>
-<article class="rounded-xl bg-surface-container-lowest border border-outline-variant/60 p-4 flex items-center gap-3 shadow-sm">
-<div class="evidence-ring" id="softSkillsRing" style="--score: 0;"><span class="soft-count" id="softSkillsScore">-</span></div>
+<article class="evidence-tile rounded-xl bg-surface-container-lowest border border-outline-variant/60 p-4 flex items-center gap-3 shadow-sm" data-evidence-tile="soft" data-title="Work Style">
+<div class="evidence-ring is-count" id="softSkillsRing"><span class="soft-count" id="softSkillsScore">-</span></div>
 <div class="min-w-0">
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-1">Soft Skills</p>
 <h4 class="text-sm font-extrabold text-primary">Work Style</h4>
-<p class="text-xs text-on-surface-variant leading-snug mt-1" id="softSkillsDetail">Communication, teamwork, and leadership signals.</p>
+<p class="text-xs text-on-surface-variant leading-snug mt-1" id="softSkillsDetail" data-evidence-detail>Communication, teamwork, and leadership signals.</p>
 </div>
 </article>
-<article class="rounded-xl bg-surface-container-lowest border border-outline-variant/60 p-4 flex items-center gap-3 shadow-sm">
+<article class="evidence-tile rounded-xl bg-surface-container-lowest border border-outline-variant/60 p-4 flex items-center gap-3 shadow-sm" data-evidence-tile="experience" data-title="Project Evidence">
 <div class="evidence-ring" id="experienceRing" style="--score: 0;"><span id="experienceScore">-</span></div>
 <div class="min-w-0">
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-1">Experience</p>
 <h4 class="text-sm font-extrabold text-primary">Project Evidence</h4>
-<p class="text-xs text-on-surface-variant leading-snug mt-1" id="experienceDetail">Projects, internships, and measurable outcomes.</p>
+<p class="text-xs text-on-surface-variant leading-snug mt-1" id="experienceDetail" data-evidence-detail>Projects, internships, and measurable outcomes.</p>
 </div>
 </article>
 </div>
+<p class="evidence-tile-detail" id="evidenceTileDetail" aria-live="polite"></p>
 </div>
-<!-- Assessment summary -->
-<div class="bg-primary p-8 rounded-xl text-on-primary flex flex-col justify-between h-full">
-<div>
+<!-- Assessment summary: the verdict, three short points, and the full method on tap. -->
+<div class="report-summary-card rounded-xl p-6 sm:p-8 flex flex-col h-full">
 <div class="flex items-center gap-2 mb-4">
-<span class="text-secondary-fixed-dim" aria-hidden="true">▤</span>
-<span class="text-xs font-bold uppercase tracking-widest text-on-primary/60">Assessment summary</span>
+<span class="report-summary-mark" aria-hidden="true">▤</span>
+<span class="report-summary-eyebrow">Assessment summary</span>
 </div>
-<p class="text-lg leading-relaxed font-medium" id="aiSummary">Run an analysis to see the resume score and role recommendation.</p>
-</div>
-<div class="pt-6 border-t border-white/10">
-<p class="text-xs text-on-primary/60 italic" id="aiRecommendation">Recommendation details will appear after analysis.</p>
-</div>
-<div class="pt-5 mt-5 border-t border-white/10">
-<p class="text-xs font-bold uppercase tracking-widest text-secondary-fixed-dim mb-2" id="scoreMeaningLabel">Score conclusion</p>
-<p class="text-sm leading-relaxed text-on-primary/90" id="scoreMeaningText">Run an analysis to see what the score means.</p>
-<p class="text-xs leading-relaxed text-on-primary/60 mt-3" id="scoreFormulaText">Live score components will appear here.</p>
-</div>
+<p class="report-summary-band" id="scoreMeaningLabel">Score conclusion</p>
+<ul class="report-summary-points">
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6" fill="currentColor"/></svg><span id="aiSummary">Run an analysis to see the resume score and role recommendation.</span></li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16.5a7.5 7.5 0 1 1 15 0"/><path d="m12 16.5 3.6-4.6"/></svg><span id="scoreMeaningShort">Run an analysis to see what the score means.</span></li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13"/><path d="m13 6.5 5.5 5.5-5.5 5.5"/></svg><span id="aiRecommendation">Recommendation details will appear after analysis.</span></li>
+</ul>
+<details class="report-summary-more report-collapse-item">
+<summary><span>How the score is worked out</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+<p id="scoreMeaningText">Run an analysis to see what the score means.</p>
+<ul class="report-summary-weights" id="scoreWeightList"></ul>
+<p id="scoreFormulaText">Live score components will appear here.</p>
+</details>
 </div>
 </div>
 </section>
@@ -665,7 +1282,7 @@
 <span class="self-start px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed text-xs font-bold" id="roleDecisionBadge">Database comparison</span>
 </div>
 <div class="grid grid-cols-1 gap-4">
-<div class="rounded-xl border border-outline-variant/70 bg-surface-container-low p-5">
+<div class="rounded-xl border border-outline-variant/70 bg-surface-container-low p-5" id="selectedRoleCard">
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-2">Current selected role</p>
 <h3 class="text-xl font-bold text-primary" id="selectedChoiceDisplay">No role selected.</h3>
 <p class="text-sm text-on-surface-variant mt-2" id="selectedDatabaseRoleDisplay">Database mapping will appear here.</p>
@@ -678,13 +1295,19 @@
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-1">Top Database Matches</p>
 <h3 class="text-xl font-bold text-primary" id="topRoleMatchesTitle">Top 3 Role Matches</h3>
 </div>
-<span class="self-start px-3 py-1 rounded-full bg-surface-container-high text-primary text-xs font-bold" id="topRoleMatchesBadge">Resume evidence ranking</span>
+<div class="report-plan-tools"><span class="px-3 py-1 rounded-full bg-surface-container-high text-primary text-xs font-bold" id="topRoleMatchesBadge">Resume evidence ranking</span><button class="report-collapse-toggle" type="button" data-collapse-toggle="roles" data-collapse-mode="items" data-collapse-default="stacked" aria-controls="topRoleMatchesList" aria-expanded="true" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span data-collapse-label>Minimize</span></button></div>
 </div>
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-4" id="topRoleMatchesList">
+<div class="role-match-grid flow-list" id="topRoleMatchesList">
 <div class="rounded-xl border border-outline-variant/60 bg-surface-container-low p-4 text-sm text-on-surface-variant">
 Top role matches will appear after analysis.
 </div>
 </div>
+</div>
+<div class="mt-6 border-t border-outline-variant/60 pt-5" id="relatedSkillPanel" hidden>
+<p class="text-xs uppercase tracking-widest text-on-surface-variant mb-1">Related-skill evidence</p>
+<h3 class="text-xl font-bold text-primary">Skills proven by the tools you named</h3>
+<p class="text-sm text-on-surface-variant mt-2 leading-relaxed">Counted as met. Write the skill words too, because ATS filters match exact words.</p>
+<ul class="related-skill-list" id="relatedSkillList"></ul>
 </div>
 </div>
 </section>
@@ -695,54 +1318,64 @@ Top role matches will appear after analysis.
 <h2 class="text-2xl sm:text-3xl font-extrabold text-primary tracking-tight">Priority Improvement Plan</h2>
 <p class="text-sm sm:text-base text-on-surface-variant mt-3 leading-relaxed" id="recommendationPlanSummary">Run an analysis to see the recommended next actions for the selected role.</p>
 </div>
-<span class="self-start lg:self-auto px-3 py-1 rounded-full bg-surface-container-high text-primary text-xs font-bold" id="recommendationPlanBadge">Waiting for analysis</span>
+<div class="report-plan-tools"><span class="px-3 py-1 rounded-full bg-surface-container-high text-primary text-xs font-bold" id="recommendationPlanBadge">Waiting for analysis</span><button class="report-collapse-toggle" type="button" data-collapse-toggle="plan" data-collapse-mode="items" data-collapse-default="always" aria-controls="priorityActionList" aria-expanded="true" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span data-collapse-label>Minimize</span></button></div>
 </div>
 <div class="priority-action-grid" id="priorityActionList">
 <article class="rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-5 text-sm text-on-surface-variant">
 Recommendation actions will appear after analysis.
 </article>
 </div>
-<div class="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
-<article class="rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-5">
+<!-- One strategy card: what the draft adds (with proof) and what it keeps. The role
+     is already named in the Role Fit section above, so it is not repeated here. -->
+<article class="mt-5 rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-5">
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-2">Resume Generator Strategy</p>
-<h3 class="text-xl font-bold text-primary" id="resumeStrategyRole">Target role pending.</h3>
-<p class="text-sm text-on-surface-variant mt-3 leading-relaxed" id="resumeStrategySummary">The generated resume will use the recommended role, matched evidence, and missing keyword targets.</p>
-<div class="mt-4 flex flex-wrap gap-2" id="resumeStrategyKeywordList">
+<h3 class="text-xl font-bold text-primary">Keywords for your next draft</h3>
+<div class="report-strategy-groups">
+<div>
+<p class="report-strategy-label">Keywords to add with proof</p>
+<div class="flex flex-wrap gap-2" id="resumeStrategyKeywordList">
 <span class="px-3 py-1 rounded-full bg-surface-container-low text-on-surface-variant text-xs font-semibold">Keyword targets pending.</span>
 </div>
-</article>
-<article class="rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-5">
-<p class="text-xs uppercase tracking-widest text-on-surface-variant mb-2">Evidence To Keep</p>
-<h3 class="text-xl font-bold text-primary">Resume strengths</h3>
-<p class="text-sm text-on-surface-variant mt-3 leading-relaxed">These are the signals the system will preserve when generating the ATS resume draft.</p>
-<div class="mt-4 flex flex-wrap gap-2" id="resumeStrategyEvidenceList">
+</div>
+<div>
+<p class="report-strategy-label">Evidence kept from your resume</p>
+<div class="flex flex-wrap gap-2" id="resumeStrategyEvidenceList">
 <span class="px-3 py-1 rounded-full bg-surface-container-low text-on-surface-variant text-xs font-semibold">Matched evidence pending.</span>
 </div>
-</article>
 </div>
+</div>
+</article>
 </section>
 <section class="report-section mb-12" id="ats-checks">
 <div class="bg-surface-container-lowest rounded-xl border border-outline-variant/60 p-5 sm:p-6 lg:p-8">
-<div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
-<div class="max-w-3xl">
+<!-- A quality meter instead of a paragraph; the scoring detail stays one tap away
+     (and in the full report). -->
+<div class="mb-6">
 <p class="text-xs uppercase tracking-widest font-bold text-secondary mb-2">ATS Quality Criteria</p>
 <h2 class="text-2xl sm:text-3xl font-extrabold text-primary tracking-tight" id="atsQualityHeadline">ATS Readiness Check</h2>
-<p class="text-sm sm:text-base text-on-surface-variant mt-3 leading-relaxed" id="atsQualitySummaryText">Run an analysis to check resume format, language, contact details, and parsing risks.</p>
+<div class="ats-meter" id="atsQualityMeterBlock">
+<div class="ats-meter-row"><strong id="atsQualityScoreText">Included in final score</strong><span class="ats-risk" id="atsQualityRiskText" hidden></span></div>
+<div class="ats-meter-track" aria-hidden="true"><span id="atsQualityMeter"></span></div>
 </div>
-<div class="flex flex-col sm:items-end gap-2">
-<span class="px-3 py-1 rounded-full bg-surface-container-high text-primary text-xs font-bold" id="atsQualityRiskText">Risk: -</span>
-<p class="text-sm font-bold text-primary" id="atsQualityScoreText">Included in final score</p>
-</div>
+<details class="ats-how report-collapse-item">
+<summary><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><path d="M12 7.6v.2"/></svg><span>How this affects your score</span><svg class="ats-how-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+<p id="atsQualitySummaryText">Run an analysis to check resume format, language, contact details, and parsing risks.</p>
+</details>
 </div>
 <div class="grid grid-cols-1 lg:grid-cols-[1fr_0.8fr] gap-6" id="atsQualityCriteriaList">
 <div class="border-t border-outline-variant/60 pt-4">
 <p class="text-sm text-on-surface-variant">Quality checks will appear here after analysis.</p>
 </div>
 </div>
-<div class="mt-6 border-t border-outline-variant/60 pt-5">
+<div class="report-feedback-block mt-6 border-t border-outline-variant/60 pt-5">
+<div class="report-feedback-head">
+<div>
 <p class="text-xs uppercase tracking-widest text-on-surface-variant mb-3">Next Edit</p>
 <h3 class="text-xl font-bold text-primary mb-4">ATS Feedback</h3>
-<ul class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-on-surface-variant leading-relaxed" id="structuredFeedbackList">
+</div>
+<button class="report-collapse-toggle" type="button" data-collapse-toggle="feedback" data-collapse-default="phone" aria-controls="structuredFeedbackList" aria-expanded="true" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span data-collapse-label>Minimize</span></button>
+</div>
+<ul class="flow-list tick-flow grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-on-surface-variant leading-relaxed" id="structuredFeedbackList">
 <li>Feedback will appear here after analysis.</li>
 </ul>
 </div>
@@ -837,20 +1470,19 @@ Download PDF
 </div>
 <iframe class="generated-resume-frame" id="generatedResumePreview" title="Generated ATS resume preview"></iframe>
 <p class="mt-5 text-xs uppercase tracking-[0.16em] font-bold text-secondary">Improvement advice shown here only, not included in the PDF download</p>
-<ul class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-on-surface-variant" id="generatedResumeNotesList"></ul>
+<ul class="flow-list tick-flow mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-on-surface-variant" id="generatedResumeNotesList"></ul>
+<section class="role-examples hidden" id="roleExamplesPanel" aria-labelledby="roleExamplesTitle">
+<p class="text-xs uppercase tracking-widest font-bold text-secondary mb-2">Learning examples</p>
+<h3 class="text-xl font-extrabold text-primary tracking-tight" id="roleExamplesTitle">Example resumes for your recommended roles</h3>
+<p class="role-examples-note" id="roleExamplesNote"></p>
+<div class="role-example-tabs" id="roleExampleTabs" role="tablist" aria-label="Example resumes"></div>
+<iframe class="generated-resume-frame" id="roleExampleFrame" title="Fictional example resume for a recommended role"></iframe>
+</section>
 </div>
 </section>
 </div>
 </main>
 <footer class="career-footer">
-  <div class="career-container career-footer-cta">
-    <div>
-      <p class="career-footer-kicker">Your next draft starts here</p>
-      <h2>Turn resume feedback into a clearer next step.</h2>
-      <p>Choose a role, upload your resume, and see the evidence and improvements in your report.</p>
-    </div>
-    <a class="career-footer-cta-button" href="home_page.html?open_evaluation=1">Check my resume <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></a>
-  </div>
   <div class="career-container career-footer-inner">
     <div class="career-footer-identity">
       <a class="career-footer-lockup" href="home_page.html" aria-label="UTS CS Career Navigator home">
@@ -863,7 +1495,10 @@ Download PDF
       <h3>Explore</h3>
       <div class="career-footer-links">
         <a href="home_page.html#how-it-works">How it works</a>
-        <a href="analysis_result.html?sample=1">Sample report</a>
+        <a href="home_page.html#feedback-overview">Feedback</a>
+        <a href="home_page.html#sample-results">Sample results</a>
+        <a href="home_page.html#resume-draft-preview">Resume draft</a>
+        <a href="analysis_result.html?sample=1">Full sample report</a>
       </div>
     </div>
     <div class="career-footer-group">
@@ -876,7 +1511,9 @@ Download PDF
       </div>
     </div>
   </div>
-  <div class="career-container career-footer-bottom"><span>© 2026 UTS CS Career Navigator.</span></div>
+  <!-- Decorative moving banner; the same names are in the footer text above. -->
+  <div class="site-ticker" aria-hidden="true"><div class="site-ticker-track"><div class="site-ticker-group"><span class="site-ticker-item" data-no-translate><span class="site-ticker-mark"><svg viewBox="0 0 32 32" fill="none"><path d="M7 7v10c0 6 3.4 9 9 9s9-3 9-9V7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 11h8M12 15h8" stroke="#B7ECF2" stroke-width="2" stroke-linecap="round"/></svg></span>UTS CS Career Navigator</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Resume feedback for Computer Science students</span><span class="site-ticker-dot"></span><span class="site-ticker-item" data-no-translate><span class="site-ticker-uts"></span>University of Technology Sarawak</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Role matching</span><span class="site-ticker-dot"></span><span class="site-ticker-item">ATS checks</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Improvement tips</span><span class="site-ticker-dot"></span><span class="site-ticker-item">ATS resume drafts</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Final Year Project 2026</span><span class="site-ticker-dot"></span></div><div class="site-ticker-group"><span class="site-ticker-item" data-no-translate><span class="site-ticker-mark"><svg viewBox="0 0 32 32" fill="none"><path d="M7 7v10c0 6 3.4 9 9 9s9-3 9-9V7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 11h8M12 15h8" stroke="#B7ECF2" stroke-width="2" stroke-linecap="round"/></svg></span>UTS CS Career Navigator</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Resume feedback for Computer Science students</span><span class="site-ticker-dot"></span><span class="site-ticker-item" data-no-translate><span class="site-ticker-uts"></span>University of Technology Sarawak</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Role matching</span><span class="site-ticker-dot"></span><span class="site-ticker-item">ATS checks</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Improvement tips</span><span class="site-ticker-dot"></span><span class="site-ticker-item">ATS resume drafts</span><span class="site-ticker-dot"></span><span class="site-ticker-item">Final Year Project 2026</span><span class="site-ticker-dot"></span></div></div></div>
+  <div class="career-container career-footer-bottom"><span>© 2026 UTS CS Career Navigator.</span><span class="site-footer-logos"><span class="site-ticker-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M7 7v10c0 6 3.4 9 9 9s9-3 9-9V7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 11h8M12 15h8" stroke="#B7ECF2" stroke-width="2" stroke-linecap="round"/></svg></span><span class="site-footer-logo-divider" aria-hidden="true"></span><span class="site-ticker-uts" role="img" aria-label="University of Technology Sarawak logo"></span></span></div>
 </footer>
 <dialog class="report-preview-dialog" id="feedbackReportPreviewDialog" aria-modal="true" aria-labelledby="feedbackReportPreviewTitle" aria-describedby="feedbackReportPreviewDescription">
 <div class="report-preview-shell">
@@ -1322,6 +1959,10 @@ Download PDF
     if (resetEmailInput && resetPinInput) {
         resetEmailInput.addEventListener("input", () => { resetPinInput.value = ""; });
     }
+    const { attachPinStatus, clearPinStatus } = window.CareerNavigatorCommon;
+    const showPinCheckResult = (valid, detail) => setAuthMessage(detail, !valid);
+    attachPinStatus(registerPinInput, { emailInput: registerEmailInput, sendButton: sendRegisterPinBtn, purpose: "register", apiBaseUrl: API_BASE_URL, onResult: showPinCheckResult });
+    attachPinStatus(resetPinInput, { emailInput: resetEmailInput, sendButton: sendResetPinBtn, purpose: "password_reset", apiBaseUrl: API_BASE_URL, onResult: showPinCheckResult });
     window.addEventListener("pageshow", refreshPinButtonStates);
     window.setTimeout(refreshPinButtonStates, 300);
     refreshPinButtonStates();
@@ -1343,6 +1984,7 @@ Download PDF
                 input.value = "";
             }
         });
+        [registerPinInput, resetPinInput].forEach(clearPinStatus);
         if (keepLoginEmail && loginEmailInput) {
             loginEmailInput.value = keepLoginEmail;
         }
@@ -1534,9 +2176,11 @@ Download PDF
         if (authModalDescription) authModalDescription.textContent = copy.description;
         if (!isRegister && registerPinInput) {
             registerPinInput.value = "";
+            clearPinStatus(registerPinInput);
         }
         if (!isReset) {
             if (resetPinInput) resetPinInput.value = "";
+            clearPinStatus(resetPinInput);
             if (resetPasswordInput) {
                 resetPasswordInput.value = "";
                 resetPasswordInput.dispatchEvent(new Event("input", { bubbles: true }));
@@ -1899,12 +2543,107 @@ Download PDF
         return "Needs work";
     }
 
+    // The hero score counts up from 0 while its bar fills.
     function animateScoreNumber(element, targetValue) {
         if (!element) {
             return;
         }
         const target = Math.round(clampPercent(targetValue));
-        element.textContent = String(target);
+        const meter = document.getElementById("overallScoreMeter");
+        const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (element.countFrame) cancelAnimationFrame(element.countFrame);
+        if (reduceMotion || !window.requestAnimationFrame) {
+            element.textContent = String(target);
+            if (meter) meter.style.width = target + "%";
+            return;
+        }
+        if (meter) {
+            meter.style.transition = "none";
+            meter.style.width = "0%";
+            void meter.offsetWidth; // restart the fill
+            meter.style.transition = "";
+            meter.style.width = target + "%";
+        }
+        const startedAt = performance.now();
+        const duration = 950;
+        const step = (now) => {
+            const progress = Math.min(1, (now - startedAt) / duration);
+            element.textContent = String(Math.round(target * (1 - Math.pow(1 - progress, 3))));
+            element.countFrame = progress < 1 ? requestAnimationFrame(step) : 0;
+        };
+        element.textContent = "0";
+        element.countFrame = requestAnimationFrame(step);
+    }
+
+    // The four parts behind the hero score, weakest one marked. They open when the
+    // score is tapped (and start open on wide screens).
+    const HERO_SCORE_PARTS = [
+        ["Requirements", (breakdown, compatibility) => breakdown.keyword_coverage ?? compatibility.keyword_match],
+        ["Role evidence", (breakdown, compatibility) => breakdown.role_evidence ?? compatibility.role_evidence],
+        ["ATS format", (breakdown, compatibility) => breakdown.resume_quality ?? compatibility.resume_quality],
+        ["Experience", (breakdown, compatibility) => breakdown.experience_alignment ?? compatibility.experience_alignment]
+    ];
+    let heroScoreValue = 0;
+
+    function renderHeroScoreParts(scoreBreakdown, compatibility) {
+        const list = document.getElementById("reportScorePartList");
+        const hintRow = document.getElementById("reportScoreHintRow");
+        const safeBreakdown = scoreBreakdown || {};
+        const safeCompatibility = compatibility || {};
+        const parts = HERO_SCORE_PARTS.map(([label, pick]) => {
+            const raw = pick(safeBreakdown, safeCompatibility);
+            const value = raw === null || raw === undefined || raw === "" ? Number.NaN : Number(raw);
+            return { label, value: Number.isFinite(value) ? Math.round(clampPercent(value)) : null };
+        }).filter((part) => part.value !== null);
+        const values = parts.map((part) => part.value);
+        const lowest = values.length > 1 && Math.min(...values) < Math.max(...values) ? Math.min(...values) : null;
+        let lowestMarked = false;
+        if (list) {
+            list.innerHTML = parts.map((part, index) => {
+                const isLowest = lowest !== null && part.value === lowest && !lowestMarked;
+                if (isLowest) lowestMarked = true;
+                return '<li class="score-part"' + (isLowest ? ' data-weakest="true"' : "") + ' style="--part:' + part.value + ';--flow-index:' + index + '">' +
+                    '<span class="score-part-label"><span>' + escapeHtml(part.label) + '</span>' + (isLowest ? '<em>' + escapeHtml("Lowest") + '</em>' : "") + '</span>' +
+                    '<strong>' + part.value + '</strong>' +
+                    '<span class="score-part-track" aria-hidden="true"><span></span></span>' +
+                '</li>';
+            }).join("");
+        }
+        // Without parts there is nothing to open; the score still replays when tapped.
+        if (hintRow) hintRow.hidden = !parts.length;
+        return parts.length > 0;
+    }
+
+    function setHeroScorePartsOpen(open, animate) {
+        const button = document.getElementById("reportScoreButton");
+        const panel = document.getElementById("reportScoreParts");
+        const hint = document.getElementById("reportScoreHint");
+        if (!button || !panel) return;
+        button.setAttribute("aria-expanded", String(open));
+        panel.hidden = !open;
+        if (hint) hint.textContent = open ? "Hide score parts" : "See what makes up this score";
+        if (open && animate) {
+            panel.classList.remove("is-playing");
+            void panel.offsetWidth; // replay the bars
+            panel.classList.add("is-playing");
+        }
+    }
+
+    function initHeroScore(hasParts) {
+        const button = document.getElementById("reportScoreButton");
+        if (!button) return;
+        button.dataset.hasParts = String(Boolean(hasParts));
+        if (button.dataset.bound === "true") return;
+        button.dataset.bound = "true";
+        button.addEventListener("click", () => {
+            if (button.dataset.hasParts === "true") {
+                setHeroScorePartsOpen(button.getAttribute("aria-expanded") !== "true", true);
+            }
+            animateScoreNumber(document.getElementById("overallScore"), heroScoreValue);
+            button.classList.remove("is-bumped");
+            void button.offsetWidth; // replay the pop
+            button.classList.add("is-bumped");
+        });
     }
 
     function setMetric(barId, labelId, percent) {
@@ -1973,22 +2712,77 @@ Download PDF
         const softSkillsRing = document.getElementById("softSkillsRing");
         const softSkillsScore = document.getElementById("softSkillsScore");
         if (softSkillsRing) {
-            softSkillsRing.style.setProperty("--score", "0");
+            // One filled segment per soft-skill signal found (up to four).
+            for (let segment = 1; segment <= 4; segment += 1) {
+                if (segment <= softSignals.length) softSkillsRing.style.setProperty("--count-" + segment, "var(--studio-teal)");
+                else softSkillsRing.style.removeProperty("--count-" + segment);
+            }
             softSkillsRing.setAttribute("aria-label", softSignals.length + " soft skill signals found");
         }
         if (softSkillsScore) softSkillsScore.textContent = softSignals.length + " found";
-        setText(
+        setEvidenceDetail(
             "hardSkillsDetail",
             hardSignals.length ? "Matched: " + hardSignals.join(", ") + "." : "No strong technical keyword evidence yet."
         );
-        setText(
+        setEvidenceDetail(
             "softSkillsDetail",
             softSignals.length ? "Detected: " + softSignals.join(", ") + "." : "Add teamwork, communication, or leadership evidence."
         );
-        setText(
+        setEvidenceDetail(
             "experienceDetail",
             experienceMarkers ? experienceMarkers + " experience marker(s) found in the resume." : "Add internship, project, or work evidence."
         );
+        initEvidenceTiles();
+    }
+
+    // Each ring keeps its detail in English on the tile, so the shared phone panel
+    // below the rings can show (and translate) it.
+    function setEvidenceDetail(id, text) {
+        setText(id, text);
+        const element = document.getElementById(id);
+        const tile = element && element.closest("[data-evidence-tile]");
+        if (tile) tile.dataset.detail = text;
+    }
+
+    function showEvidenceTileDetail(tile) {
+        const detail = document.getElementById("evidenceTileDetail");
+        if (!detail || !tile) return;
+        document.querySelectorAll("[data-evidence-tile]").forEach((item) => item.setAttribute("aria-pressed", String(item === tile)));
+        detail.innerHTML = '<strong>' + escapeHtml(tile.dataset.title || "") + '</strong><span>' + escapeHtml(tile.dataset.detail || "") + '</span>';
+    }
+
+    // Phones: the three rings sit in one row and work like buttons; the tapped
+    // ring's detail shows underneath. Wider screens show every detail in its card.
+    function initEvidenceTiles() {
+        const tiles = Array.from(document.querySelectorAll("[data-evidence-tile]"));
+        if (!tiles.length) return;
+        const phone = window.matchMedia ? window.matchMedia("(max-width: 639px)") : null;
+        const isPhone = () => Boolean(phone && phone.matches);
+        const syncTiles = () => {
+            tiles.forEach((tile) => {
+                if (isPhone()) {
+                    tile.setAttribute("role", "button");
+                    tile.tabIndex = 0;
+                    tile.setAttribute("aria-controls", "evidenceTileDetail");
+                } else {
+                    ["role", "tabindex", "aria-controls", "aria-pressed"].forEach((name) => tile.removeAttribute(name));
+                }
+            });
+            if (isPhone()) showEvidenceTileDetail(tiles.find((tile) => tile.getAttribute("aria-pressed") === "true") || tiles[0]);
+        };
+        if (tiles[0].dataset.bound !== "true") {
+            tiles.forEach((tile) => {
+                tile.dataset.bound = "true";
+                tile.addEventListener("click", () => { if (isPhone()) showEvidenceTileDetail(tile); });
+                tile.addEventListener("keydown", (event) => {
+                    if (!isPhone() || (event.key !== "Enter" && event.key !== " ")) return;
+                    event.preventDefault();
+                    showEvidenceTileDetail(tile);
+                });
+            });
+            if (phone && phone.addEventListener) phone.addEventListener("change", syncTiles);
+        }
+        syncTiles();
     }
 
     function setText(id, value) {
@@ -2023,57 +2817,62 @@ Download PDF
                 Number(weightedDeduction.toFixed(1)) + " overall points."
             : " ATS document quality is " + Math.round(qualityScore) + "/100 with no detected format issues.";
 
+        const shared = {
+            badge: issueCount ? issueLabel : "0 ATS fixes",
+            scoreText: qualityScoreLabel,
+            qualityScore: Math.round(qualityScore)
+        };
+
         if (safeScore < 30) {
             return {
+                ...shared,
                 headline: issueCount ? "ATS Document: " + issueLabel : "No ATS Format Issue Detected",
-                summary: overallDetail + qualityDetail + " Role evidence and database requirements also affect the overall score.",
-                badge: issueCount ? issueLabel : "0 ATS fixes",
-                scoreText: qualityScoreLabel
+                summary: overallDetail + qualityDetail + " Role evidence and database requirements also affect the overall score."
             };
         }
 
         if (safeScore < 50) {
             return {
+                ...shared,
                 headline: issueCount ? "ATS Document: " + issueLabel : "No ATS Format Issue Detected",
-                summary: overallDetail + qualityDetail + " Role evidence and database requirements also affect the overall score.",
-                badge: issueCount ? issueLabel : "0 ATS fixes",
-                scoreText: qualityScoreLabel
+                summary: overallDetail + qualityDetail + " Role evidence and database requirements also affect the overall score."
             };
         }
 
         if (safeScore < 80) {
             return {
+                ...shared,
                 headline: issueCount ? "ATS Document: " + issueLabel : "ATS Document Checks Passed",
-                summary: overallDetail + qualityDetail + " The remaining score comes from requirements, role evidence, experience, education/skills, and text similarity.",
-                badge: issueCount ? issueLabel : "0 ATS fixes",
-                scoreText: qualityScoreLabel
+                summary: overallDetail + qualityDetail + " The remaining score comes from requirements, role evidence, experience, education/skills, and text similarity."
             };
         }
 
         return {
+            ...shared,
             headline: issueCount ? "Strong Role Match With " + issueLabel : "ATS Document Checks Passed",
-            summary: overallDetail + qualityDetail + " Treat this as an evidence-match score, not a hiring probability.",
-            badge: issueCount ? issueLabel : "0 ATS fixes",
-            scoreText: qualityScoreLabel
+            summary: overallDetail + qualityDetail + " Treat this as an evidence-match score, not a hiring probability."
         };
     }
 
-    const escapeHtml = window.CareerNavigatorCommon.escapeHtml;
-
-    function renderPills(id, items, emptyText, colorClass = "bg-secondary-container/20 text-on-secondary-container") {
-        const container = document.getElementById(id);
-        if (!container) {
-            return;
+    // ATS quality meter: the document-quality bar, coloured by the risk level, and
+    // a short risk chip. The bar fills when the section scrolls into view.
+    function renderAtsMeter(resumeQuality, qualityScore) {
+        const block = document.getElementById("atsQualityMeterBlock");
+        const meter = document.getElementById("atsQualityMeter");
+        const chip = document.getElementById("atsQualityRiskText");
+        const risk = String((resumeQuality && resumeQuality.risk_level) || "").trim().toLowerCase();
+        const riskLabel = { low: "Low risk", medium: "Medium risk", high: "High risk" }[risk] || "";
+        if (chip) {
+            chip.hidden = !riskLabel;
+            chip.textContent = riskLabel;
+            chip.dataset.risk = risk;
         }
-        const cleanItems = Array.isArray(items) ? items.filter(Boolean).slice(0, 10) : [];
-        if (cleanItems.length === 0) {
-            container.innerHTML = '<span class="px-3 py-1 rounded-full bg-surface-container-low text-on-surface-variant text-xs font-semibold">' + escapeHtml(emptyText) + '</span>';
-            return;
-        }
-        container.innerHTML = cleanItems.map((item) => (
-            '<span class="px-3 py-1 rounded-full ' + colorClass + ' text-xs font-semibold">' + escapeHtml(item) + '</span>'
-        )).join("");
+        if (block) block.dataset.risk = riskLabel ? risk : "";
+        if (meter) meter.style.width = clampPercent(Number(qualityScore) || 0) + "%";
+        if (block) playFlowList(block);
     }
+
+    const escapeHtml = window.CareerNavigatorCommon.escapeHtml;
 
     function renderTopRoleMatches(matches, context = {}) {
         const container = document.getElementById("topRoleMatchesList");
@@ -2090,9 +2889,12 @@ Download PDF
                 '<div class="rounded-xl border border-outline-variant/60 bg-surface-container-low p-4 text-sm text-on-surface-variant">' +
                     'No alternative database role matches were returned for this analysis.' +
                 '</div>';
+            syncCollapseToggle("topRoleMatchesList", false);
             return;
         }
 
+        // Cards start closed (number, role and score) on phones and tablets.
+        const openAttribute = isCollapseTargetOpen("topRoleMatchesList") ? " open" : "";
         container.innerHTML = cleanMatches.map((item, index) => {
             const rawScore = item.score === null || item.score === undefined || item.score === "" ? Number.NaN : Number(item.score);
             const score = Number.isFinite(rawScore) ? clampPercent(rawScore) : 0;
@@ -2118,7 +2920,7 @@ Download PDF
                 : "bg-surface-container-high text-primary";
             const badges = [
                 isFinal
-                    ? '<span class="px-2.5 py-1 rounded-full bg-primary text-on-primary text-[11px] font-bold">' +
+                    ? '<span class="role-match-badge px-2.5 py-1 rounded-full bg-primary text-on-primary text-[11px] font-bold">' +
                         (safeContext.mode === "autoNoSuitableRole" ? "Closest evidence only" : "Used for ATS score") +
                       '</span>'
                     : "",
@@ -2134,16 +2936,16 @@ Download PDF
                 : '<p class="mt-3 text-xs text-on-surface-variant">No major missing keyword gaps for this role.</p>';
 
             return (
-                '<article class="rounded-xl border ' + cardClass + ' p-4 min-h-[220px] flex flex-col">' +
-                    '<div class="flex items-start justify-between gap-3">' +
-                        '<span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-extrabold ' + rankClass + '">' + escapeHtml(rank) + '</span>' +
-                        '<div class="text-right">' +
-                            '<p class="text-sm font-extrabold text-primary">' + escapeHtml(scoreLabel) + '</p>' +
-                            '<p class="text-[11px] uppercase tracking-widest text-on-surface-variant">' + escapeHtml(confidenceLabel) + '</p>' +
-                        '</div>' +
-                    '</div>' +
-                    '<h4 class="mt-4 text-lg font-extrabold text-primary leading-tight">' + escapeHtml(roleName) + '</h4>' +
-                    '<div class="mt-2 flex flex-wrap gap-1.5 min-h-[24px]">' + badges + '</div>' +
+                '<article class="role-match rounded-xl border ' + cardClass + '">' +
+                    '<details class="role-match-details report-collapse-item"' + openAttribute + '>' +
+                    '<summary class="role-match-summary">' +
+                        '<span class="role-match-rank inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-extrabold ' + rankClass + '">' + escapeHtml(rank) + '</span>' +
+                        '<h4 class="role-match-name text-primary">' + escapeHtml(roleName) + '<small>' + escapeHtml(confidenceLabel) + '</small></h4>' +
+                        '<strong class="role-match-score text-primary">' + escapeHtml(scoreLabel) + '</strong>' +
+                        '<svg class="role-match-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
+                    '</summary>' +
+                    '<div class="role-match-body">' +
+                    (badges ? '<div class="flex flex-wrap gap-1.5">' + badges + '</div>' : "") +
                     '<p class="mt-3 text-xs text-on-surface-variant leading-relaxed">' + escapeHtml(reasonText) + '</p>' +
                     '<div class="mt-4 h-1.5 rounded-full bg-surface-container-high overflow-hidden" aria-hidden="true">' +
                         '<div class="h-full rounded-full bg-secondary" style="width:' + score + '%"></div>' +
@@ -2153,9 +2955,13 @@ Download PDF
                         '<div class="flex flex-wrap gap-1.5">' + matchedMarkup + '</div>' +
                     '</div>' +
                     missingMarkup +
+                    '</div>' +
+                    '</details>' +
                 '</article>'
             );
         }).join("");
+        syncCollapseToggle("topRoleMatchesList", true);
+        playFlowList(container);
     }
 
     function renderFeedbackList(id, items, fallbackText) {
@@ -2169,8 +2975,108 @@ Download PDF
             return;
         }
         list.innerHTML = cleanItems.map((item) => (
-            '<li class="flex gap-3"><span class="text-secondary font-bold" aria-hidden="true">✓</span><span>' + escapeHtml(item) + '</span></li>'
+            '<li class="flex gap-3"><span class="tick-mark" aria-hidden="true">✓</span><span>' + escapeHtml(item) + '</span></li>'
         )).join("");
+        playFlowList(list);
+        syncCollapseToggle(id, list.querySelectorAll(".tick-mark").length > 0);
+    }
+
+    // "Show details" / "Minimize" buttons. data-collapse-default says when a block
+    // starts minimized: "phone" (up to 700px wide), "stacked" (up to 1023px, where
+    // the cards sit in one column) or "always". With data-collapse-mode="items" the
+    // button opens or closes every <details class="report-collapse-item"> inside,
+    // and each item can still be opened on its own.
+    const COLLAPSE_WIDTHS = { phone: "(max-width: 700px)", stacked: "(max-width: 1023px)" };
+
+    function getCollapseToggle(targetId) {
+        return document.querySelector('[data-collapse-toggle][aria-controls="' + targetId + '"]');
+    }
+
+    function isCollapseTargetOpen(targetId) {
+        const toggle = getCollapseToggle(targetId);
+        return !toggle || toggle.getAttribute("aria-expanded") === "true";
+    }
+
+    function setCollapseLabel(toggle, expanded) {
+        toggle.setAttribute("aria-expanded", String(expanded));
+        const label = toggle.querySelector("[data-collapse-label]");
+        if (label) label.textContent = expanded ? "Minimize" : "Show details";
+    }
+
+    function setCollapseState(toggle, expanded) {
+        const target = document.getElementById(toggle.getAttribute("aria-controls"));
+        setCollapseLabel(toggle, expanded);
+        if (!target) return;
+        if (toggle.dataset.collapseMode === "items") {
+            target.querySelectorAll("details.report-collapse-item").forEach((item) => { item.open = expanded; });
+        } else {
+            target.classList.toggle("is-collapsed", !expanded);
+        }
+    }
+
+    function syncCollapseToggle(targetId, hasContent) {
+        const toggle = getCollapseToggle(targetId);
+        if (toggle) toggle.hidden = !hasContent;
+    }
+
+    function initReportCollapsibles() {
+        document.querySelectorAll("[data-collapse-toggle]").forEach((toggle) => {
+            if (toggle.dataset.collapseBound === "true") return;
+            toggle.dataset.collapseBound = "true";
+            const start = toggle.dataset.collapseDefault;
+            const query = COLLAPSE_WIDTHS[start];
+            const startCollapsed = start === "always" || Boolean(query && window.matchMedia && window.matchMedia(query).matches);
+            setCollapseState(toggle, !startCollapsed);
+            toggle.addEventListener("click", () => {
+                setCollapseState(toggle, toggle.getAttribute("aria-expanded") !== "true");
+            });
+            const target = document.getElementById(toggle.getAttribute("aria-controls"));
+            if (target && toggle.dataset.collapseMode === "items") {
+                // Opening or closing one card keeps the button in step: it says
+                // "Minimize" only while every card is open.
+                target.addEventListener("toggle", () => {
+                    const items = Array.from(target.querySelectorAll("details.report-collapse-item"));
+                    if (items.length) setCollapseLabel(toggle, items.every((item) => item.open));
+                }, true);
+            }
+        });
+        // Print every card in full, then restore what was open.
+        window.addEventListener("beforeprint", () => {
+            document.querySelectorAll("details.report-collapse-item").forEach((item) => {
+                item.dataset.openBeforePrint = String(item.open);
+                item.open = true;
+            });
+        });
+        window.addEventListener("afterprint", () => {
+            document.querySelectorAll("details.report-collapse-item").forEach((item) => {
+                if (item.dataset.openBeforePrint) item.open = item.dataset.openBeforePrint === "true";
+                delete item.dataset.openBeforePrint;
+            });
+        });
+    }
+
+    // Flowing lists: items (01, 02, 03 or the ticks) come in one after another
+    // when the list scrolls into view.
+    let flowListObserver = null;
+    function playFlowList(list) {
+        if (!list) return;
+        Array.from(list.children).forEach((item, index) => item.style.setProperty("--flow-index", String(index)));
+        const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (!window.IntersectionObserver || reduceMotion) return;
+        if (!flowListObserver) {
+            flowListObserver = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+                    entry.target.classList.add("is-flowing");
+                    flowListObserver.unobserve(entry.target);
+                });
+            }, { threshold: 0, rootMargin: "0px 0px -12% 0px" });
+        }
+        flowListObserver.unobserve(list);
+        list.classList.remove("is-flowing");
+        list.classList.add("flow-ready");
+        void list.offsetWidth; // restart the animation when the list is filled again
+        flowListObserver.observe(list);
     }
 
     function buildFallbackRecommendationActions(context = {}) {
@@ -2232,8 +3138,6 @@ Download PDF
         if (context.empty) {
             setText("recommendationPlanSummary", "Run an analysis to see the recommended next actions for the selected role.");
             setText("recommendationPlanBadge", "Waiting for analysis");
-            setText("resumeStrategyRole", "Target role pending.");
-            setText("resumeStrategySummary", "The generated resume will use the recommended role, matched evidence, and missing keyword targets.");
             renderKeywordPills("resumeStrategyKeywordList", [], "Keyword targets pending.", "bg-error-container text-on-error-container");
             renderKeywordPills("resumeStrategyEvidenceList", [], "Matched evidence pending.", "bg-secondary-container/20 text-on-secondary-container");
             if (actionList) {
@@ -2242,6 +3146,7 @@ Download PDF
                         'Recommendation actions will appear after analysis.' +
                     '</article>';
             }
+            syncCollapseToggle("priorityActionList", false);
             return;
         }
         const strategy = safeModule.resume_generation_strategy && typeof safeModule.resume_generation_strategy === "object"
@@ -2260,11 +3165,6 @@ Download PDF
 
         setText("recommendationPlanSummary", summary);
         setText("recommendationPlanBadge", safeModule.status === "ready" ? "Ready for user action" : "Generated from analysis");
-        setText("resumeStrategyRole", "Target: " + recommendedRole);
-        setText(
-            "resumeStrategySummary",
-            strategy.strategy_summary || "Generate the ATS resume around the recommended role, keep matched evidence, and add missing keywords only with truthful proof."
-        );
 
         renderKeywordPills(
             "resumeStrategyKeywordList",
@@ -2287,9 +3187,12 @@ Download PDF
                 '<article class="rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-5 text-sm text-on-surface-variant">' +
                     'Recommendation actions will appear after analysis.' +
                 '</article>';
+            syncCollapseToggle("priorityActionList", false);
             return;
         }
 
+        // Rows start closed (number and title only) unless the plan is expanded.
+        const openAttribute = isCollapseTargetOpen("priorityActionList") ? " open" : "";
         actionList.innerHTML = actions.map((item, index) => {
             const priority = Number(item.priority || index + 1);
             const category = String(item.category || "recommendation").replace(/_/g, " ");
@@ -2300,17 +3203,141 @@ Download PDF
                 )).join("") + '</div>'
                 : "";
             return (
-                '<article class="rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-5 min-h-[230px] flex flex-col">' +
-                    '<div class="flex items-start justify-between gap-3">' +
-                        '<span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-on-primary font-extrabold">' + escapeHtml(priority) + '</span>' +
-                    '</div>' +
-                    '<p class="mt-4 text-[11px] uppercase tracking-widest text-on-surface-variant font-bold">' + escapeHtml(category) + '</p>' +
-                    '<h3 class="mt-2 text-lg font-extrabold text-primary leading-tight">' + escapeHtml(item.title || "Recommendation action") + '</h3>' +
-                    '<p class="mt-3 text-sm text-on-surface-variant leading-relaxed">' + escapeHtml(item.detail || "Review this part of the resume.") + '</p>' +
-                    '<p class="mt-3 text-sm font-semibold text-primary leading-relaxed">' + escapeHtml(item.action || "Apply this improvement before exporting the resume.") + '</p>' +
-                    keywordMarkup +
+                '<article class="priority-action rounded-xl border border-outline-variant/60 bg-surface-container-lowest">' +
+                    '<details class="priority-action-details report-collapse-item"' + openAttribute + '>' +
+                        '<summary class="priority-action-summary">' +
+                            '<span class="priority-action-number bg-primary text-on-primary">' + escapeHtml(priority) + '</span>' +
+                            '<h3 class="priority-action-title text-primary"><small>' + escapeHtml(category) + '</small><span>' + escapeHtml(item.title || "Recommendation action") + '</span></h3>' +
+                            '<svg class="priority-action-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
+                        '</summary>' +
+                        '<div class="priority-action-body">' +
+                            (item.adaptive && item.progress_note ? '<em class="action-progress-note">' + escapeHtml(item.progress_note) + '</em>' : "") +
+                            '<p class="mt-3 text-sm text-on-surface-variant leading-relaxed">' + escapeHtml(item.detail || "Review this part of the resume.") + '</p>' +
+                            '<p class="mt-3 text-sm font-semibold text-primary leading-relaxed">' + escapeHtml(item.action || "Apply this improvement before exporting the resume.") + '</p>' +
+                            keywordMarkup +
+                        '</div>' +
+                    '</details>' +
                 '</article>'
             );
+        }).join("");
+        syncCollapseToggle("priorityActionList", true);
+    }
+
+    function formatProgressPoints(value) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return "—";
+        const rounded = Math.round(numeric * 10) / 10;
+        return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+    }
+
+    function formatProgressDate(value) {
+        const date = value ? new Date(value) : null;
+        if (!date || Number.isNaN(date.getTime())) return "";
+        return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    }
+
+    function buildProgressChips(items, tone, emptyText) {
+        const values = Array.isArray(items) ? items.filter(Boolean).slice(0, 8) : [];
+        if (!values.length) {
+            return '<p class="progress-empty">' + escapeHtml(emptyText) + '</p>';
+        }
+        return '<div class="progress-chips">' + values.map((value) => (
+            '<span class="progress-chip" data-tone="' + tone + '">' + escapeHtml(value) + '</span>'
+        )).join("") + '</div>';
+    }
+
+    // Adaptive feedback: show what changed since the user's last check for the same role.
+    function renderProgress(progress) {
+        const section = document.getElementById("reportProgress");
+        const body = document.getElementById("reportProgressBody");
+        const meta = document.getElementById("reportProgressMeta");
+        if (!section || !body || !meta) return;
+        // Reports saved before this feature have no progress data.
+        if (!progress || typeof progress !== "object") {
+            section.hidden = true;
+            return;
+        }
+        section.hidden = false;
+        const role = String(progress.target_role || "").trim();
+        // A first check has one short line, so it needs no Minimize button.
+        syncCollapseToggle("reportProgressBody", Boolean(progress.available));
+        if (!progress.available) {
+            meta.innerHTML = role ? '<span>' + escapeHtml("First check for " + role) + '</span>' : "";
+            body.innerHTML = '<p class="report-progress-summary">' + escapeHtml("Edit your resume, then check it again with the same role. This card will show what improved and what is still missing.") + '</p>';
+            return;
+        }
+
+        const checkedOn = formatProgressDate(progress.previous_checked_at);
+        meta.innerHTML =
+            '<span>' + escapeHtml("Check " + (Number(progress.check_number) || 2) + " for " + (role || "this role")) + '</span>' +
+            (checkedOn ? '<span>' + escapeHtml("Compared with your check on " + checkedOn) + '</span>' : "");
+
+        const change = Number(progress.score_change) || 0;
+        const trend = ["improved", "declined", "unchanged"].includes(progress.trend) ? progress.trend : "unchanged";
+        const deltaText = trend === "unchanged"
+            ? "About the same"
+            : (change > 0 ? "+" : "-") + formatProgressPoints(Math.abs(change)) + " points";
+        const components = Array.isArray(progress.components)
+            ? progress.components.filter((item) => item && Number(item.change))
+            : [];
+        const componentMarkup = components.length
+            ? '<p class="report-progress-components">' + components.map((item) => (
+                '<span><span>' + escapeHtml(item.label || item.key || "") + '</span> <strong>' +
+                escapeHtml((Number(item.change) > 0 ? "+" : "") + Number(item.change)) + '</strong></span>'
+            )).join("") + '</p>'
+            : "";
+        const atsFixed = Array.isArray(progress.ats_issues_fixed) ? progress.ats_issues_fixed : [];
+        const atsOpen = (Array.isArray(progress.ats_issues_still_open) ? progress.ats_issues_still_open : [])
+            .concat(Array.isArray(progress.ats_issues_new) ? progress.ats_issues_new : []);
+        const lost = Array.isArray(progress.keywords_no_longer_found) ? progress.keywords_no_longer_found.filter(Boolean) : [];
+
+        body.innerHTML =
+            '<div class="report-progress-score">' +
+                '<span class="progress-from">' + escapeHtml(formatProgressPoints(progress.previous_score)) + '</span>' +
+                '<span aria-hidden="true">&rarr;</span>' +
+                '<span class="progress-to">' + escapeHtml(formatProgressPoints(progress.current_score)) + '</span>' +
+                '<span class="progress-delta" data-trend="' + trend + '">' + escapeHtml(deltaText) + '</span>' +
+            '</div>' +
+            '<p class="report-progress-summary">' + escapeHtml(progress.summary || "") + '</p>' +
+            componentMarkup +
+            '<div class="report-progress-grid">' +
+                '<article><h3>Now shown in your resume</h3>' + buildProgressChips(progress.keywords_now_matched, "good", "None yet") + '</article>' +
+                '<article><h3>Still missing</h3>' + buildProgressChips(progress.keywords_still_missing, "warn", "None") + '</article>' +
+                (lost.length
+                    ? '<article><h3>No longer found</h3>' + buildProgressChips(lost, "bad", "None") + '</article>'
+                    : '<article><h3>ATS issues fixed</h3>' + buildProgressChips(atsFixed, "good", "None") + '</article>') +
+            '</div>' +
+            (atsOpen.length
+                ? '<div class="report-progress-grid"><article><h3>ATS issues still open</h3>' + buildProgressChips(atsOpen, "warn", "None") + '</article>' +
+                    (lost.length ? '<article><h3>ATS issues fixed</h3>' + buildProgressChips(atsFixed, "good", "None") + '</article>' : "") +
+                  '</div>'
+                : "");
+    }
+
+    // Semantic matching: requirements proven by the specific tools the resume names.
+    function renderRelatedSkills(semanticMatches) {
+        const panel = document.getElementById("relatedSkillPanel");
+        const list = document.getElementById("relatedSkillList");
+        if (!panel || !list) return;
+        const matches = Array.isArray(semanticMatches)
+            ? semanticMatches.filter((item) => item && item.concept && Array.isArray(item.evidence) && item.evidence.length).slice(0, 8)
+            : [];
+        panel.hidden = !matches.length;
+        // A tick, the skill and the tool chips; tap a row for what the job asks for.
+        list.innerHTML = matches.map((item) => {
+            const requirement = Array.isArray(item.requirements) && item.requirements.length ? String(item.requirements[0]) : "";
+            const head =
+                '<span class="related-skill-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>' +
+                '<span class="related-skill-main"><strong>' + escapeHtml(item.concept) + '</strong>' +
+                    '<span class="related-skill-tools"><span class="related-skill-proof">' + escapeHtml("proven by") + '</span>' +
+                    item.evidence.slice(0, 3).map((tool) => '<span class="related-skill-tool">' + escapeHtml(tool) + '</span>').join("") +
+                '</span></span>';
+            if (!requirement) {
+                return '<li><div class="related-skill-summary">' + head + '</div></li>';
+            }
+            return '<li><details class="related-skill report-collapse-item"><summary class="related-skill-summary">' + head +
+                    '<svg class="related-skill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
+                '</summary><p class="related-skill-ask"><span>' + escapeHtml("Job asks for:") + '</span> ' + escapeHtml(requirement) + '</p></details></li>';
         }).join("");
     }
 
@@ -2320,9 +3347,15 @@ Download PDF
         const actions = Array.isArray(recommendationModule && recommendationModule.priority_actions)
             ? recommendationModule.priority_actions.filter((item) => item && (item.action || item.title || item.detail))
             : [];
+        // Keyword edits say "add them" or "these terms", so the card lists the words it means.
+        const keywordCategories = new Set(["keyword_gap", "ats_wording"]);
         const quickActions = actions.slice(0, 3).map((item) => ({
             title: String(item.title || "Review this finding"),
-            detail: String(item.action || item.detail || "")
+            detail: String(item.action || item.detail || ""),
+            note: item.adaptive ? String(item.progress_note || "") : "",
+            keywords: keywordCategories.has(String(item.category || "")) && Array.isArray(item.keywords)
+                ? item.keywords.filter(Boolean).slice(0, 4).map(String)
+                : []
         }));
         const seen = new Set(quickActions.map((item) => item.detail.toLowerCase()));
         const addAction = (title, detail) => {
@@ -2339,13 +3372,30 @@ Download PDF
         });
         if (!quickActions.length) {
             list.innerHTML = '<p class="text-sm text-on-surface-variant">This analysis did not return prioritized edits. Review the detailed findings below.</p>';
+            syncCollapseToggle("quickActionList", false);
             return;
         }
+        // Phones start with the number and title only; tap an edit (or Show details)
+        // for how to do it.
+        const openAttribute = isCollapseTargetOpen("quickActionList") ? " open" : "";
         list.innerHTML = quickActions.map((item, index) => (
-            '<article><span>' + String(index + 1).padStart(2, "0") + ' / EDIT</span>' +
-            '<h3>' + escapeHtml(item.title) + '</h3>' +
-            '<p>' + escapeHtml(item.detail) + '</p></article>'
+            '<article class="quick-edit"><details class="quick-edit-details report-collapse-item"' + openAttribute + '>' +
+                '<summary class="quick-edit-summary">' +
+                    '<span class="quick-edit-number">' + String(index + 1).padStart(2, "0") + ' / EDIT</span>' +
+                    '<h3>' + escapeHtml(item.title) + '</h3>' +
+                    '<svg class="quick-edit-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
+                '</summary>' +
+                '<div class="quick-edit-body">' +
+                    '<p>' + escapeHtml(item.detail) + '</p>' +
+                    (item.note ? '<em class="action-progress-note">' + escapeHtml(item.note) + '</em>' : "") +
+                    (item.keywords && item.keywords.length
+                        ? '<ul class="quick-keywords">' + item.keywords.map((keyword) => '<li>' + escapeHtml(keyword) + '</li>').join("") + '</ul>'
+                        : "") +
+                '</div>' +
+            '</details></article>'
         )).join("");
+        syncCollapseToggle("quickActionList", true);
+        playFlowList(list);
         const heading = document.getElementById("quickActionsTitle");
         if (heading) heading.textContent = quickActions.length === 1 ? "Your next edit" : "Your next " + quickActions.length + " edits";
     }
@@ -2428,6 +3478,16 @@ Download PDF
     }
 
     function getIssueTopic(item) {
+        // Use the check's category when there is one. Matching words in the text
+        // misfired: "Word, Google Docs" or "words joined" read as a length problem,
+        // and "translate key skills" as a missing skills section.
+        const category = String((item && item.category) || "").trim().toLowerCase();
+        if (category) {
+            if (category === "length") return /too short/.test(String(item.title || "").toLowerCase()) ? "length" : "general";
+            if (category === "skills") return "skills";
+            return "general";
+        }
+        // Reports saved without a category fall back to the words in the issue.
         const combined = getIssueSearchText(item);
         if (/length|too short|word/.test(combined)) return "length";
         if (/technical skills|skills|framework|database|tool|cloud/.test(combined)) return "skills";
@@ -2740,6 +3800,29 @@ Download PDF
         }
     }
 
+    // One icon per ATS check category (the backend's quality checks), so an issue
+    // reads at a glance: a crossed-out picture for a photo, a chart for impact...
+    const ATS_CATEGORY_ICON_PATHS = {
+        photo: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m20.5 16-4.5-4.5L9.5 18"/><path d="M3 3l18 18"/>',
+        format: '<path d="M7 3.5h7l4 4V20.5H7a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z"/><path d="M14 3.5v4h4"/><path d="M8.5 13h7M8.5 16.5h4.5"/>',
+        parsing: '<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M12 4v16"/><path d="M6.5 8.5h3M6.5 12h3M14.5 8.5h3M14.5 12h3"/>',
+        language: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.4 2.6 3.5 5.4 3.5 8.5s-1.1 5.9-3.5 8.5c-2.4-2.6-3.5-5.4-3.5-8.5S9.6 6.1 12 3.5Z"/>',
+        structure: '<path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.75" cy="6.5" r="1.1"/><circle cx="4.75" cy="12" r="1.1"/><circle cx="4.75" cy="17.5" r="1.1"/>',
+        timeline: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+        contact: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.8 6.5 8.2 6 8.2-6"/>',
+        impact: '<path d="M4 19.5h16"/><path d="m5 15 4.5-4.5 3.5 3.5 6.5-6.5"/><path d="M15 7.5h4.5V12"/>',
+        length: '<rect x="2.5" y="8" width="19" height="8" rx="1.5"/><path d="M6.5 8v3M10 8v4.5M13.5 8v3M17 8v4.5"/>',
+        skills: '<path d="m8.5 8-4.5 4 4.5 4"/><path d="m15.5 8 4.5 4-4.5 4"/><path d="m13.5 5-3 14"/>'
+    };
+    const ATS_DEFAULT_ICON_PATH = '<path d="M12 4 2.8 19.5h18.4L12 4Z"/><path d="M12 10v4.5M12 17.2v.3"/>';
+    const ATS_CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+
+    function getAtsCategoryIcon(category) {
+        const key = String(category || "").trim().toLowerCase();
+        const paths = ATS_CATEGORY_ICON_PATHS[key] || ATS_DEFAULT_ICON_PATH;
+        return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>';
+    }
+
     function renderAtsQualityCriteria(criteria, resumePreviewText = "", resumeVisualPreview = null, context = {}, previewIsExcerpt = false) {
         const container = document.getElementById("atsQualityCriteriaList");
         if (!container) {
@@ -2754,33 +3837,38 @@ Download PDF
 
         const issues = cleanItems.filter((item) => item.status !== "pass");
         const passes = cleanItems.filter((item) => item.status === "pass");
+        // Each issue is its category icon and title; tap it for the fix.
         const issueMarkup = issues.length
             ? issues.slice(0, 5).map((item) => (
-                '<li class="flex gap-3 border-b border-outline-variant/50 pb-3 last:border-b-0 last:pb-0">' +
-                    '<span class="text-error text-lg mt-0.5" aria-hidden="true">!</span>' +
-                    '<span>' +
-                        '<span class="block text-sm font-bold text-primary">' + escapeHtml(item.title || item.category || "ATS issue") + '</span>' +
-                        '<span class="block text-sm text-on-surface-variant leading-relaxed mt-1">' + escapeHtml(buildIssueActionText(item, safeContext)) + '</span>' +
-                    '</span>' +
-                '</li>'
+                '<li class="ats-issue"><details class="ats-issue-details report-collapse-item">' +
+                    '<summary class="ats-issue-summary">' +
+                        '<span class="ats-issue-icon" aria-hidden="true">' + getAtsCategoryIcon(item.category) + '</span>' +
+                        '<span class="ats-issue-title">' +
+                            (item.category ? '<small>' + escapeHtml(item.category) + '</small>' : "") +
+                            '<span>' + escapeHtml(item.title || item.category || "ATS issue") + '</span>' +
+                        '</span>' +
+                        '<svg class="ats-issue-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
+                    '</summary>' +
+                    '<p class="ats-issue-text">' + escapeHtml(buildIssueActionText(item, safeContext)) + '</p>' +
+                '</details></li>'
             )).join("")
-            : '<li class="flex gap-3"><span class="text-secondary text-lg mt-0.5" aria-hidden="true">✓</span><span class="text-sm text-on-surface-variant">No major ATS quality issues detected.</span></li>';
+            : '<li class="ats-all-clear">' + ATS_CHECK_ICON + '<span>No major ATS quality issues detected.</span></li>';
         const passMarkup = passes.length
             ? passes.map((item) => (
-                '<span class="px-3 py-1 rounded-full bg-secondary-container/20 text-on-secondary-container text-xs font-semibold">' + escapeHtml(item.category || item.title || "Passed") + '</span>'
+                '<span class="ats-pass-chip">' + getAtsCategoryIcon(item.category) + '<span>' + escapeHtml(item.category || item.title || "Passed") + '</span></span>'
             )).join("")
             : '<span class="px-3 py-1 rounded-full bg-surface-container-low text-on-surface-variant text-xs font-semibold">No passed checks yet</span>';
 
         container.innerHTML =
             '<div class="border-t border-outline-variant/60 pt-5">' +
                 '<p class="text-xs uppercase tracking-widest text-on-surface-variant mb-3">Issues to fix</p>' +
-                '<ul class="space-y-3">' + issueMarkup + '</ul>' +
+                '<ul class="ats-issue-list">' + issueMarkup + '</ul>' +
             '</div>' +
             '<div class="space-y-5 border-t lg:border-l lg:border-t-0 border-outline-variant/60 pt-5 lg:pt-0 lg:pl-6">' +
                 buildVisualResumePreview(resumeVisualPreview, resumePreviewText, previewIsExcerpt) +
                 '<div>' +
                     '<p class="text-xs uppercase tracking-widest text-on-surface-variant mb-3">Passed checks</p>' +
-                    '<div class="flex flex-wrap gap-2">' + passMarkup + '</div>' +
+                    '<div class="ats-pass-list">' + passMarkup + '</div>' +
                 '</div>' +
             '</div>';
 
@@ -2803,26 +3891,35 @@ Download PDF
 
     function getScoreMeaningBand(score) {
         const safeScore = clampPercent(Number(score || 0));
+        // key colours the band chip; short is the one-line version for the summary card.
         if (safeScore < 30) {
             return {
+                key: "low",
                 label: "Low readiness",
+                short: "Unlikely to pass ATS screening for this role yet.",
                 text: "Below 30 means the CV is unlikely to pass ATS screening for the compared role yet."
             };
         }
         if (safeScore < 50) {
             return {
+                key: "needs",
                 label: "Needs improvement",
+                short: "Some useful evidence, but keywords, proof, or format need work.",
                 text: "30-49 means the CV has some useful evidence, but role keywords, proof, or format need stronger work."
             };
         }
         if (safeScore < 80) {
             return {
+                key: "good",
                 label: "Good but not complete",
+                short: "Usable, but not fully optimized for this role yet.",
                 text: "50-79 means the CV is usable, but it is not fully optimized for the compared role yet."
             };
         }
         return {
+            key: "strong",
             label: "Strong readiness",
+            short: "Strong role and ATS alignment; small improvements are still possible.",
             text: "80+ means the CV has strong role and ATS alignment, with small improvements still possible."
         };
     }
@@ -2871,15 +3968,22 @@ Download PDF
             const numeric = value === null || value === undefined || value === "" ? Number.NaN : Number(value);
             return {
                 label: label + " (" + weight + ")",
-                value: Number.isFinite(numeric) ? formatScoreComponent(numeric) + " - " + metricStatus(numeric) : "Not available"
+                value: Number.isFinite(numeric) ? formatScoreComponent(numeric) + " - " + metricStatus(numeric) : "Not available",
+                // Separate parts for the summary card's weight list.
+                name: label,
+                weight,
+                score: Number.isFinite(numeric) ? formatScoreComponent(numeric) : "Not available"
             };
         });
 
         return {
             label: band.label,
+            band: band.key,
+            short: band.short,
             text: band.text + contextText,
             formula: componentText,
             components,
+            employment: employmentText.trim(),
             method: (formulaSentence + employmentText).trim()
         };
     }
@@ -2887,6 +3991,31 @@ Download PDF
     function reportList(items, fallbackText) {
         const cleanItems = Array.isArray(items) ? items.filter(Boolean) : [];
         return escapeHtml(cleanItems.length ? cleanItems.join(", ") : fallbackText);
+    }
+
+    function buildReportProgressSection(progress) {
+        if (!progress || !progress.available) return "";
+        const change = Number(progress.score_change) || 0;
+        const rows = [
+            ["Readiness score", formatProgressPoints(progress.previous_score) + " to " + formatProgressPoints(progress.current_score) +
+                " (" + (change > 0 ? "+" : "") + formatProgressPoints(change) + " points)"],
+            ["Now shown", reportList(progress.keywords_now_matched, "None")],
+            ["Still missing", reportList(progress.keywords_still_missing, "None")],
+            ["No longer found", reportList(progress.keywords_no_longer_found, "None")],
+            ["ATS issues fixed", reportList(progress.ats_issues_fixed, "None")],
+            ["ATS issues still open", reportList(progress.ats_issues_still_open, "None")]
+        ];
+        return "<section><h2 class=\"section-title\">Progress since your last check<\/h2><table>" +
+            rows.map((row) => "<tr><th>" + escapeHtml(row[0]) + "<\/th><td>" + (row[0] === "Readiness score" ? escapeHtml(row[1]) : row[1]) + "<\/td><\/tr>").join("") +
+            "<\/table><div class=\"note\">" + escapeHtml(progress.summary || "") + "<\/div><\/section>";
+    }
+
+    function buildReportRelatedSkillsSection(semanticMatches) {
+        const matches = Array.isArray(semanticMatches) ? semanticMatches.filter((item) => item && item.concept).slice(0, 8) : [];
+        if (!matches.length) return "";
+        return "<section><h2 class=\"section-title\">Skills proven by related tools<\/h2><ul>" +
+            matches.map((item) => "<li><strong>" + escapeHtml(item.concept) + "<\/strong>: " + reportList(item.evidence, "") + "<\/li>").join("") +
+            "<\/ul><p class=\"note detail-note\">These requirements count as met because your resume names a tool that proves them. Write the exact terms too, because ATS keyword filters match words literally.<\/p><\/section>";
     }
 
     function buildReportTableRows(rows) {
@@ -3133,11 +4262,13 @@ Download PDF
             "<section><h2 class=\"section-title\">At a glance<\/h2><table>" + summaryRows + "<\/table><\/section>" +
             "<section><h2 class=\"section-title\">What your score means<\/h2><h3>" + escapeHtml((report.scoreExplanation && report.scoreExplanation.label) || "Score meaning") + "<\/h3><div class=\"note\">" + escapeHtml((report.scoreExplanation && report.scoreExplanation.text) || "The final readiness score combines role match, resume evidence, and ATS format quality.") + "<\/div><\/section>" +
             "<section><h2 class=\"section-title\">Role fit<\/h2><div class=\"note\">" + escapeHtml(report.roleReason || "Selected role and recommendation are aligned.") + "<\/div><\/section>" +
+            buildReportProgressSection(report.progress) +
             "<section><h2 class=\"section-title\">Priority improvement plan<\/h2><ul>" + buildRecommendationActionRows(report.recommendationPlan, report.structuredFeedback) + "<\/ul><\/section>" +
             "<section><h2 class=\"section-title\">Top 3 role matches<\/h2><div class=\"note\">Evidence-match scores compare resume text with database requirements; they are not hiring probabilities or validated model accuracy.<\/div><div class=\"table-scroll\"><table><thead><tr><th>Rank<\/th><th>Database role<\/th><th>Evidence score<\/th><th>Status<\/th><th>Evidence<\/th><\/tr><\/thead><tbody>" + buildTopRoleRows(report.topRoleMatches) + "<\/tbody><\/table><\/div><\/section>" +
             "<section><h2 class=\"section-title\">Score components<\/h2><table>" + componentRows + "<\/table><p class=\"note detail-note\">" + escapeHtml(scoreExplanation.method || "Formula details were not available.") + "<\/p><\/section>" +
             "<section><h2 class=\"section-title\">ATS quality checks<\/h2><div class=\"table-scroll\"><table class=\"quality\"><thead><tr><th>Criteria<\/th><th>Status<\/th><th>Finding<\/th><th>Suggested fix<\/th><\/tr><\/thead><tbody>" + buildQualityRows(report.qualityCriteria) + "<\/tbody><\/table><\/div>" + buildReportVisualResumePreview(report.resumeVisualPreview, report.resumeExcerpt, report.resumePreviewIsExcerpt) + "<\/section>" +
             "<section><h2 class=\"section-title\">Resume evidence<\/h2><table>" + evidenceRows + "<\/table><h3 style=\"margin-top:22px\">Matched signals<\/h3><div class=\"chips\">" + reportList(report.matchedSignals, "No matched signals").split(", ").map((item) => "<span class=\"chip\">" + item + "<\/span>").join("") + "<\/div><h3 style=\"margin-top:22px\">Missing keywords<\/h3>" + (Array.isArray(report.missingKeywords) && report.missingKeywords.some(Boolean) ? "<p>Rewrite project bullets to include these naturally, only where you have real evidence.<\/p>" : "") + "<div class=\"chips\">" + reportList(report.missingKeywords, "No missing keywords").split(", ").map((item) => "<span class=\"chip missing\">" + item + "<\/span>").join("") + "<\/div><p class=\"note detail-note\">Similar terms such as developer/development and test/testing are normalized before scoring.<\/p><\/section>" +
+            buildReportRelatedSkillsSection(report.semanticMatches) +
             "<section><h2 class=\"section-title\">Next actions<\/h2><ul>" + buildFeedbackRows(report.structuredFeedback, report.feedback || "No feedback available.") + "<\/ul><\/section>" +
             "<footer>Preview generated locally by UTS CS Career Navigator. Use Download PDF report on the results page to save a copy.<\/footer>" +
             "<\/div><\/body><\/html>";
@@ -3358,10 +4489,52 @@ Download PDF
             const notes = Array.isArray(draft.ats_notes) ? draft.ats_notes.filter(Boolean).slice(0, 8) : [];
             notesList.innerHTML = notes.length
                 ? notes.map((note) => (
-                    '<li class="flex gap-3"><span class="text-secondary text-base mt-0.5" aria-hidden="true">✓</span><span>' + escapeHtml(note) + '</span></li>'
+                    '<li class="flex gap-3"><span class="tick-mark" aria-hidden="true">✓</span><span>' + escapeHtml(note) + '</span></li>'
                 )).join("")
                 : '<li class="text-on-surface-variant">No extra ATS notes returned.</li>';
+            playFlowList(notesList);
         }
+        renderRoleExamples(isExample ? null : draft.role_examples);
+    }
+
+    // When the selected role and the Top 3 roles all score below 40, the draft carries fictional
+    // example resumes for those roles; one tab per example.
+    function renderRoleExamples(guide) {
+        const panel = document.getElementById("roleExamplesPanel");
+        const note = document.getElementById("roleExamplesNote");
+        const tabs = document.getElementById("roleExampleTabs");
+        const frame = document.getElementById("roleExampleFrame");
+        if (!panel || !tabs || !frame) return;
+        const examples = guide && Array.isArray(guide.examples)
+            ? guide.examples.filter((example) => example && example.html)
+            : [];
+        if (!examples.length) {
+            panel.classList.add("hidden");
+            tabs.innerHTML = "";
+            frame.srcdoc = "";
+            return;
+        }
+        if (note) note.textContent = String(guide.note || "");
+        tabs.innerHTML = examples.map((example, index) => {
+            const roles = Array.isArray(example.roles) && example.roles.length ? example.roles : [example.role || "Example"];
+            const score = Number(example.score);
+            return '<button class="role-example-tab" type="button" role="tab" data-example-index="' + index + '" aria-selected="false">' +
+                escapeHtml(roles.join(" / ")) +
+                (Number.isFinite(score) ? '<span>' + escapeHtml(Math.round(score) + "%") + '</span>' : "") +
+                '</button>';
+        }).join("");
+        const showExample = (index) => {
+            frame.srcdoc = examples[index].html;
+            tabs.querySelectorAll("[data-example-index]").forEach((button) => {
+                button.setAttribute("aria-selected", Number(button.dataset.exampleIndex) === index ? "true" : "false");
+            });
+        };
+        tabs.onclick = (event) => {
+            const button = event.target.closest("[data-example-index]");
+            if (button) showExample(Number(button.dataset.exampleIndex));
+        };
+        showExample(0);
+        panel.classList.remove("hidden");
     }
 
     async function saveGeneratedResumeDownloadHistory(fileName, analysisId) {
@@ -3756,6 +4929,7 @@ Download PDF
 
     function loadAnalysisResult() {
         document.getElementById("reportLoadingState").hidden = true;
+        initReportCollapsibles();
         const sampleRequested = new URLSearchParams(window.location.search).get("sample") === "1";
         let result = null;
         if (sampleRequested) {
@@ -3838,11 +5012,11 @@ Download PDF
             missingKeywords,
             overallScore: scoreOutOf100
         });
-        const evidenceItems = Array.isArray(matchedSignals) ? matchedSignals.map((item) => String(item).trim()).filter(Boolean) : [];
-        setText("reportSummaryEvidence", evidenceItems.length ? evidenceItems.slice(0, 4).join(", ") + "." : "No matched resume signals were returned for this comparison.");
+        // The matched words live in the Overview and Improve sections, so the hero
+        // only names the role.
         setText("reportSummaryRole", humanReviewRequired
             ? "The evidence for " + (selectedRole || recommendedRole || "this role") + " needs human review. Use the findings below as guidance for your next edit."
-            : "Compared with " + recommendedRole + ". Review the matched evidence and start with the suggested edits below.");
+            : "Compared with " + recommendedRole + ". Start with the suggested edits below.");
 
         const overallScore = document.getElementById("overallScore");
         const aiSummary = document.getElementById("aiSummary");
@@ -3857,11 +5031,29 @@ Download PDF
         }
         const downloadGeneratedPdfBtn = document.getElementById("downloadGeneratedPdfBtn");
 
-        animateScoreNumber(overallScore, scoreOutOf100);
         const scoreExplanation = buildScoreExplanation(scoreOutOf100, compatibility, scoreBreakdown, roleRecommendation, selectedRole, recommendedRole);
+        // Hero: band chip, the four score parts (open on wide screens), then the count-up.
+        heroScoreValue = scoreOutOf100;
+        const scoreBand = document.getElementById("reportScoreBand");
+        if (scoreBand) {
+            scoreBand.textContent = scoreExplanation.label;
+            scoreBand.dataset.band = scoreExplanation.band;
+        }
+        const hasScoreParts = renderHeroScoreParts(scoreBreakdown, compatibility);
+        initHeroScore(hasScoreParts);
+        setHeroScorePartsOpen(hasScoreParts && !(window.matchMedia && window.matchMedia("(max-width: 700px)").matches), true);
+        animateScoreNumber(overallScore, scoreOutOf100);
+        // Summary card: verdict and one short line; the method sits in its fold.
         setText("scoreMeaningLabel", scoreExplanation.label);
+        setText("scoreMeaningShort", scoreExplanation.short);
         setText("scoreMeaningText", scoreExplanation.text);
-        setText("scoreFormulaText", scoreExplanation.formula);
+        const scoreWeightList = document.getElementById("scoreWeightList");
+        if (scoreWeightList) {
+            scoreWeightList.innerHTML = scoreExplanation.components.map((part) => (
+                '<li><span>' + escapeHtml(part.name) + ' <small>' + escapeHtml(part.weight) + '</small></span><strong>' + escapeHtml(part.score) + '</strong></li>'
+            )).join("");
+        }
+        setText("scoreFormulaText", scoreExplanation.employment);
 
         setText("submissionFileNameDisplay", uploadedResumeName || "No resume selected");
         setText("submissionFileTypeDisplay", fileType);
@@ -3903,7 +5095,7 @@ Download PDF
                 aiRecommendation.textContent = "Notes use the Top 1 detected role because no job was selected.";
             } else {
                 aiRecommendation.textContent = missingKeywords.length
-                    ? "Next edit for " + (guidanceContext.roleName || recommendedRole) + ": add evidence for " + missingKeywords.slice(0, 4).join(", ") + "."
+                    ? "Next: add evidence for " + missingKeywords.slice(0, 4).join(", ") + "."
                     : "Next edit: quantify impact and keep the ATS format clean.";
             }
         }
@@ -3911,8 +5103,8 @@ Download PDF
         const atsReadinessCopy = getAtsReadinessCopy(scoreOutOf100, resumeQuality, scoreBreakdown);
         setText("atsQualityHeadline", atsReadinessCopy.headline);
         setText("atsQualitySummaryText", atsReadinessCopy.summary);
-        setText("atsQualityRiskText", atsReadinessCopy.badge);
         setText("atsQualityScoreText", atsReadinessCopy.scoreText);
+        renderAtsMeter(resumeQuality, atsReadinessCopy.qualityScore);
         renderAtsQualityCriteria(qualityCriteria, resumePreviewText, resumeVisualPreview, guidanceContext, !result.resume_text_for_generation);
 
         if (guidanceContext.mode === "selectedRoleExample") {
@@ -3951,7 +5143,15 @@ Download PDF
             setText("topRoleMatchesBadge", "Resume evidence ranking");
         }
         setText("selectedChoiceDisplay", selectedRole || "No role selected");
-        setText("selectedDatabaseRoleDisplay", selectedDatabaseRole ? "Database role: " + selectedDatabaseRole : "No selected database role was used.");
+        setText("selectedDatabaseRoleDisplay", selectedDatabaseRole ? "Database role: " + selectedDatabaseRole : "Custom role typed by user.");
+        // When the role you chose is the recommended role, the headline and badge
+        // already say so; the "Current selected role" box would only repeat it.
+        const selectedRoleCard = document.getElementById("selectedRoleCard");
+        if (selectedRoleCard) {
+            const sameRole = Boolean(selectedRole) && selectedRole.trim().toLowerCase() === String(recommendedRole || "").trim().toLowerCase();
+            selectedRoleCard.hidden = sameRole && !roleIsDifferent && !humanReviewRequired &&
+                !["autoNoSuitableRole", "autoDetectedRole"].includes(guidanceContext.mode);
+        }
         setText("recommendedRoleDisplay", matchStatus === "no suitable role" ? "No suitable role confirmed" : recommendedRole);
         setText(
             "recommendedRoleReasonDisplay",
@@ -3970,7 +5170,7 @@ Download PDF
             setText("recommendedRoleReasonDisplay", "Used for the final ATS score because the resume evidence matches this database role more strongly.");
             setText("recommendedRoleScoreDisplay", "Final comparison role used in this result.");
         } else {
-            setText("selectedRoleScoreDisplay", selectedDatabaseRole ? "Selected role confirmed as the database match. The Top 3 list below shows nearby alternatives." : "Custom role typed by user. The Top 3 list below shows the closest database roles.");
+            setText("selectedRoleScoreDisplay", selectedDatabaseRole ? "Selected role confirmed as the database match. The Top 3 list below shows nearby alternatives." : "The Top 3 list below shows the closest database roles.");
             setText("recommendedRoleReasonDisplay", "Used for the final ATS score because it matches the selected role and resume evidence.");
             setText("recommendedRoleScoreDisplay", "Final comparison role used in this result.");
         }
@@ -3996,7 +5196,6 @@ Download PDF
             generateResumeBtn.textContent = "Analyze your own resume to create a draft";
             setGeneratedResumeStatus("Resume drafting is available after you analyze your own resume. This report uses fictional sample data.");
         }
-        renderPills("matchedSignalsChipList", matchedSignals, "No matched resume signals detected yet.");
         renderTopRoleMatches(topRoleMatches, guidanceContext);
         renderRecommendationPlan(recommendationModule, {
             recommendedRole,
@@ -4005,6 +5204,8 @@ Download PDF
             structuredFeedback
         });
         renderQuickActions(recommendationModule, missingKeywords, qualityCriteria);
+        renderProgress(result.progress);
+        renderRelatedSkills(jobAnalysis.semantic_matches);
         renderFeedbackList("structuredFeedbackList", structuredFeedback, feedback);
 
         if (!sampleRequested && generateResumeBtn && generateResumeBtn.dataset.bound !== "true") {
@@ -4042,6 +5243,8 @@ Download PDF
             topRoleMatches,
             matchedSignals,
             missingKeywords,
+            semanticMatches: Array.isArray(jobAnalysis.semantic_matches) ? jobAnalysis.semantic_matches : [],
+            progress: result.progress && typeof result.progress === "object" ? result.progress : null,
             structuredFeedback,
             feedback,
             resumeExcerpt: resumePreviewText,
@@ -4097,8 +5300,20 @@ Download PDF
         returnToRealReportLink.classList.toggle("hidden", !viewingSampleReport || !window.CareerNavigatorCommon.hasCurrentUserReport());
     }
     window.addEventListener("career-navigator-auth-changed", updateRealReportReturnLink);
+    // History cleared, or this report deleted, in the account window (or in another tab):
+    // stop showing the report that no longer exists.
+    function hideClearedReport() {
+        updateRealReportReturnLink();
+        if (viewingSampleReport) return;
+        const content = document.getElementById("reportContent");
+        const empty = document.getElementById("noAnalysisState");
+        if (content) content.hidden = true;
+        if (empty) empty.hidden = false;
+    }
+    window.addEventListener("career-navigator-report-cleared", hideClearedReport);
     window.addEventListener("storage", (event) => {
         if (["analysisResult", "analysisOwner", "authUser"].includes(event.key)) updateRealReportReturnLink();
+        if (event.key === "analysisResult" && !event.newValue) hideClearedReport();
     });
     window.addEventListener("pageshow", (event) => {
         if (!event.persisted) return;

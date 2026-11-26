@@ -12,7 +12,9 @@ import base64
 import ssl
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+from decimal import ROUND_HALF_UP, Decimal
 from email.message import EmailMessage
+from functools import lru_cache
 from html import escape as html_escape
 from io import BytesIO
 import smtplib
@@ -20,7 +22,7 @@ import urllib.error
 import urllib.request
 from time import perf_counter
 from urllib.parse import urlsplit
-from typing import Any, NamedTuple
+from typing import Any, Iterable, NamedTuple
 
 from database import (
     DatabaseError,
@@ -57,6 +59,7 @@ from app_config import (
     APP_TITLE,
     CORS_ALLOWED_ORIGINS,
     CS_SAMPLE_ONLY_TOP_MATCH_THRESHOLD,
+    LOW_MATCH_EXAMPLE_THRESHOLD,
     EMAIL_PIN_ATTEMPT_LIMIT_PER_IP,
     EMAIL_PIN_COOLDOWN_ESCALATE_AFTER,
     EMAIL_PIN_ESCALATED_COOLDOWN_SECONDS,
@@ -114,6 +117,7 @@ from job_repository import (
     fetch_raw_job_data_rows,
 )
 from models import ParsedResume
+from skill_knowledge import SKILL_CONCEPTS, SKILL_KNOWLEDGE_VERSION
 from security import (
     clear_login_session,
     get_password_validation_error,
@@ -143,12 +147,15 @@ except ImportError:  # pragma: no cover - optional OCR dependency
 
 
 ROLE_RECOMMENDATION_MARGIN = 8.0
-ROLE_RANKING_VERSION = "2.2"
+ROLE_RANKING_VERSION = "2.3"
 ROLE_REQUIREMENT_FIT_WEIGHT = 0.55
 ROLE_EVIDENCE_WEIGHT = 0.10
 ROLE_TITLE_WEIGHT = 0.35
 ROLE_TITLE_HISTORY_DECAY = 0.85
 NON_IT_HEADLINE_REVIEW_THRESHOLD = 35.0
+# A resume naming this many technical skills is not treated as a non-IT
+# profile, whatever its current job title says.
+NON_IT_PROFILE_MIN_TECHNICAL_SKILLS = 3
 AUTO_NO_MATCH_SAMPLE_ROLES = (
     "Software Developer",
     "Full Stack Developer",
@@ -1616,7 +1623,12 @@ def invalidate_email_pin(pin_id: int) -> bool:
             connection.close()
 
 
-def consume_email_pin(email: str, purpose: str, pin: str) -> tuple[bool, str]:
+def consume_email_pin(email: str, purpose: str, pin: str, *, consume: bool = True) -> tuple[bool, str]:
+    """Verify the newest active PIN for this email and purpose.
+
+    With `consume=False` a correct PIN stays usable for the real submit, but a
+    wrong guess still counts toward the per-PIN attempt limit.
+    """
     normalized_pin = normalize_pin(pin)
     if len(normalized_pin) != EMAIL_PIN_LENGTH:
         return False, f"Enter the {EMAIL_PIN_LENGTH}-digit PIN."
@@ -1694,6 +1706,10 @@ def consume_email_pin(email: str, purpose: str, pin: str) -> tuple[bool, str]:
             )
             connection.commit()
             return False, "Invalid PIN."
+
+        if not consume:
+            connection.rollback()
+            return True, "PIN verified."
 
         cursor.execute(
             f"UPDATE email_verification_pins SET consumed_at = {utc_now_sql()} WHERE id = %s",
@@ -1868,6 +1884,16 @@ TECHNICAL_HEADLINE_PATTERN = re.compile(
     r"software|systems? (?:administrator|analyst|engineer|programmer)|technical support|"
     r"technologist|tester|testing|ui|ux|web)\b",
     re.I,
+)
+IT_STUDY_FIELD_PATTERN = re.compile(
+    r"\b(?:computer science|computing|information technology|information systems?|software engineering|"
+    r"computer engineering|data science|cyber ?security|artificial intelligence|ict)\b",
+    re.I,
+)
+# "IT" is only meaningful in capitals; lowercase "it" is an ordinary word.
+IT_ABBREVIATION_PATTERN = re.compile(r"\bIT\b")
+IT_ABBREVIATION_QUALIFICATION_PATTERN = re.compile(
+    r"\b(?i:diploma|degree|bachelor|master|b\.?\s?sc|foundation|certificate)\b[^\n]{0,60}?\bIT\b"
 )
 GENERIC_JOB_TITLE_TOKENS = {
     "admin",
@@ -2086,6 +2112,36 @@ def is_explicit_non_it_resume_headline(value: str) -> bool:
     )
 
 
+def has_it_related_qualification(resume_text: str) -> bool:
+    text = resume_text or ""
+    return bool(IT_STUDY_FIELD_PATTERN.search(text) or IT_ABBREVIATION_QUALIFICATION_PATTERN.search(text))
+
+
+def get_non_it_current_job_title(entries_newest_first: list[dict[str, Any]], resume_text: str) -> str:
+    """Return the current job title when the whole profile reads as non-IT.
+
+    A non-IT current job alone is not enough: CS students often list a
+    part-time retail or service job, and parsed titles can be wrong. The title
+    only counts as non-IT evidence when no dated job title is technical, the
+    resume shows no IT-related qualification and it names fewer than three
+    technical skills, so such resumes keep the ordinary review threshold.
+    """
+
+    if not entries_newest_first:
+        return ""
+    titles = [str(entry.get("title") or "") for entry in entries_newest_first]
+    current_title = normalize_text(titles[0])
+    if not is_explicit_non_it_resume_headline(current_title):
+        return ""
+    if any(TECHNICAL_HEADLINE_PATTERN.search(title) or IT_ABBREVIATION_PATTERN.search(title) for title in titles):
+        return ""
+    if has_it_related_qualification(resume_text):
+        return ""
+    if len(extract_key_phrases(resume_text, DEFAULT_SKILL_DICTIONARY)) >= NON_IT_PROFILE_MIN_TECHNICAL_SKILLS:
+        return ""
+    return current_title
+
+
 def get_total_employment_months(entries: list[dict[str, Any]]) -> int | None:
     if not entries:
         return None
@@ -2199,6 +2255,7 @@ def compute_career_role_title_match(
                 "signal_source": "non_it_headline",
                 "explicit_non_it_headline": True,
                 "non_it_headline": headline,
+                "non_it_title_source": "headline",
             }
         return {
             "score": 0.0,
@@ -2210,7 +2267,16 @@ def compute_career_role_title_match(
             "signal_source": "unavailable",
             "explicit_non_it_headline": False,
             "non_it_headline": "",
+            "non_it_title_source": "",
         }
+
+    non_it_title_source = "headline" if explicit_non_it_headline else ""
+    if not explicit_non_it_headline:
+        non_it_current_title = get_non_it_current_job_title(ordered_entries, resume_text)
+        if non_it_current_title:
+            explicit_non_it_headline = True
+            headline = non_it_current_title
+            non_it_title_source = "current_job_title"
 
     most_recent_title = str(ordered_entries[0]["title"])
     best_score = 0.0
@@ -2240,6 +2306,7 @@ def compute_career_role_title_match(
         "signal_source": "employment_title",
         "explicit_non_it_headline": explicit_non_it_headline,
         "non_it_headline": headline if explicit_non_it_headline else "",
+        "non_it_title_source": non_it_title_source,
     }
 
 
@@ -2344,6 +2411,7 @@ def _rank_database_role_matches(resume_text: str, limit: int | None = None) -> l
                 ),
                 "explicit_non_it_headline": bool(title_result.get("explicit_non_it_headline")),
                 "non_it_headline": title_result.get("non_it_headline") or "",
+                "non_it_title_source": title_result.get("non_it_title_source") or "",
                 "most_recent_title": title_result.get("most_recent_title") or most_recent_title,
                 "fit_result": fit_result,
             }
@@ -2399,6 +2467,32 @@ def choose_pdf_text_candidate(plain_raw_text: str, layout_raw_text: str) -> tupl
     return plain_text, plain_raw_text, "plain"
 
 
+def extract_pdf_page_images_for_ocr(reader: Any) -> list[Any]:
+    """Return the largest picture on each of the first pages of a scanned PDF."""
+
+    page_images: list[Any] = []
+    for page in reader.pages[:OCR_MAX_PDF_PAGES]:
+        largest = None
+        try:
+            for embedded in page.images:
+                try:
+                    image = embedded.image
+                except Exception:
+                    continue
+                if image is None or image.size[0] * image.size[1] > OCR_MAX_INPUT_PIXELS:
+                    continue
+                if min(image.size) < OCR_MIN_PAGE_IMAGE_SIDE:
+                    # Icons, logos and passport photos are not a scanned page.
+                    continue
+                if largest is None or image.size[0] * image.size[1] > largest.size[0] * largest.size[1]:
+                    largest = image
+        except Exception:
+            continue
+        if largest is not None:
+            page_images.append(largest)
+    return page_images
+
+
 def extract_pdf_text(file_storage) -> tuple[str, dict[str, Any]]:
     try:
         reader = PdfReader(BytesIO(file_storage.read()))
@@ -2425,7 +2519,7 @@ def extract_pdf_text(file_storage) -> tuple[str, dict[str, Any]]:
     raw_text = "\n".join(plain_pages)
     layout_raw_text = "\n".join(layout_pages)
     normalized_text, chosen_raw_text, extraction_mode = choose_pdf_text_candidate(raw_text, layout_raw_text)
-    return normalized_text, {
+    document_info = {
         "file_type": "pdf",
         "page_count": len(reader.pages),
         "embedded_image_count": embedded_image_count,
@@ -2435,23 +2529,453 @@ def extract_pdf_text(file_storage) -> tuple[str, dict[str, Any]]:
         "character_spacing_repaired": bool(CHARACTER_SPACED_WORD_PATTERN.search(chosen_raw_text)),
     }
 
+    # A scanned or exported-as-picture PDF has no text layer, only a page image.
+    # Read that image with OCR, the same way as a PNG or JPG upload.
+    if count_resume_words(normalized_text) < OCR_PDF_TEXT_WORD_THRESHOLD and embedded_image_count:
+        page_images = extract_pdf_page_images_for_ocr(reader)
+        if page_images and find_tesseract_command():
+            configure_tesseract()
+            try:
+                ocr_pages = [run_resume_ocr(image) for image in page_images]
+            except Exception as error:
+                raise ValueError(
+                    "Could not read the scanned PDF with OCR. Please upload a clearer scan or a text-based PDF."
+                ) from error
+            ocr_raw_text = "\n".join(ocr_pages)
+            ocr_text = clean_resume_source_text(ocr_raw_text)
+            ensure_ocr_text_is_readable(ocr_text, page_images[0].size, "scanned PDF")
+            document_info.update(
+                {
+                    "ocr_used": True,
+                    "raw_text_length": len(ocr_raw_text),
+                    "pdf_extraction_mode": "ocr",
+                    "character_spacing_repaired": False,
+                    "image_width": page_images[0].size[0],
+                    "image_height": page_images[0].size[1],
+                }
+            )
+            return ocr_text, document_info
+
+    return normalized_text, document_info
+
+
+# Default install folders of the Windows Tesseract installer, so local
+# development works without setting TESSERACT_CMD by hand.
+WINDOWS_TESSERACT_PATHS = (
+    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+    r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    os.path.join(os.getenv("LOCALAPPDATA", ""), "Programs", "Tesseract-OCR", "tesseract.exe"),
+)
+# Small or phone-sized resume images are enlarged to about this width before
+# OCR: Tesseract reads text best when letters are roughly 20-30 pixels tall.
+OCR_TARGET_WIDTH = 2000
+# Enlarging is what makes OCR slow on a small server, so it is sized to the image:
+# below OCR_SMALL_IMAGE_WIDTH the text is tiny and needs the full target width,
+# mid-size images read as well at OCR_MEDIUM_TARGET_WIDTH, and from
+# OCR_NATIVE_WIDTH upwards the original size already reads as well (tested on the
+# real image resumes in Resume_template/real_resume; at 1100 px the page layout of
+# some two-column designs was read in the wrong order, so mid-size goes up to 1400 px).
+OCR_SMALL_IMAGE_WIDTH = 700
+OCR_MEDIUM_TARGET_WIDTH = 1600
+OCR_NATIVE_WIDTH = 1400
+OCR_MAX_UPSCALE = 5.0
+# Bounds the memory and time of one OCR pass (about a 2400 x 3300 page), which
+# matters on a 512 MB hosting plan.
+OCR_MAX_PIXELS = 8_000_000
+# Images larger than this are refused before decoding: a small compressed file can
+# otherwise expand into hundreds of megabytes.
+OCR_MAX_INPUT_PIXELS = 40_000_000
+# A full-page OCR result shorter than this is retried with a single-block layout.
+OCR_RETRY_WORD_THRESHOLD = 80
+# Below this many words the image is too small or blurry to give a fair analysis.
+OCR_MIN_READABLE_WORDS = 60
+# PDFs with fewer words than this in their text layer are treated as scanned.
+OCR_PDF_TEXT_WORD_THRESHOLD = 25
+OCR_MAX_PDF_PAGES = 3
+OCR_MIN_PAGE_IMAGE_SIDE = 300
+
+
+def find_tesseract_command() -> str:
+    configured_cmd = os.getenv("TESSERACT_CMD", "").strip().strip('"')
+    candidates = [configured_cmd, shutil.which("tesseract") or ""]
+    if os.name == "nt":
+        candidates.extend(WINDOWS_TESSERACT_PATHS)
+    for candidate in candidates:
+        if candidate and os.path.isfile(candidate):
+            return candidate
+    return ""
+
 
 def configure_tesseract() -> None:
     if pytesseract is None:
         raise ValueError("Image resume OCR requires the pytesseract Python package. Please install backend requirements again.")
 
-    configured_cmd = os.getenv("TESSERACT_CMD", "").strip()
-    if configured_cmd:
-        pytesseract.pytesseract.tesseract_cmd = configured_cmd
-        if os.path.exists(configured_cmd):
-            return
+    tesseract_cmd = find_tesseract_command()
+    if not tesseract_cmd:
+        raise ValueError(
+            "Image resume OCR is not configured. Install Tesseract OCR, then set TESSERACT_CMD in env "
+            "to the tesseract.exe path. You can still upload a text-based PDF."
+        )
+    pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
 
-    if shutil.which("tesseract"):
+
+def prepare_image_for_ocr(image: Any) -> Any:
+    """Upright, greyscale and enlarge a resume image so Tesseract can read small text."""
+
+    image = ImageOps.exif_transpose(image)
+    if image.mode in ("RGBA", "LA", "PA") or (image.mode == "P" and "transparency" in image.info):
+        # Transparent PNG pixels would otherwise turn black and hide dark text.
+        image = image.convert("RGBA")
+        background = Image.new("RGBA", image.size, (255, 255, 255, 255))
+        image = Image.alpha_composite(background, image)
+    image = image.convert("L")
+
+    width, height = image.size
+    if width < OCR_SMALL_IMAGE_WIDTH:
+        target_width = OCR_TARGET_WIDTH
+    elif width < OCR_NATIVE_WIDTH:
+        target_width = OCR_MEDIUM_TARGET_WIDTH
+    else:
+        target_width = width
+    scale = 1.0
+    if width < target_width:
+        scale = min(OCR_MAX_UPSCALE, target_width / max(1, width))
+    if width * height * scale * scale > OCR_MAX_PIXELS:
+        scale = math.sqrt(OCR_MAX_PIXELS / max(1, width * height))
+    if abs(scale - 1.0) > 0.01:
+        image = image.resize((max(1, round(width * scale)), max(1, round(height * scale))), Image.LANCZOS)
+    return image
+
+
+# --- OCR word correction -------------------------------------------------------
+# Small or blurry images make Tesseract swap look-alike letters (`Monours` for
+# `Honours`, `Teknotog!` for `Teknologi`, `Pythan` for `Python`). These helpers
+# repair such words in OCR text only; selectable PDF text is never changed.
+# A word is only replaced when
+#   * it is not an ordinary word (or a plural/-ed/-ing form of one),
+#   * every edit is an OCR-style slip: a look-alike letter or a thin stroke such as
+#     `i`/`l`/`t` lost or added inside the word, and
+#   * the result is a skill name, a resume/education/place word, or a long job-catalogue
+#     word, and no other candidate is about as close.
+# Names, emails, links and short acronyms are left as they are.
+OCR_KNOWN_WORDS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_known_words.txt")
+OCR_RESUME_WORDS = frozenset(
+    """
+    academic academy accomplished achievement achievements activities adaptable advanced alam alor analytical
+    analytics april august award awarded awards bachelor bahru basic bintulu bootcamp campus certificate
+    certification certifications champion club committee competition competitions contribute conducted coordination
+    coursework current dean december degree designing developing diploma driven eager education engagement english
+    environment expected experience experiences february finalist fluent foundation graduation guided hackathon
+    honours honors industrial institut institute intermediate internship interests ipoh january johor journal july
+    june kampung kebangsaan kedah kelantan kinabalu kolej kota kuala kuching languages leadership lumpur malay
+    malaysia march matriculation may melaka mentor mentored menengah miri motivated native negeri november october
+    organisation organization participants participation receiver receivers pahang penang perak perlis petaling
+    pinang politeknik polytechnic present presenter professional proficient projects provided pulau putrajaya
+    recipient references research sabah safety sarawak scholarship sekolah selangor sembilan september seremban
+    shah sibu sintok skills skudai society subang summary symposium teknikal teknologi terengganu universiti
+    university volunteer workshop workshops curricular extracurricular curriculum college colleges
+    """.split()
+)
+# Real words and tech names missing from the word list, so they are never "corrected".
+OCR_EXTRA_KNOWN_WORDS = frozenset(
+    """
+    programme programmes organisation organisations colour behaviour centre analyse analysed analysing
+    scala kotlin rust golang perl ruby swift dart flutter xcode jira figma canva vercel netlify heroku
+    supabase firebase postgresql sqlite mongodb redis kafka spark hadoop tableau looker matlab rstudio
+    browse browsed browsing startup startups throughput tooling erecting prevented wealth apartment
+    """.split()
+)
+OCR_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+OCR_MONTH_NAMES = frozenset({month.lower() for month in OCR_MONTHS} | {"sept", "june", "july"})
+OCR_CONFUSABLE_GROUPS = ("hmnu", "il1!|tfj", "aoec", "gq9", "bh6", "vwy", "s5", "z2", "o0", "b8", "cg")
+OCR_MONTH_LOOKALIKES = ("ogcqd", "ocea", "il1!|t", "uvy", "nmh", "pb", "gq")
+OCR_THIN_LETTERS = frozenset("iltrfj1!|")
+OCR_WORD_SUFFIXES = ("ies", "es", "s", "ed", "d", "ing", "ly", "er", "ers", "ment", "ments", "ation", "ations", "ness")
+OCR_EMAIL_PROVIDERS = ("gmail", "yahoo", "hotmail", "outlook", "icloud", "ymail")
+# Real mail domains that look like a misread webmail name but must stay as they are.
+OCR_REAL_MAIL_DOMAINS = frozenset({"email", "mail", "live", "aol", "msn", "proton", "protonmail", "zoho", "yandex", "gmx", "me"})
+OCR_PHRASE_FIXES = (
+    (re.compile(r"\bPower\s+[8B][!Il1|](?![A-Za-z0-9])"), "Power BI"),
+    (re.compile(r"\b[l1|I]o[T7]\b"), "IoT"),
+    # `linkedin.com/infname`: OCR read the `/` after `in` as a letter.
+    (re.compile(r"(linkedin\.com/in)[f'’|l1!](?=[a-z0-9])", re.I), r"\1/"),
+    # `COPA: 3.75` / `OGPA 3.5`: a misread CGPA in front of a grade.
+    (re.compile(r"\b[CO0G][GOC0Q][PF][A4](?=\s*[:=]?\s*\d)"), "CGPA"),
+    # `CGPA: 348/4,00`: the decimal points of a grade out of 4 were lost.
+    (re.compile(r"\b((?:C?GPA|CPA)\s*[:=]?\s*)([0-4])(\d{2})(\s*/\s*4)[.,]?(0{0,2})(?!\d)"), r"\1\2.\3\4.00"),
+    # `CGPA: 3:76`: the decimal point read as a colon.
+    (re.compile(r"\b((?:C?GPA|CPA)\s*[:=]?\s*)([0-4]):(\d{1,2})(?!\d)"), r"\1\2.\3"),
+    # `(Oct 2022 - Present}` / `{May 2023 - May 2024)`: a bracket read as a brace.
+    (re.compile(r"\(([^(){}]{1,80})\}"), r"(\1)"),
+    (re.compile(r"\{([^(){}]{1,80})\)"), r"(\1)"),
+    # `MUET Band 35`: the decimal point of the band was lost.
+    (re.compile(r"\b(Band\s*:?\s*)([1-6])([05])\b"), r"\1\2.\3"),
+    (re.compile(r"\bA(?:U|I/|1/|l/|\|/)ML\b"), "AI/ML"),
+    (re.compile(r"\b[Dd]a[lt]e(?=\s+(?:[Ss]cien|[Aa]naly|[Mm]ining|[Ee]ngineer|[Ss]tructure|[Vv]isuali))"), "Data"),
+)
+OCR_BULLET_GLYPHS = re.compile(r"(?m)^[ \t]*(?:[¢«»©®•·*�]|e(?=[ \t]+[A-Z]))[ \t]+")
+OCR_WORD_TOKEN = re.compile(r"(?<![\w@./])([A-Za-z][A-Za-z!|01'-]*[A-Za-z!|])(?![\w@/])")
+OCR_MONTH_BEFORE_YEAR = re.compile(r"\b([A-Za-z]{3,4})(\.?\s*)((?:19|20)\d{2})\b")
+OCR_EMAIL_DOMAIN = re.compile(r"([\w.+-]{3,})(\s*[@®©]\s*|\s+)([A-Za-z]{4,9})\.(com|COM)\b")
+
+
+class OcrVocabulary(NamedTuple):
+    known: frozenset[str]
+    anchors_by_delete: dict[str, frozenset[str]]
+    canonical: dict[str, str]
+
+
+def ocr_deletion_variants(word: str, depth: int) -> set[str]:
+    variants = {word}
+    frontier = {word}
+    for _ in range(depth):
+        frontier = {item[:index] + item[index + 1:] for item in frontier for index in range(len(item))}
+        variants |= frontier
+    return variants
+
+
+@lru_cache(maxsize=1)
+def get_ocr_vocabulary() -> OcrVocabulary:
+    known: set[str] = set(OCR_RESUME_WORDS) | set(OCR_EXTRA_KNOWN_WORDS) | set(OCR_MONTH_NAMES)
+    try:
+        with open(OCR_KNOWN_WORDS_PATH, encoding="utf-8") as handle:
+            known.update(line.strip() for line in handle if line.strip() and not line.startswith("#"))
+    except OSError:
+        pass
+    catalogue_words = set(get_resume_word_repair_vocabulary())
+    known |= catalogue_words
+    anchors = set(OCR_RESUME_WORDS) | set(OCR_MONTH_NAMES) | {word for word in catalogue_words if len(word) >= 6}
+    canonical: dict[str, str] = {}
+    skill_terms = list(DEFAULT_SKILL_DICTIONARY)
+    for concept in SKILL_CONCEPTS:
+        skill_terms.extend((concept.name, *concept.triggers, *concept.evidence))
+    for term in skill_terms:
+        for token in re.findall(r"[A-Za-z][A-Za-z+#.-]*[A-Za-z+#]", term):
+            lower = token.lower()
+            known.add(lower)
+            if len(token) >= 4:
+                anchors.add(lower)
+            # Only real tech spellings (`PyTorch`, `CompTIA`) keep their own casing.
+            if any(character.isupper() for character in token[1:]):
+                canonical.setdefault(lower, token)
+    by_delete: dict[str, set[str]] = {}
+    for word in anchors:
+        if len(word) < 4:
+            continue
+        for variant in ocr_deletion_variants(word, 2 if len(word) >= 8 else 1):
+            by_delete.setdefault(variant, set()).add(word)
+    return OcrVocabulary(
+        frozenset(word for word in known if len(word) >= 2),
+        {key: frozenset(value) for key, value in by_delete.items()},
+        canonical,
+    )
+
+
+def is_known_ocr_word(lower: str, known: frozenset[str]) -> bool:
+    if lower in known:
+        return True
+    for suffix in OCR_WORD_SUFFIXES:
+        if lower.endswith(suffix) and len(lower) - len(suffix) >= 3:
+            base = lower[: -len(suffix)]
+            if base in known or base + "e" in known or base + "y" in known:
+                return True
+            if len(base) > 3 and base[-1] == base[-2] and base[:-1] in known:
+                return True
+    return False
+
+
+def ocr_letters_look_alike(first: str, second: str, groups: tuple[str, ...] = OCR_CONFUSABLE_GROUPS) -> bool:
+    return any(first in group and second in group for group in groups)
+
+
+def ocr_slip_distance(source: str, target: str) -> float:
+    """Edit cost in which only OCR slips are cheap: a look-alike letter (0.4) or a thin
+    stroke lost or added inside the word (0.6). Every other edit costs 2.0, and a thin
+    letter at either end costs 1.2 (`browse` -> `browser` is a real ending)."""
+
+    columns = len(target) + 1
+    previous = [0.0] * columns
+    for j in range(1, columns):
+        previous[j] = previous[j - 1] + (1.2 if target[j - 1] in OCR_THIN_LETTERS else 2.0)
+    for i in range(1, len(source) + 1):
+        current = [previous[0] + (1.2 if source[i - 1] in OCR_THIN_LETTERS else 2.0)] + [0.0] * (columns - 1)
+        for j in range(1, columns):
+            first, second = source[i - 1], target[j - 1]
+            substitution = 0.0 if first == second else (0.4 if ocr_letters_look_alike(first, second) else 2.0)
+            thin_cost = 0.6 if 1 < j < columns - 1 else 1.2
+            current[j] = min(
+                previous[j] + (thin_cost if first in OCR_THIN_LETTERS else 2.0),
+                current[j - 1] + (thin_cost if second in OCR_THIN_LETTERS else 2.0),
+                previous[j - 1] + substitution,
+            )
+        previous = current
+    return previous[-1]
+
+
+def plain_edit_distance(source: str, target: str) -> int:
+    previous = list(range(len(target) + 1))
+    for i, first in enumerate(source, 1):
+        current = [i]
+        for j, second in enumerate(target, 1):
+            current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (first != second)))
+        previous = current
+    return previous[-1]
+
+
+def match_ocr_word_case(original: str, replacement: str, canonical: dict[str, str]) -> str:
+    if replacement in canonical:
+        return canonical[replacement]
+    if original.isupper():
+        return replacement.upper()
+    if original[:1].isupper():
+        return replacement[:1].upper() + replacement[1:]
+    return replacement
+
+
+def correct_ocr_word(token: str) -> str:
+    vocabulary = get_ocr_vocabulary()
+    lower = token.lower()
+    if len(token) < 4 or is_known_ocr_word(lower, vocabulary.known):
+        return token
+    if token.isupper() and len(token) <= 5:
+        return token  # acronyms such as XAMPP or NLTK
+    simple = lower.replace("!", "i").replace("|", "l").replace("0", "o")
+    for variant in (simple, simple.replace("rn", "m"), simple.replace("vv", "w"), simple.replace("1", "l"), simple.replace("1", "i")):
+        if variant != lower and is_known_ocr_word(variant, vocabulary.known):
+            return match_ocr_word_case(token, variant, vocabulary.canonical)
+    if not re.fullmatch(r"[a-z][a-z'-]*", simple):
+        return token
+    length_slack = 2 if len(simple) >= 8 else 1
+    candidates: set[str] = set()
+    for variant in ocr_deletion_variants(simple, length_slack):
+        candidates |= vocabulary.anchors_by_delete.get(variant, frozenset())
+    scored = sorted(
+        (ocr_slip_distance(simple, candidate), candidate)
+        for candidate in candidates
+        if abs(len(candidate) - len(simple)) <= length_slack
+    )
+    if not scored:
+        return token
+    best_cost, best = scored[0]
+    allowed_cost = 0.45 if len(simple) <= 5 else (1.0 if len(simple) <= 8 else 1.4)
+    if best_cost > allowed_cost or (len(scored) > 1 and scored[1][0] - best_cost < 0.3):
+        return token  # too far, or two words are about as likely
+    return match_ocr_word_case(token, best, vocabulary.canonical)
+
+
+def split_glued_webmail_address(token: str) -> str:
+    """`name1221gqmail.com` -> `name1221@gmail.com` when OCR lost the `@` and the space."""
+
+    body = token[:-4]
+    best: tuple[int, int, int, str, str] | None = None
+    for provider in OCR_EMAIL_PROVIDERS:
+        for length in range(len(provider) - 1, len(provider) + 2):
+            if length >= len(body) - 2:
+                continue
+            domain = body[-length:].lower()
+            distance = plain_edit_distance(domain.replace("rn", "m"), provider)
+            if distance > 1:
+                continue
+            # Prefer the split whose domain starts like the provider (`gqmail`, not `qmail`).
+            rank = (distance, 0 if domain[:1] == provider[:1] else 1, abs(length - len(provider)), provider, body[:-length])
+            if best is None or rank < best:
+                best = rank
+    # `1ga@gmail.com`: a few characters are a fragment of a split address, not a name.
+    if best is None or len(best[4]) < 5:
+        return token
+    return f"{best[4]}@{best[3]}.com"
+
+
+def fix_ocr_email_domain(line: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        domain = match.group(3).lower().replace("rn", "m")
+        if domain in OCR_REAL_MAIL_DOMAINS or is_known_ocr_word(domain, get_ocr_vocabulary().known):
+            # `email.com` or `mail.com` are real domains, not a misread `gmail`.
+            return match.group(0)
+        provider = min(OCR_EMAIL_PROVIDERS, key=lambda name: plain_edit_distance(domain, name))
+        # A webmail domain one letter off (`gqmail`, `gmait`), with or without its `@`.
+        if plain_edit_distance(domain, provider) <= 1:
+            return f"{match.group(1)}@{provider}.{match.group(4).lower()}"
+        return match.group(0)
+
+    line = OCR_EMAIL_DOMAIN.sub(replace, line)
+    if "@" not in line:
+        line = re.sub(r"\b[\w.+-]{6,}\.com\b", lambda match: split_glued_webmail_address(match.group(0)), line)
+    return line
+
+
+def fix_ocr_month_before_year(line: str) -> str:
+    def month_cost(word: str, month: str) -> float:
+        return sum(
+            0.0 if first == second else (0.4 if ocr_letters_look_alike(first, second, OCR_MONTH_LOOKALIKES) else 2.0)
+            for first, second in zip(word.lower(), month.lower())
+        )
+
+    def replace(match: re.Match[str]) -> str:
+        word = match.group(1)
+        if word.lower() in OCR_MONTH_NAMES:
+            return word[:1].upper() + word[1:].lower() + match.group(2) + match.group(3)
+        if len(word) != 3:
+            return match.group(0)
+        # `Get 2022` -> `Oct 2022`: only when one month is clearly the closest.
+        scored = sorted((month_cost(word, month), month) for month in OCR_MONTHS)
+        if scored[0][0] <= 0.8 and scored[1][0] - scored[0][0] >= 0.3:
+            return scored[0][1] + match.group(2) + match.group(3)
+        return match.group(0)
+
+    return OCR_MONTH_BEFORE_YEAR.sub(replace, line)
+
+
+def correct_ocr_text(text: str) -> str:
+    """Repair typical OCR slips in resume text read from an image."""
+
+    # A contact or calendar icon read as `@` at the start of a line is not part of an
+    # email; left in place, clean-up would glue it onto the line above.
+    text = re.sub(r"(?m)^[ \t]*@[ \t]+", "", text)
+    # `* ` rather than `- `: a hyphen at the start of a line would be glued onto the
+    # previous line by clean_resume_source_text.
+    text = OCR_BULLET_GLYPHS.sub("* ", text)
+    protected = {token.lower() for token in infer_resume_name_from_text(text).split()}
+    corrected_lines: list[str] = []
+    for line in text.splitlines():
+        line = fix_ocr_email_domain(line)
+        for pattern, replacement in OCR_PHRASE_FIXES:
+            line = pattern.sub(replacement, line)
+        line = fix_ocr_month_before_year(line)
+        lowered = line.lower()
+        if "@" not in line and "http" not in lowered and "www." not in lowered:
+            line = OCR_WORD_TOKEN.sub(
+                lambda match: match.group(1) if match.group(1).lower() in protected else correct_ocr_word(match.group(1)),
+                line,
+            )
+        corrected_lines.append(line)
+    return "\n".join(corrected_lines)
+
+
+def run_resume_ocr(image: Any) -> str:
+    prepared = prepare_image_for_ocr(image)
+    # Automatic page segmentation keeps the columns of a two-column resume apart.
+    text = pytesseract.image_to_string(prepared, config="--psm 3")
+    if count_resume_words(text) < OCR_RETRY_WORD_THRESHOLD:
+        # Busy designs can defeat the layout analysis; read the page as one block instead.
+        block_text = pytesseract.image_to_string(prepared, config="--psm 6")
+        if count_resume_words(block_text) > count_resume_words(text):
+            text = block_text
+    return correct_ocr_text(text)
+
+
+def ensure_ocr_text_is_readable(text: str, image_size: tuple[int, int], source_label: str) -> None:
+    if count_resume_words(text) >= OCR_MIN_READABLE_WORDS:
         return
-
+    width = int(image_size[0] or 0)
+    size_hint = (
+        f" The {source_label} is only {width} pixels wide, so the small text cannot be read."
+        if 0 < width < 1000
+        else ""
+    )
     raise ValueError(
-        "Image resume OCR is not configured. Install Tesseract OCR, then set TESSERACT_CMD in env "
-        "to the tesseract.exe path. You can still upload a text-based PDF."
+        f"Could not read enough text from the {source_label}.{size_hint} "
+        "Please upload a sharper, higher-resolution image (at least 1000 pixels wide) or a text-based PDF."
     )
 
 
@@ -2462,23 +2986,31 @@ def extract_image_text(file_storage) -> tuple[str, dict[str, Any]]:
     configure_tesseract()
     try:
         image = Image.open(BytesIO(file_storage.read()))
-        image = image.convert("RGB")
-    except (UnidentifiedImageError, OSError) as error:
-        raise ValueError("Could not read the uploaded image. Please upload a valid PNG or JPG file.") from error
+        if image.width * image.height > OCR_MAX_INPUT_PIXELS:
+            raise ValueError("too many pixels")
+        image.load()
+    except Exception as error:
+        raise ValueError(
+            "Could not read the uploaded image. Please upload a valid PNG or JPG file under 40 megapixels."
+        ) from error
 
     try:
-        raw_text = pytesseract.image_to_string(image)
-        return normalize_text(raw_text), {
-            "file_type": get_file_extension(file_storage.filename).lstrip(".") or "image",
-            "page_count": 1,
-            "embedded_image_count": 1,
-            "ocr_used": True,
-            "raw_text_length": len(raw_text),
-            "image_width": image.width,
-            "image_height": image.height,
-        }
+        raw_text = run_resume_ocr(image)
     except Exception as error:
         raise ValueError("Could not extract text from the image resume. Please upload a clearer image or a text-based PDF.") from error
+
+    # Keep the line breaks: the name, section headings and bullets are found line by line.
+    text = clean_resume_source_text(raw_text)
+    ensure_ocr_text_is_readable(text, image.size, "image")
+    return text, {
+        "file_type": get_file_extension(file_storage.filename).lstrip(".") or "image",
+        "page_count": 1,
+        "embedded_image_count": 1,
+        "ocr_used": True,
+        "raw_text_length": len(raw_text),
+        "image_width": image.width,
+        "image_height": image.height,
+    }
 
 
 def extract_resume_text(file_storage, filename: str) -> tuple[str, dict[str, Any]]:
@@ -2641,6 +3173,183 @@ def keyword_matches_resume(keyword: str, resume_text: str, resume_tokens: set[st
         token_has_positive_resume_evidence(token, resume_text, resume_tokens)
         for token in keyword_tokens
     )
+
+
+# --- Semantic requirement matching with the skill knowledge base -------------
+# A catalogue requirement such as "Machine Learning" or "CI/CD tools" is
+# evidenced by the specific skills a resume names (TensorFlow, Jenkins, ...).
+# See skill_knowledge.py for the concepts and the rules behind them.
+
+# Full credit gave the best role ranking on the 154 labelled resumes (Top-3
+# 96 vs 92 with half credit and 92 without semantic matching).
+SEMANTIC_MATCH_CREDIT = 1.0
+SKILL_EVIDENCE_TOKEN_PATTERN = re.compile(r"[a-zA-Z][a-zA-Z+.#/-]*")
+# Unlike the clause index, a full stop only ends a segment before a space or
+# the end of the text, so tool names such as "ASP.NET" stay one token, and a
+# single line break does not end a segment, because PDF text often wraps a
+# skills line inside a tool name ("VS" / "Code"). Blank lines, bullets and
+# separators still do.
+SKILL_EVIDENCE_SEGMENT_PATTERN = re.compile(
+    r"\n\s*\n|[!?;|•]+|\.(?=\s|$)|\b(?:but|however|although)\b",
+    flags=re.I,
+)
+# Catalogue tool categories (O*NET style) that nobody writes on a resume, so
+# the "use the exact skill names" advice skips them.
+TOOL_CATEGORY_LAST_WORDS = {"software", "tool", "tools", "platform", "platforms", "system", "systems", "database"}
+
+
+class CompiledSkillConcept(NamedTuple):
+    triggers: tuple[tuple[str, bool, tuple[str, ...]], ...]
+    evidence: tuple[tuple[str, tuple[str, ...]], ...]
+    patterns: tuple[tuple[str, re.Pattern[str]], ...]
+
+
+def skill_evidence_tokens(phrase: str) -> tuple[str, ...]:
+    """Tokens of an evidence phrase, keeping short words such as "BI" in "Power BI"."""
+    tokens = (normalize_keyword_token(token) for token in SKILL_EVIDENCE_TOKEN_PATTERN.findall(phrase.lower()))
+    return tuple(token for token in tokens if token)
+
+
+@lru_cache(maxsize=1)
+def get_compiled_skill_concepts() -> tuple[CompiledSkillConcept, ...]:
+    compiled: list[CompiledSkillConcept] = []
+    for concept in SKILL_CONCEPTS:
+        triggers = []
+        for trigger in concept.triggers:
+            exact = trigger.startswith("=")
+            phrase = trigger[1:] if exact else trigger
+            normalized = normalize_match_text(phrase)
+            if normalized:
+                triggers.append((normalized, exact, tuple(tokenize_canonical_keywords(phrase))))
+        evidence = [(name, skill_evidence_tokens(name)) for name in concept.evidence]
+        # Longer names first, so "Jupyter Notebook" is reported instead of "Jupyter".
+        evidence = sorted((item for item in evidence if item[1]), key=lambda item: -len(item[1]))
+        patterns = tuple((name, re.compile(pattern)) for name, pattern in concept.patterns)
+        compiled.append(CompiledSkillConcept(tuple(triggers), tuple(evidence), patterns))
+    return tuple(compiled)
+
+
+@lru_cache(maxsize=8192)
+def get_requirement_skill_concepts(requirement_text: str) -> tuple[tuple[int, frozenset[str]], ...]:
+    """Concepts a requirement asks for, with the requirement tokens each one covers."""
+    normalized = normalize_match_text(requirement_text)
+    if not normalized:
+        return ()
+    padded = f" {normalized} "
+    requirement_tokens = set(tokenize_canonical_keywords(requirement_text))
+    matches: list[tuple[int, frozenset[str]]] = []
+    for index, concept in enumerate(get_compiled_skill_concepts()):
+        covered: set[str] = set()
+        for trigger_text, exact, trigger_tokens in concept.triggers:
+            found = normalized == trigger_text if exact else f" {trigger_text} " in padded
+            if found:
+                covered.update(set(trigger_tokens) & requirement_tokens)
+        if covered:
+            matches.append((index, frozenset(covered)))
+    return tuple(matches)
+
+
+def build_skill_evidence_index(resume_text: str) -> tuple[list[list[str]], dict[str, list[tuple[int, int]]]]:
+    segments: list[list[str]] = []
+    positions: dict[str, list[tuple[int, int]]] = {}
+    for segment in SKILL_EVIDENCE_SEGMENT_PATTERN.split(resume_text or ""):
+        tokens = list(skill_evidence_tokens(segment))
+        segment_number = len(segments)
+        segments.append(tokens)
+        for position, token in enumerate(tokens):
+            positions.setdefault(token, []).append((segment_number, position))
+    return segments, positions
+
+
+def skill_tokens_have_positive_evidence(
+    phrase_tokens: tuple[str, ...],
+    evidence_index: tuple[list[list[str]], dict[str, list[tuple[int, int]]]],
+) -> bool:
+    segments, positions = evidence_index
+    width = len(phrase_tokens)
+    for segment_number, index in positions.get(phrase_tokens[0], ()):
+        segment = segments[segment_number]
+        if tuple(segment[index : index + width]) != phrase_tokens:
+            continue
+        if not set(segment[max(0, index - 6) : index]) & NEGATED_EVIDENCE_MARKERS:
+            return True
+    return False
+
+
+def skill_pattern_has_positive_evidence(pattern: re.Pattern[str], resume_text: str) -> bool:
+    for match in pattern.finditer(resume_text or ""):
+        before = SKILL_EVIDENCE_SEGMENT_PATTERN.split(resume_text[max(0, match.start() - 200) : match.start()])[-1]
+        preceding = [normalize_keyword_token(word) for word in re.findall(r"[a-zA-Z]+", before.lower())][-6:]
+        if not set(preceding) & NEGATED_EVIDENCE_MARKERS:
+            return True
+    return False
+
+
+def get_resume_skill_concepts(resume_text: str) -> dict[int, tuple[str, ...]]:
+    """Concepts the resume proves, each with up to three evidence names found in it."""
+    cache = get_scoring_cache()
+    if cache is not None and resume_text in cache.skill_concepts:
+        return cache.skill_concepts[resume_text]
+
+    evidence_index = build_skill_evidence_index(resume_text)
+    found_concepts: dict[int, tuple[str, ...]] = {}
+    for index, concept in enumerate(get_compiled_skill_concepts()):
+        names: list[str] = []
+        found_tokens: list[tuple[str, ...]] = []
+        for name, tokens in concept.evidence:
+            if len(names) >= 3:
+                break
+            # Skip a shorter form of evidence that was already reported.
+            if any(
+                tokens == longer[start : start + len(tokens)]
+                for longer in found_tokens
+                for start in range(len(longer) - len(tokens) + 1)
+            ):
+                continue
+            if skill_tokens_have_positive_evidence(tokens, evidence_index):
+                names.append(name)
+                found_tokens.append(tokens)
+        for name, pattern in concept.patterns:
+            if len(names) >= 3:
+                break
+            if name not in names and skill_pattern_has_positive_evidence(pattern, resume_text):
+                names.append(name)
+        if names:
+            found_concepts[index] = tuple(names)
+
+    if cache is not None:
+        cache.skill_concepts[resume_text] = found_concepts
+    return found_concepts
+
+
+def find_semantic_requirement_matches(
+    requirement_text: str,
+    resume_text: str,
+    lexically_matched: set[str],
+) -> tuple[set[str], list[dict[str, Any]]]:
+    """Requirement tokens proven by related skills that exact matching missed."""
+    requirement_concepts = get_requirement_skill_concepts(requirement_text)
+    if not requirement_concepts:
+        return set(), []
+    resume_concepts = get_resume_skill_concepts(resume_text)
+    semantic_tokens: set[str] = set()
+    matches: list[dict[str, Any]] = []
+    for concept_index, covered_tokens in requirement_concepts:
+        evidence = resume_concepts.get(concept_index)
+        if not evidence:
+            continue
+        new_tokens = set(covered_tokens) - lexically_matched
+        if not new_tokens:
+            continue
+        semantic_tokens.update(new_tokens)
+        matches.append(
+            {
+                "concept": SKILL_CONCEPTS[concept_index].name,
+                "evidence": list(evidence),
+                "tokens": sorted(new_tokens),
+            }
+        )
+    return semantic_tokens, matches
 
 
 def key_phrase_exists(text: str, phrase: str) -> bool:
@@ -3118,9 +3827,18 @@ def extract_job_keywords(job_description: str, limit: int = 10) -> list[str]:
     return ordered[:limit]
 
 
-def rule_based_feedback(resume_profile: ParsedResume, job_keywords: list[str]) -> tuple[list[str], list[str]]:
+def rule_based_feedback(
+    resume_profile: ParsedResume,
+    job_keywords: list[str],
+    semantic_matched_keywords: set[str] | None = None,
+) -> tuple[list[str], list[str]]:
     resume_tokens = set(tokenize_canonical_keywords(resume_profile.text))
-    keyword_hits = [keyword for keyword in job_keywords if keyword_matches_resume(keyword, resume_profile.text, resume_tokens)]
+    related_skill_hits = semantic_matched_keywords or set()
+    keyword_hits = [
+        keyword
+        for keyword in job_keywords
+        if keyword in related_skill_hits or keyword_matches_resume(keyword, resume_profile.text, resume_tokens)
+    ]
     missing_keywords = [keyword for keyword in job_keywords if keyword not in keyword_hits]
 
     feedback: list[str] = []
@@ -3178,9 +3896,25 @@ def score_requirement_against_resume(
     ]
 
     if not requirement_tokens:
-        return {"score": 0.0, "matched_tokens": [], "missing_tokens": []}
+        return {"score": 0.0, "matched_tokens": [], "missing_tokens": [], "semantic_matches": []}
 
-    token_coverage = (len(matched_tokens) / len(requirement_tokens)) * 100.0
+    # Related-skill evidence (for example TensorFlow for "Machine Learning")
+    # proves the skill, so each such token earns SEMANTIC_MATCH_CREDIT towards
+    # coverage C_r. The feedback still asks for the exact words, because an
+    # ATS keyword filter matches them literally.
+    semantic_tokens, semantic_matches = find_semantic_requirement_matches(
+        requirement_text,
+        resume_text,
+        set(matched_tokens),
+    )
+    lexical_match_count = len(matched_tokens)
+    if semantic_tokens:
+        covered = set(matched_tokens) | semantic_tokens
+        matched_tokens = [token for token in requirement_tokens if token in covered]
+
+    token_coverage = (
+        (lexical_match_count + SEMANTIC_MATCH_CREDIT * len(semantic_tokens)) / len(requirement_tokens)
+    ) * 100.0
     phrase_similarity = compute_tfidf_score(resume_text, requirement_text)
     score = (token_coverage * 0.85) + (phrase_similarity * 0.15)
 
@@ -3188,11 +3922,13 @@ def score_requirement_against_resume(
     if normalized_requirement and normalized_requirement in scoped_normalize_match_text(resume_text):
         score = 100.0
         matched_tokens = requirement_tokens
+        semantic_matches = []
 
     return {
         "score": round(min(100.0, score), 2),
         "matched_tokens": matched_tokens,
         "missing_tokens": [token for token in requirement_tokens if token not in matched_tokens],
+        "semantic_matches": semantic_matches,
     }
 
 
@@ -3210,6 +3946,8 @@ def evaluate_weighted_requirements(
     all_keywords: list[str] = []
     matched_keywords: list[str] = []
     missing_keywords: list[str] = []
+    semantic_tokens: set[str] = set()
+    semantic_summary: dict[str, dict[str, Any]] = {}
 
     for requirement in requirements:
         requirement_text = normalize_text(str(requirement.get("requirement_text") or ""))
@@ -3223,6 +3961,15 @@ def evaluate_weighted_requirements(
         all_keywords.extend(tokenize_canonical_keywords(requirement_text))
         matched_keywords.extend(score_detail["matched_tokens"])
         missing_keywords.extend(score_detail["missing_tokens"])
+        for semantic_match in score_detail.get("semantic_matches") or []:
+            semantic_tokens.update(semantic_match["tokens"])
+            entry = semantic_summary.setdefault(
+                semantic_match["concept"],
+                {"concept": semantic_match["concept"], "evidence": [], "requirements": [], "weight": 0.0},
+            )
+            entry["evidence"] = unique_clean_values(entry["evidence"] + list(semantic_match["evidence"]), 4)
+            entry["requirements"] = unique_clean_values(entry["requirements"] + [requirement_text], 3)
+            entry["weight"] = max(entry["weight"], weight)
         scored_requirements.append(
             {
                 "requirement_text": requirement_text,
@@ -3231,6 +3978,7 @@ def evaluate_weighted_requirements(
                 "match_score": score_detail["score"],
                 "matched_tokens": score_detail["matched_tokens"],
                 "missing_tokens": score_detail["missing_tokens"],
+                "semantic_matches": score_detail.get("semantic_matches") or [],
             }
         )
 
@@ -3245,6 +3993,10 @@ def evaluate_weighted_requirements(
     ordered_matched = [word for word, _ in Counter(matched_keywords).most_common(20)]
     matched_keyword_set = set(ordered_matched)
     ordered_missing = [word for word, _ in Counter(missing_keywords).most_common(20) if word not in matched_keyword_set]
+    semantic_matches = [
+        {key: value for key, value in entry.items() if key != "weight"}
+        for entry in sorted(semantic_summary.values(), key=lambda item: (-item["weight"], item["concept"]))
+    ]
 
     return {
         "requirement_coverage_score": round(coverage_score, 2),
@@ -3254,6 +4006,11 @@ def evaluate_weighted_requirements(
         "matched_requirements": matched_requirements[:8],
         "missing_requirements": missing_requirements[:8],
         "scored_requirements": scored_requirements,
+        "semantic_matches": semantic_matches[:8],
+        "semantic_matched_tokens": sorted(semantic_tokens),
+        # Complete lists, so a later check can compare against this one.
+        "all_matched_keywords": sorted(set(matched_keywords)),
+        "all_missing_keywords": sorted(set(missing_keywords) - set(matched_keywords)),
     }
 
 
@@ -3296,6 +4053,10 @@ def evaluate_job_fit(
         result["matched_requirements"] = requirement_result["matched_requirements"]
         result["missing_requirements"] = requirement_result["missing_requirements"]
         result["scored_requirements"] = requirement_result["scored_requirements"]
+        result["semantic_matches"] = requirement_result["semantic_matches"]
+        result["semantic_matched_tokens"] = requirement_result["semantic_matched_tokens"]
+        result["all_matched_keywords"] = requirement_result["all_matched_keywords"]
+        result["all_missing_keywords"] = requirement_result["all_missing_keywords"]
 
     return result
 
@@ -3685,6 +4446,12 @@ def build_role_recommendation(
             )
         )
     )
+    non_it_title_source = (
+        str((explicit_non_it_match or {}).get("non_it_title_source") or "headline")
+        if explicit_non_it_headline
+        else ""
+    )
+    non_it_title_label = "current job title" if non_it_title_source == "current_job_title" else "resume headline"
     review_threshold = (
         NON_IT_HEADLINE_REVIEW_THRESHOLD
         if explicit_non_it_headline
@@ -3711,7 +4478,7 @@ def build_role_recommendation(
         reason_summary = (
             f"The selected role has {selected_score:.2f}/100 evidence, below the applicable "
             f"{review_threshold:.0f}/100 review threshold"
-            + (f" and the resume headline is {non_it_headline}." if non_it_headline else ".")
+            + (f" and the {non_it_title_label} is {non_it_headline}." if non_it_headline else ".")
             + " Treat this as REVIEW REQUIRED, "
             "not as a confirmed match; the resume builder can show a separate selected-role example."
         )
@@ -3724,7 +4491,7 @@ def build_role_recommendation(
         reason_summary = (
             f"No database role reached the applicable {review_threshold:.0f}/100 evidence review threshold. "
             f"The closest role was {recommended_database_role or 'unavailable'} at {recommended_score:.2f}/100, "
-            + (f"while the explicit resume headline is {non_it_headline}. " if non_it_headline else "")
+            + (f"while the {non_it_title_label} is {non_it_headline}. " if non_it_headline else "")
             + "It is shown only for human review and is not a confirmed recommendation."
         )
     elif recommended_database_role or selected_database_role:
@@ -3758,6 +4525,7 @@ def build_role_recommendation(
         "review_threshold": review_threshold,
         "explicit_non_it_headline": explicit_non_it_headline,
         "non_it_headline": non_it_headline,
+        "non_it_title_source": non_it_title_source,
         "closest_role": recommended_database_role,
         "closest_role_score": recommended_score,
         "top_score_gap": top_score_gap,
@@ -3772,6 +4540,203 @@ def build_role_recommendation(
         ),
         "reason_summary": reason_summary,
     }
+
+
+# --- Adaptive feedback: progress since the user's last check -----------------
+# A signed-in user's new analysis is compared with their latest saved analysis
+# for the same compared role, and the improvement plan is re-ordered around
+# what did and did not change.
+
+PROGRESS_SCORE_COMPONENTS = (
+    ("keyword_match", "Keyword match"),
+    ("role_evidence", "Role evidence"),
+    ("experience_alignment", "Experience evidence"),
+    ("resume_quality", "ATS format quality"),
+    ("academic_rigor", "Education / skills evidence"),
+)
+# A change smaller than one point is reported as "about the same".
+PROGRESS_CHANGE_THRESHOLD = 1.0
+PROGRESS_HISTORY_SCAN_LIMIT = 50
+PROGRESS_LIST_LIMIT = 8
+
+
+def fetch_previous_role_analysis(user_id: int, target_role: str) -> dict[str, Any]:
+    """The user's latest saved analysis for the same compared role, and how many there are."""
+    empty: dict[str, Any] = {"analysis": None, "checks_for_role": 0}
+    role_key = normalize_match_text(target_role or "")
+    if not role_key:
+        return empty
+
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT id, target_role, created_at FROM resume_analyses WHERE user_id = %s ORDER BY id DESC LIMIT %s",
+            (int(user_id), PROGRESS_HISTORY_SCAN_LIMIT),
+        )
+        same_role = [
+            row
+            for row in cursor.fetchall()
+            if normalize_match_text(str(row.get("target_role") or "")) == role_key
+        ]
+        if not same_role:
+            return empty
+
+        latest = same_role[0]
+        cursor.execute(
+            "SELECT analysis_json FROM resume_analyses WHERE id = %s AND user_id = %s",
+            (int(latest["id"]), int(user_id)),
+        )
+        row = cursor.fetchone() or {}
+        return {
+            "analysis_id": int(latest["id"]),
+            "checked_at": isoformat_datetime(latest.get("created_at")),
+            "analysis": parse_stored_analysis_json(row.get("analysis_json")),
+            "checks_for_role": len(same_role),
+        }
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
+
+
+def round_score_points(value: float) -> float:
+    """Round a score to one decimal place with halves going up, as the report shows it."""
+    return float(Decimal(str(float(value))).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
+
+
+def format_score_points(value: float) -> str:
+    rounded = round_score_points(value)
+    return str(int(rounded)) if rounded == int(rounded) else f"{rounded:.1f}"
+
+
+def get_analysis_score(analysis: dict[str, Any]) -> float | None:
+    compatibility = analysis.get("compatibility") if isinstance(analysis.get("compatibility"), dict) else {}
+    for value in (analysis.get("matching_percentage"), compatibility.get("matching_percentage")):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def get_analysis_issue_titles(analysis: dict[str, Any]) -> dict[str, str]:
+    """Open ATS checks of an analysis, keyed by check category."""
+    quality = analysis.get("resume_quality") if isinstance(analysis.get("resume_quality"), dict) else {}
+    issues: dict[str, str] = {}
+    for item in quality.get("issues") or []:
+        if not isinstance(item, dict):
+            continue
+        title = normalize_text(str(item.get("title") or ""))
+        category = normalize_text(str(item.get("category") or "")) or title
+        if category and category not in issues:
+            issues[category] = title or category
+    return issues
+
+
+def get_analysis_keyword_status(analysis: dict[str, Any]) -> tuple[list[str], set[str], set[str]]:
+    """(missing keywords shown to the user, all matched keywords, all missing keywords)."""
+    job = analysis.get("job_description_analysis") if isinstance(analysis.get("job_description_analysis"), dict) else {}
+    shown_missing = [str(keyword) for keyword in job.get("missing_keywords") or [] if keyword]
+    # Older reports only kept the top keywords; fall back to those lists.
+    matched = {str(keyword) for keyword in (job.get("all_matched_keywords") or job.get("matched_keywords") or []) if keyword}
+    missing = {str(keyword) for keyword in (job.get("all_missing_keywords") or job.get("missing_keywords") or []) if keyword}
+    return shown_missing, matched, missing - matched
+
+
+def display_progress_keywords(keywords: list[str]) -> list[str]:
+    return unique_clean_values([format_resume_keyword(keyword) for keyword in keywords], PROGRESS_LIST_LIMIT)
+
+
+def build_progress_since_last_check(
+    current: dict[str, Any],
+    previous_record: dict[str, Any] | None,
+) -> dict[str, Any]:
+    target_role = normalize_text(str(current.get("target_role") or ""))
+    previous_record = previous_record or {}
+    previous = previous_record.get("analysis") if isinstance(previous_record.get("analysis"), dict) else {}
+    check_number = int(previous_record.get("checks_for_role") or 0) + 1
+    current_score = get_analysis_score(current)
+    previous_score = get_analysis_score(previous) if previous else None
+    if not previous or current_score is None or previous_score is None:
+        return {"available": False, "target_role": target_role, "check_number": check_number}
+
+    # Use the one-decimal scores the report shows, so the change always equals "after" minus "before".
+    score_change = round(round_score_points(current_score) - round_score_points(previous_score), 1)
+    if score_change >= PROGRESS_CHANGE_THRESHOLD:
+        trend = "improved"
+    elif score_change <= -PROGRESS_CHANGE_THRESHOLD:
+        trend = "declined"
+    else:
+        trend = "unchanged"
+
+    current_components = current.get("compatibility") if isinstance(current.get("compatibility"), dict) else {}
+    previous_components = previous.get("compatibility") if isinstance(previous.get("compatibility"), dict) else {}
+    components: list[dict[str, Any]] = []
+    for key, label in PROGRESS_SCORE_COMPONENTS:
+        try:
+            before = float(previous_components[key])
+            after = float(current_components[key])
+        except (KeyError, TypeError, ValueError):
+            continue
+        components.append(
+            {"key": key, "label": label, "previous": round(before), "current": round(after), "change": round(after - before)}
+        )
+
+    previous_shown_missing, previous_matched, _ = get_analysis_keyword_status(previous)
+    _, current_matched, current_missing = get_analysis_keyword_status(current)
+    now_matched = [keyword for keyword in previous_shown_missing if keyword in current_matched]
+    still_missing = [keyword for keyword in previous_shown_missing if keyword in current_missing]
+    no_longer_found = [keyword for keyword in sorted(previous_matched) if keyword in current_missing]
+
+    previous_issues = get_analysis_issue_titles(previous)
+    current_issues = get_analysis_issue_titles(current)
+    issues_fixed = [title for category, title in previous_issues.items() if category not in current_issues]
+    issues_still_open = [title for category, title in current_issues.items() if category in previous_issues]
+    issues_new = [title for category, title in current_issues.items() if category not in previous_issues]
+
+    progress = {
+        "available": True,
+        "target_role": target_role,
+        "check_number": check_number,
+        "previous_analysis_id": previous_record.get("analysis_id"),
+        "previous_checked_at": previous_record.get("checked_at"),
+        "previous_score": round(previous_score, 2),
+        "current_score": round(current_score, 2),
+        "score_change": score_change,
+        "trend": trend,
+        "components": components,
+        "keywords_now_matched": display_progress_keywords(now_matched),
+        "keywords_still_missing": display_progress_keywords(still_missing),
+        "keywords_no_longer_found": display_progress_keywords(no_longer_found),
+        "ats_issues_fixed": issues_fixed[:PROGRESS_LIST_LIMIT],
+        "ats_issues_still_open": issues_still_open[:PROGRESS_LIST_LIMIT],
+        "ats_issues_new": issues_new[:PROGRESS_LIST_LIMIT],
+    }
+    progress["summary"] = build_progress_summary(progress)
+    return progress
+
+
+def build_progress_summary(progress: dict[str, Any]) -> str:
+    before = format_score_points(progress["previous_score"])
+    after = format_score_points(progress["current_score"])
+    change = format_score_points(abs(progress["score_change"]))
+    if progress["trend"] == "improved":
+        summary = f"Your score rose by {change} points since your last check ({before} to {after})."
+        if progress["keywords_now_matched"]:
+            summary += " Now shown: " + ", ".join(progress["keywords_now_matched"][:4]) + "."
+    elif progress["trend"] == "declined":
+        summary = f"Your score fell by {change} points since your last check ({before} to {after})."
+        if progress["keywords_no_longer_found"]:
+            summary += " No longer found: " + ", ".join(progress["keywords_no_longer_found"][:4]) + "."
+    else:
+        summary = f"Your score is about the same as your last check ({after})."
+        if progress["keywords_still_missing"]:
+            summary += " Still missing: " + ", ".join(progress["keywords_still_missing"][:4]) + "."
+    return summary
 
 
 def build_recommendation_action(
@@ -3792,6 +4757,13 @@ def build_recommendation_action(
         "keywords": unique_clean_values(list(keywords or []), 6),
         "source": source,
     }
+
+
+def mark_adaptive_action(action: dict[str, Any], note: str) -> dict[str, Any]:
+    """Flag an action that was carried over from the user's last check."""
+    action["adaptive"] = True
+    action["progress_note"] = normalize_text(note)
+    return action
 
 
 def build_part8_recommendation_module(analysis: dict[str, Any]) -> dict[str, Any]:
@@ -3838,6 +4810,12 @@ def build_part8_recommendation_module(analysis: dict[str, Any]) -> dict[str, Any
     match_status = normalize_match_text(str(role_recommendation.get("match_status") or ""))
     human_review_required = bool(role_recommendation.get("human_review_required"))
     fallback_sample_role = normalize_text(str(role_recommendation.get("fallback_sample_role") or ""))
+    progress = analysis.get("progress") if isinstance(analysis.get("progress"), dict) else {}
+    has_progress = bool(progress.get("available"))
+    still_missing_keywords = list(progress.get("keywords_still_missing") or []) if has_progress else []
+    lost_keywords = list(progress.get("keywords_no_longer_found") or []) if has_progress else []
+    still_open_issue_titles = set(progress.get("ats_issues_still_open") or []) if has_progress else set()
+    semantic_matches = [item for item in job_analysis.get("semantic_matches") or [] if isinstance(item, dict)]
 
     actions: list[dict[str, Any]] = []
 
@@ -3883,7 +4861,39 @@ def build_part8_recommendation_module(analysis: dict[str, Any]) -> dict[str, Any
             )
         )
 
-    if display_missing_keywords:
+    if lost_keywords:
+        actions.append(
+            mark_adaptive_action(
+                build_recommendation_action(
+                    len(actions) + 1,
+                    "regression",
+                    "Restore evidence that disappeared",
+                    "These keywords were found in your last check for this role but are missing from this version.",
+                    "If you removed or reworded them by mistake, add the evidence back in your skills or a project bullet.",
+                    lost_keywords[:6],
+                    "progress",
+                ),
+                "Found in your last check, missing now.",
+            )
+        )
+
+    if still_missing_keywords:
+        repeated_first = unique_clean_values(still_missing_keywords + display_missing_keywords, 6)
+        actions.append(
+            mark_adaptive_action(
+                build_recommendation_action(
+                    len(actions) + 1,
+                    "keyword_gap",
+                    "Still missing since your last check",
+                    "These keywords were suggested in your last check for this role and are still not in the resume.",
+                    "Add them inside a truthful project, coursework, internship, or work-experience bullet. Skip any you cannot prove.",
+                    repeated_first,
+                    "progress",
+                ),
+                "Suggested last time and still missing.",
+            )
+        )
+    elif display_missing_keywords:
         actions.append(
             build_recommendation_action(
                 len(actions) + 1,
@@ -3895,6 +4905,36 @@ def build_part8_recommendation_module(analysis: dict[str, Any]) -> dict[str, Any
                 "database_requirements",
             )
         )
+
+    if semantic_matches:
+        exact_terms: list[str] = []
+        examples: list[str] = []
+        for item in semantic_matches[:6]:
+            # Suggest the job's own wording, but not tool categories such as
+            # "Development Environment Software" that no resume would contain.
+            writable = [
+                normalize_text(str(text))
+                for text in item.get("requirements") or []
+                if 0 < len(str(text).split()) <= 5
+                and str(text).split()[-1].lower() not in TOOL_CATEGORY_LAST_WORDS
+            ]
+            if not writable:
+                continue
+            evidence = ", ".join(str(name) for name in (item.get("evidence") or [])[:3])
+            exact_terms.append(writable[0])
+            examples.append(f"{writable[0]} ({evidence})" if evidence else writable[0])
+        if exact_terms:
+            actions.append(
+                build_recommendation_action(
+                    len(actions) + 1,
+                    "ats_wording",
+                    "Use the exact skill names from the job",
+                    "Your resume proves these skills through related tools but never names them: " + "; ".join(examples[:3]) + ".",
+                    "ATS keyword filters match words exactly. Write each term next to the tool that proves it, for example in your skills section.",
+                    exact_terms,
+                    "semantic_matching",
+                )
+            )
 
     if percent_status_label(keyword_match) == "needs_improvement" or percent_status_label(role_evidence) == "needs_improvement":
         actions.append(
@@ -3923,18 +4963,25 @@ def build_part8_recommendation_module(analysis: dict[str, Any]) -> dict[str, Any
         )
 
     if quality_issues:
-        first_issue = quality_issues[0]
-        actions.append(
-            build_recommendation_action(
-                len(actions) + 1,
-                "ats_quality",
-                str(first_issue.get("title") or "Fix ATS readability issue"),
-                str(first_issue.get("detail") or resume_quality.get("summary") or "ATS quality issue detected."),
-                str(first_issue.get("suggestion") or "Fix the highest-risk formatting issue before exporting the resume."),
-                [],
-                "ats_quality",
-            )
+        # An issue that was already flagged last time comes first.
+        repeated_issue = next(
+            (item for item in quality_issues if normalize_text(str(item.get("title") or "")) in still_open_issue_titles),
+            None,
         )
+        first_issue = repeated_issue or quality_issues[0]
+        issue_action = build_recommendation_action(
+            len(actions) + 1,
+            "ats_quality",
+            str(first_issue.get("title") or "Fix ATS readability issue"),
+            str(first_issue.get("detail") or resume_quality.get("summary") or "ATS quality issue detected."),
+            str(first_issue.get("suggestion") or "Fix the highest-risk formatting issue before exporting the resume."),
+            [],
+            "ats_quality",
+        )
+        if repeated_issue is not None:
+            issue_action["title"] = "Still open: " + issue_action["title"]
+            mark_adaptive_action(issue_action, "Flagged in your last check too.")
+        actions.append(issue_action)
 
     if percent_status_label(academic_rigor) == "needs_improvement":
         actions.append(
@@ -3962,6 +5009,9 @@ def build_part8_recommendation_module(analysis: dict[str, Any]) -> dict[str, Any
             )
         )
 
+    # Adaptive order: a role review gate stays first, then anything carried
+    # over from the last check, then the remaining actions in their usual order.
+    actions.sort(key=lambda item: 0 if item["category"] == "role_fit_review" else (1 if item.get("adaptive") else 2))
     actions = actions[:5]
     for index, action in enumerate(actions, start=1):
         action["priority"] = index
@@ -3992,6 +5042,8 @@ def build_part8_recommendation_module(analysis: dict[str, Any]) -> dict[str, Any
         summary += " Main keyword targets: " + ", ".join(display_missing_keywords[:5]) + "."
     elif display_matched_signals:
         summary += " Main evidence to keep: " + ", ".join(display_matched_signals[:5]) + "."
+    if has_progress and progress.get("summary"):
+        summary = str(progress["summary"]) + " " + summary
 
     return {
         "stage": "Part 8 - Recommendation and generated resume support",
@@ -4030,7 +5082,11 @@ def build_analysis_payload(
     resume_quality = analyze_resume_quality(resume_text, uploaded_name, document_info, resume_profile)
     fit_result = evaluate_job_fit(resume_text, job_description, requirements)
     job_keywords = fit_result["important_keywords"]
-    rule_feedback, missing_keywords = rule_based_feedback(resume_profile, job_keywords)
+    rule_feedback, missing_keywords = rule_based_feedback(
+        resume_profile,
+        job_keywords,
+        set(fit_result.get("semantic_matched_tokens") or []),
+    )
     similarity_score = fit_result["similarity_score"]
     keyword_coverage = fit_result["keyword_overlap_score"]
 
@@ -4086,6 +5142,14 @@ def build_analysis_payload(
             "matched_keywords": fit_result["matched_keywords"],
             "matched_requirements": fit_result.get("matched_requirements", []),
             "missing_requirements": fit_result.get("missing_requirements", []),
+            "semantic_matches": fit_result.get("semantic_matches", []),
+            "semantic_method": (
+                f"Skill knowledge base v{SKILL_KNOWLEDGE_VERSION}: a specific skill in the resume "
+                "(for example TensorFlow) counts as evidence for the general requirement it belongs to "
+                "(Machine Learning). It never works the other way round."
+            ),
+            "all_matched_keywords": fit_result.get("all_matched_keywords", []),
+            "all_missing_keywords": fit_result.get("all_missing_keywords", []),
         },
         "compatibility": {
             "matching_percentage": ats_score,
@@ -5674,77 +6738,287 @@ def get_resume_generation_role(analysis: dict[str, Any], requested_role: str = "
     )
 
 
-def infer_resume_name_from_text(text: str) -> str:
-    lines = [normalize_text(line) for line in clean_resume_source_text(text).splitlines()]
-    ignored_terms = set(
-        CORE_RESUME_SECTION_MARKERS
-        + CONTACT_MARKERS
-        + [
-            "academic projects",
-            "activities",
-            "contact",
-            "email",
-            "language",
-            "mobile",
-            "phone",
-            "profile",
-            "resume",
-            "tech stack",
-            "technical stack",
-            "curriculum vitae",
-        ]
+# Words that end a candidate name: section headings, job titles, organisations,
+# places, contact labels and common words never written as part of a person's name.
+RESUME_NAME_BLOCKED_WORDS = frozenset(
+    {
+        # Section headings and document words.
+        "about", "abilities", "ability", "achievement", "achievements", "activities", "activity",
+        "additional", "availability", "award", "awards", "background", "career", "certificate",
+        "certificates", "certification", "certifications", "competencies", "contact", "core",
+        "courses", "coursework", "curricular", "curriculum", "cv", "details", "education",
+        "educational", "employment", "experience", "experiences", "expertise", "extracurricular",
+        "featured", "highlights", "history", "hobbies", "hobby", "honors", "honours", "information",
+        "interests", "involvement", "key", "language", "languages", "leadership", "membership",
+        "objective", "overview", "personal", "portfolio", "preference", "preferences", "profile",
+        "project", "projects", "publications", "qualification", "qualifications", "reference",
+        "references", "referees", "resume", "skill", "skills", "statement", "strengths", "summary",
+        "traits", "training", "vitae", "volunteer", "volunteering", "work", "workshop", "workshops",
+        "page", "powered", "example", "sample", "template", "my", "me",
+        # Contact labels and personal-detail labels.
+        "address", "age", "birth", "date", "email", "gender", "github", "hometown", "linkedin",
+        "location", "marital", "mobile", "nationality", "phone", "status", "tel", "telephone",
+        "website", "years", "old", "single", "married", "malaysian",
+        # Job titles and fields.
+        "accountant", "administrator", "analyst", "architect", "assistant", "associate", "business",
+        "cloud", "computer", "computing", "consultant", "customer", "data", "designer", "developer",
+        "engineer", "engineering", "executive", "final", "fresh", "graduate", "intern", "internship",
+        "junior", "lead", "manager", "marketing", "network", "officer", "operating", "position",
+        "programmer", "programming", "researcher", "sales", "science", "secretary", "security",
+        "senior", "service", "services", "software", "specialist", "student", "supervisor", "support",
+        "system", "systems", "technician", "technical", "web", "devops", "cyber", "qa", "it",
+        "ui", "ux", "full", "stack", "frontend", "backend", "fullstack", "entry", "level",
+        "wireless", "remote", "hybrid", "job", "category", "salary", "industry",
+        # Skill-group headings in sidebars (`APPLICATION SERVER`, `Microsoft Office`).
+        "application", "applications", "database", "databases", "framework", "frameworks",
+        "libraries", "office", "server", "tools",
+        # Education and organisations.
+        "academy", "bachelor", "berhad", "bhd", "college", "company", "corporation", "degree",
+        "diploma", "enterprise", "foundation", "group", "holdings", "inc", "institut", "institute",
+        "kolej", "ltd", "master", "politeknik", "polytechnic", "school", "sdn", "sekolah", "solutions",
+        "tech", "technologies", "technology", "universiti", "universitas", "university",
+        "association", "bank", "centre", "center", "club", "council", "department", "express",
+        "holding", "hospital", "hotel", "hypermarket", "industries", "labs", "logistics", "ministry",
+        "society", "studio", "trading",
+        # Address words and places that often sit next to the name.
+        "alor", "area", "avenue", "bay", "blok", "block", "butterworth", "city", "cyberjaya",
+        "jalan", "jln", "johor", "kampung", "kedah", "kelantan", "kg", "klang", "kuala", "kuantan",
+        "kuching", "lorong", "lot", "lumpur", "malaysia", "melaka", "miri", "negeri", "no", "pahang",
+        "penang", "perak", "perlis", "petaling", "pinang", "pulau", "puchong", "putrajaya", "road",
+        "sabah", "sarawak", "selangor", "sembilan", "seremban", "sibu", "street", "taman",
+        "terengganu", "tmn", "unit",
+        # Function words.
+        "an", "and", "as", "at", "by", "for", "from", "in", "is", "of", "on", "or",
+        "the", "to", "with", "your",
+    }
+)
+# Lower-case words that belong inside a name, as in `Nurul Aisyah binti Kamarudin`.
+RESUME_NAME_PARTICLES = frozenset(
+    {
+        "a/l", "a/p", "al", "anak", "bin", "binte", "binti", "bt", "bte", "d/o", "da", "de",
+        "del", "di", "el", "ibni", "ibnu", "s/o", "van", "von",
+    }
+)
+# Words that end an organisation name: the words before them are the organisation,
+# as in `Mydin Mohamed Hypermarket Holding Berhad`, not a person.
+RESUME_NAME_ORGANIZATION_WORDS = frozenset(
+    {
+        "academy", "association", "bank", "berhad", "bhd", "centre", "center", "club", "college",
+        "company", "corporation", "council", "department", "enterprise", "express", "group",
+        "holding", "holdings", "hospital", "hotel", "hypermarket", "inc", "industries", "institut",
+        "institute", "kolej", "labs", "logistics", "ltd", "ministry", "politeknik", "polytechnic",
+        "school", "sdn", "sekolah", "society", "solutions", "studio", "technologies", "trading",
+        "universiti", "universitas", "university",
+    }
+)
+# Short surnames written without a vowel.
+RESUME_NAME_VOWELLESS_WORDS = frozenset({"hng", "ng", "sz", "tsz"})
+RESUME_NAME_PATRONYMIC_PARTICLES = frozenset({"a/l", "a/p", "bin", "binte", "binti", "bt", "bte", "d/o", "s/o"})
+# A name is normally near the top; lower lines (two-column sidebars) need the
+# email address or file name to confirm them.
+RESUME_NAME_EARLY_LINE_LIMIT = 15
+# Two-column PDFs can print the sidebar first; a lone upper-case name line up to
+# here is still accepted when nothing earlier qualifies.
+RESUME_NAME_LATE_LINE_LIMIT = 40
+RESUME_NAME_SEARCH_LINE_LIMIT = 80
+
+
+def get_resume_name_hint_tokens(text: str, hints: Iterable[str] = ()) -> list[str]:
+    """Letters of the email local parts and file names, used to confirm a name."""
+
+    hint_tokens = [
+        re.sub(r"[^a-z]+", "", match.group(1).lower())
+        for match in re.finditer(r"([\w.+-]+)@[\w-]+(?:\.[\w-]+)+", text)
+    ]
+    for hint in hints:
+        stem = os.path.splitext(os.path.basename(str(hint or "")))[0]
+        hint_tokens.append(re.sub(r"[^a-z]+", "", stem.lower()))
+    return [token for token in hint_tokens if len(token) >= 3]
+
+
+def read_resume_name_tokens(line: str) -> tuple[list[str], bool, str]:
+    """Return the leading name-like words of one line, whether they fill the line,
+    and why the name stopped (`lowercase`, `organization`, `blocked`, `invalid` or empty)."""
+
+    text = re.sub(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", " ", line)
+    text = re.sub(r"(?:https?://|www\.)\S+|\b[\w-]+\.(?:com|my|app|dev|io|me|net|org)\S*", " ", text, flags=re.I)
+    text = re.sub(r"^\s*(?:full\s+)?name\s*[:\-]\s*", "", text, flags=re.I)
+    # OCR reads a capital I at the end of an upper-case word as `]` (SIT] -> SITI).
+    text = re.sub(r"(?<=[A-Z])\](?=\s|$)", "I", text)
+    # Keep `A/L`, `S/O` and similar together while `/` splits everything else.
+    text = re.sub(r"\b([AaSsDd])\s*/\s*([LlPpOo])\b", "\\1\x00\\2", text)
+    # Template PDFs glue the next field onto the name: `FIRST LASTDevOps Manager`,
+    # `First LastSenior Developer`.
+    text = re.sub(r"(?<=[A-Z]{2})(?=[A-Z][a-z])|(?<=[a-z]{3})(?=[A-Z])", " ", text)
+    # A short surname (`Jordan LeeSenior`) is split only before a known non-name
+    # word, so `DevOps` or `MacArthur` stay whole.
+    text = re.sub(
+        r"(?<=\b[A-Z][a-z]{2})([A-Z][a-z]+)",
+        lambda match: (" " + match.group(1)) if match.group(1).lower() in RESUME_NAME_BLOCKED_WORDS else match.group(1),
+        text,
     )
-    role_terms = {"developer", "engineer", "analyst", "manager", "intern", "student", "assistant", "support"}
+    text = normalize_text(text)
+    segment = re.split(
+        r"\s[-|\u2013\u2014\u2022\u00b7]\s|[|\u2022\u00b7(),:;/\\\[\]{}<>@#&+=*!?\"~^]|\d",
+        text,
+        maxsplit=1,
+    )[0]
+    segment_tokens = segment.split()
+    tokens: list[str] = []
+    stop_reason = ""
+    for raw_token in segment_tokens:
+        token = raw_token.strip(",'").replace("\x00", "/")
+        if not re.fullmatch(r"[A-Za-z]\.", token):
+            # Keep the dot only on an initial such as the `A.` of `Nur A. Aziz`.
+            token = token.strip(".")
+        lower = token.lower()
+        if lower in RESUME_NAME_PARTICLES:
+            tokens.append(token)
+            continue
+        if not re.fullmatch(r"[A-Za-z][A-Za-z'.-]*", token):
+            stop_reason = "invalid"
+            break
+        parts = [part for part in re.split(r"[-.']", lower) if part]
+        if any(part in RESUME_NAME_ORGANIZATION_WORDS for part in parts):
+            stop_reason = "organization"
+            break
+        if not token[0].isupper():
+            # A lower-case word ends the name, e.g. OCR noise in `TAUFIQ SYAHMI sacs`.
+            stop_reason = "lowercase"
+            break
+        if any(part in RESUME_NAME_BLOCKED_WORDS for part in parts):
+            stop_reason = "blocked"
+            break
+        tokens.append(token)
+    if not stop_reason and text[len(segment):].lstrip().startswith(":"):
+        # `Job Category: Help desk` is a field label, not a name.
+        stop_reason = "label"
+    fills_line = bool(tokens) and len(tokens) == len(segment_tokens) and normalize_text(segment) == text
+    return tokens, fills_line, stop_reason
 
-    # Multi-column PDFs often expose a name as two adjacent all-capital lines,
-    # for example `CHENG` then `QING HONG`. Join those lines before evaluating
-    # ordinary one-line candidates, and never treat a section heading as a name.
-    uppercase_name_parts: list[str] = []
-    for line_index, raw_line in enumerate(lines[:20]):
-        normalized = normalize_match_text(raw_line)
-        words = re.findall(r"[A-Za-z][A-Za-z'-]*", raw_line)
-        is_heading = any(normalized == term or normalized.startswith(term + " ") for term in ignored_terms)
-        is_uppercase_name_part = (
-            bool(words)
-            and len(words) <= 3
-            and not is_heading
-            and not re.search(r"\d|@|https?://", raw_line, re.I)
-            and all(word.upper() == word for word in words)
-            and not (set(normalized.split()) & role_terms)
+
+def format_resume_name(tokens: list[str]) -> str:
+    core_tokens = [token for token in tokens if token.lower() not in RESUME_NAME_PARTICLES]
+    if not all(token.upper() == token for token in core_tokens):
+        return " ".join(tokens)
+
+    def title_word(match: re.Match[str]) -> str:
+        word = match.group(0)
+        start = match.start()
+        # `O'BRIEN` -> `O'Brien`, but `MA'AMOR` -> `Ma'amor`.
+        if start >= 3 and match.string[start - 1] == "'":
+            return word.lower()
+        return word[:1].upper() + word[1:].lower()
+
+    return " ".join(re.sub(r"[A-Za-z]+", title_word, token) for token in tokens)
+
+
+def infer_resume_name_from_text(text: str, hints: Iterable[str] = ()) -> str:
+    """Pick the line most likely to hold the candidate's name.
+
+    Each line gives its leading name-like words, stopping at headings, job
+    titles, places, contact details and lower-case words. Candidates are scored
+    by position, by filling their own line and by matching the email address or
+    file name, so a name printed below a sidebar (`CONTACT INFORMATION`,
+    `+60...`) still beats the sidebar, and `ABOUT M E` is never a name.
+    """
+
+    source = clean_resume_source_text(text)
+    lines = [normalize_text(line) for line in source.splitlines()]
+    lines = [line for line in lines if line][:RESUME_NAME_SEARCH_LINE_LIMIT]
+    hint_tokens = get_resume_name_hint_tokens(source, hints)
+    vocabulary = get_resume_word_repair_vocabulary()
+
+    def trim_particles(tokens: list[str]) -> list[str]:
+        trimmed = list(tokens)
+        upper_prefix = 0
+        for token in trimmed:
+            if token.upper() != token:
+                break
+            upper_prefix += 1
+        if upper_prefix < len(trimmed) and sum(
+            1 for token in trimmed[:upper_prefix] if token.lower() not in RESUME_NAME_PARTICLES and len(token) > 1
+        ) >= 2:
+            trimmed = trimmed[:upper_prefix]
+        # A name never ends with `bin` or a lone letter such as the `J` of `First LastJ`.
+        while trimmed and (trimmed[-1].lower() in RESUME_NAME_PARTICLES or len(trimmed[-1].strip(".")) == 1):
+            trimmed.pop()
+        return trimmed
+
+    def score_candidate(
+        tokens: list[str], index: int, fills_line: bool, joined: bool, stop_reason: str
+    ) -> float | None:
+        core = [token for token in tokens if token.lower() not in RESUME_NAME_PARTICLES]
+        if len(core) < 2 or len(tokens) > 6 or stop_reason in {"organization", "label"}:
+            return None
+        if starts_with_resume_action_verb(" ".join(tokens)):
+            # `Utilized Java Mail` begins an experience bullet.
+            return None
+        if stop_reason == "lowercase" and not all(token.upper() == token for token in core):
+            # `Computer Science undergraduate ...` starts a sentence, not a name.
+            return None
+        if (
+            sum(1 for token in core if len(token.strip(".")) == 1) > 1
+            or len(core[0].strip(".")) == 1
+            or any(len(token) > 20 for token in core)
+            or any(
+                not re.search(r"[aeiouy]", token, re.I) and token.lower() not in RESUME_NAME_VOWELLESS_WORDS
+                for token in core
+                if len(token.strip(".")) > 1
+            )
+        ):
+            # Initials only in the middle; OCR noise such as `QQ` has no vowel.
+            return None
+        hint_matches = sum(
+            1
+            for token in core
+            if len(token) >= 3 and any(re.sub(r"[^a-z]+", "", token.lower()) in hint for hint in hint_tokens)
         )
-        if is_uppercase_name_part:
-            uppercase_name_parts.extend(words)
-            if 2 <= len(uppercase_name_parts) <= 5:
-                next_index = line_index + 1
-                next_line = lines[next_index] if next_index < len(lines) else ""
-                next_words = re.findall(r"[A-Za-z][A-Za-z'-]*", next_line)
-                if not next_words or not all(word.upper() == word for word in next_words):
-                    return " ".join(uppercase_name_parts).title()
-        else:
-            uppercase_name_parts = []
+        vocabulary_words = sum(1 for token in core if token.lower() in vocabulary)
+        if index >= RESUME_NAME_EARLY_LINE_LIMIT and not hint_matches:
+            if (
+                fills_line
+                and index < RESUME_NAME_LATE_LINE_LIMIT
+                and 2 <= len(core) <= 4
+                and not vocabulary_words
+                and all(token.upper() == token for token in core)
+            ):
+                # Lowest score: only used when no line near the top looks like a name.
+                return 0.5
+            return None
+        if vocabulary_words == len(core) and not hint_matches:
+            # Every word is an ordinary job-catalogue word, e.g. `Operating System`.
+            return None
+        score = 10.0 - 0.4 * index
+        score += 3.0 if fills_line else 0.0
+        score += 1.0 if joined else 0.0
+        score += 2.0 if any(token.lower() in RESUME_NAME_PATRONYMIC_PARTICLES for token in tokens) else 0.0
+        score += min(15.0, 5.0 * hint_matches)
+        score -= 2.0 * vocabulary_words
+        score -= 2.0 if len(core) > 5 else 0.0
+        return score
 
-    for raw_line in lines[:14]:
-        line = re.sub(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", "", raw_line)
-        line = re.sub(r"(?:\+?\d[\d\s().-]{7,}\d)", "", line)
-        line = re.sub(r"^(?:name|candidate)\s*:\s*", "", line, flags=re.I)
-        line = re.sub(r"([a-z])([A-Z])", r"\1 \2", line)
-        line = re.split(
-            r"\b(?:entry level|junior|senior|lead)?\s*(?:software|web|full stack|front end|back end|react|java|python|computer|desktop|support|network|qa|quality|data|cyber|cloud)\b",
-            line,
-            maxsplit=1,
-            flags=re.I,
-        )[0]
-        line = normalize_text(line.strip(" |,;:-"))
-        if not line:
-            continue
-        normalized = normalize_match_text(line)
-        if not normalized or any(normalized == term or normalized.startswith(term + " ") for term in ignored_terms):
-            continue
-        words = [word for word in re.split(r"\s+", line) if word]
-        if 2 <= len(words) <= 5 and not (set(normalized.split()) & role_terms):
-            if sum(1 for word in words if word[:1].isupper() or word.isupper()) >= max(1, len(words) - 1):
-                return line
-    return ""
+    best_name = ""
+    best_score = 0.0
+    line_tokens = [read_resume_name_tokens(line) for line in lines]
+    for index, (tokens, fills_line, stop_reason) in enumerate(line_tokens):
+        candidates = [(trim_particles(tokens), fills_line, False, stop_reason)]
+        # Multi-column PDFs often split an upper-case name across two lines,
+        # for example `CHENG` then `QING HONG`, or `AINA ADRIANA` then `BINTI MOHD PUAD`.
+        if index + 1 < len(line_tokens):
+            next_tokens, next_fills_line, next_stop_reason = line_tokens[index + 1]
+            if (
+                fills_line
+                and next_fills_line
+                and len(tokens) <= 4
+                and all(token.upper() == token for token in tokens + next_tokens)
+            ):
+                candidates.append((trim_particles(tokens + next_tokens), True, True, next_stop_reason))
+        for candidate_tokens, candidate_fills_line, joined, candidate_stop_reason in candidates:
+            score = score_candidate(candidate_tokens, index, candidate_fills_line, joined, candidate_stop_reason)
+            if score is not None and score > best_score:
+                best_name, best_score = format_resume_name(candidate_tokens), score
+    return best_name
 
 
 def infer_resume_name_from_filename(filename: str) -> str:
@@ -5760,32 +7034,102 @@ def infer_resume_name_from_filename(filename: str) -> str:
     return ""
 
 
-def extract_resume_phone(text: str) -> str:
-    candidates = re.findall(r"(?:\+?\s*\d[\d\s().-]{7,}\d)", text)
-    for candidate in candidates:
-        cleaned = re.sub(r"^\+\s*", "+", normalize_text(candidate))
-        if re.fullmatch(r"(?:19|20)\d{2}\s*[-/]\s*(?:19|20)\d{2}", cleaned):
+def extract_resume_phone(text: str, near_email: str = "") -> str:
+    lines = str(text or "").splitlines()
+    email_line_indexes = [
+        index
+        for index, line in enumerate(lines)
+        if near_email and near_email.split("@", 1)[0] in re.sub(r"\s+", "", line).lower()
+    ]
+    phones: list[tuple[str, int]] = []
+    for line_index, line in enumerate(lines):
+        if re.search(r"\bdoi\b|https?\s*:|www\s*\.", line, re.I):
+            # `doi.org/10.35370/bjost.2026.8.3-03` is a reference number, not a phone.
             continue
-        digits = re.sub(r"\D", "", cleaned)
-        if len(digits) < 8:
+        if re.search(r"\b(?:i\.\s?c|ic\s+no|nric|passport|mykad)\b", line, re.I):
+            # `I.C or Passport : 940401-02-****` is an identity number.
             continue
-        if len(digits) == 8 and re.fullmatch(r"(?:19|20)\d{2}(?:19|20)\d{2}", digits):
-            continue
-        return cleaned
-    return ""
+        for match in re.finditer(r"(?:\(?\+\s*)?\(?\d[\d\s().-]{7,}\d", line):
+            if match.start() > 0 and re.match(r"[A-Za-z/]", line[match.start() - 1]):
+                continue
+            cleaned = re.sub(r"^\+\s*", "+", normalize_text(match.group(0)))
+            if cleaned.startswith("(") and ")" not in cleaned:
+                cleaned = cleaned[1:]
+            if (
+                not cleaned.startswith(("+", "("))
+                and not re.search(r"\b(?:phone|tel|telephone|mobile|h/?p|contact|call|whatsapp)\b", line, re.I)
+                and len(re.findall(r"(?<![\w@.])[a-z][A-Za-z'-]+\b", line)) >= 3
+            ):
+                # A number inside a sentence or OCR noise (`rithe ab. rGuciem 239 4435799`).
+                continue
+            if re.fullmatch(r"(?:(?:19|20)\d{2}[\s()./-]*)+", cleaned.strip("() ")):
+                # Year ranges such as `2021 - 2025 2025`.
+                continue
+            digits = re.sub(r"\D", "", cleaned)
+            if len(digits) < 8:
+                continue
+            if len(digits) == 8 and re.fullmatch(r"(?:19|20)\d{2}(?:19|20)\d{2}", digits):
+                continue
+            phones.append((cleaned, line_index))
+    if not phones:
+        return ""
+    if email_line_indexes:
+        # Two-column PDFs can print a referee's phone first; the candidate's own
+        # phone sits in the same contact block as the candidate's email.
+        nearby = [
+            (min(abs(line_index - email_index) for email_index in email_line_indexes), order, phone)
+            for order, (phone, line_index) in enumerate(phones)
+            if min(abs(line_index - email_index) for email_index in email_line_indexes) <= 3
+        ]
+        if nearby:
+            return min(nearby)[2]
+    return phones[0][0]
+
+
+# Endings that complete an email domain; anything else at a line break may have wrapped.
+COMPLETE_EMAIL_TLDS = frozenset(
+    {"ai", "app", "au", "biz", "ca", "co", "com", "dev", "edu", "gov", "id", "in", "info", "io", "me", "my", "net", "org", "sg", "uk", "us"}
+)
 
 
 def extract_resume_email(text: str) -> str:
     candidates = re.findall(r"[\w.+-]+@[\w-]+(?:\s*\.\s*[\w-]+)+", text)
-    for line in str(text or "").splitlines():
+    source_lines = str(text or "").splitlines()
+    for line_index, line in enumerate(source_lines):
         if "@" not in line:
             continue
-        compact_line = re.sub(r"\s+", "", line)
-        candidates.extend(re.findall(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", compact_line))
+        raw_line_candidates = []
+        for raw_match in re.finditer(r"[\w.+-]+@[\w-]+(?:\s*\.\s*[\w-]+)+", line):
+            raw_candidate = raw_match.group(0)
+            split_word = re.search(r"([\w.+-]+)\s$", line[: raw_match.start()])
+            if split_word and len(raw_candidate.split("@", 1)[0]) < 3:
+                raw_candidate = split_word.group(1) + raw_candidate
+            raw_line_candidates.append(raw_candidate)
+        if raw_line_candidates:
+            # The whitespace-free copy is only for letter-spaced lines such as
+            # `b c s24020043@s t u d e n t`; on ordinary lines it glues the phone,
+            # address or an OCR icon onto the address.
+            line_candidates = [re.sub(r"\s+", "", candidate) for candidate in raw_line_candidates]
+            ends_with_email = line.rstrip(" .,;").endswith(raw_line_candidates[-1])
+        else:
+            compact_line = re.sub(r"\s+", "", line)
+            line_candidates = re.findall(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", compact_line)
+            ends_with_email = bool(line_candidates) and compact_line.endswith(line_candidates[-1])
+        if line_candidates and ends_with_email and line_index + 1 < len(source_lines):
+            last_label = line_candidates[-1].rsplit(".", 1)[-1].lower()
+            continuation = re.sub(r"\s+", "", source_lines[line_index + 1])
+            if last_label not in COMPLETE_EMAIL_TLDS and re.fullmatch(r"\.?[a-z]{1,4}(?:\.[a-z]{2,4})*", continuation, re.I):
+                # `bcs24020043@student.uts.ed` / `u.my` in a narrow sidebar.
+                line_candidates[-1] += continuation
+        candidates.extend(line_candidates)
     emails: list[tuple[str, str, int]] = []
     for index, candidate in enumerate(candidates):
-        cleaned = re.sub(r"\s+", "", candidate).strip(".,;:()[]{}<>")
+        cleaned = re.sub(r"\s+", "", candidate).strip(".,;:()[]{}<>-")
+        # `+6017-4410205+name@gmail.com`: a phone number glued in front of the address.
+        cleaned = re.sub(r"^\+?[\d()-]{7,}\+?", "", cleaned)
         cleaned = re.sub(r"\.comm\b", ".com", cleaned, flags=re.I)
+        # `name@email.com-linkedin.com`: the next field glued on after a dash.
+        cleaned = re.sub(r"(\.(?:com|net|org|edu|gov)(?:\.[a-z]{2})?)-[\w.-]+$", r"\1", cleaned, flags=re.I)
         if not re.fullmatch(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", cleaned):
             continue
         local_part, domain = cleaned.split("@", 1)
@@ -5796,6 +7140,12 @@ def extract_resume_email(text: str) -> str:
 
     if not emails:
         return ""
+    # Drop the cut-off copy of an address that was rejoined across a line break.
+    emails = [
+        entry
+        for entry in emails
+        if not any(other[0] != entry[0] and other[0].startswith(entry[0]) for other in emails)
+    ]
 
     counts = Counter(email for email, _, _ in emails)
     first_seen: dict[str, int] = {}
@@ -5808,19 +7158,58 @@ def extract_resume_email(text: str) -> str:
     )
 
 
+def compact_resume_link_text(line: str) -> str:
+    """Rejoin a URL that PDF extraction or OCR broke with spaces.
+
+    `h t t p s : / / w w w . l in k e d in.com / in / j o h n` and
+    `linkedin.com/in/jane-doe-68 a36 a11 b` become whole links, while the next
+    field on the line (`linkedin.com 9 Denver, CO`) is left out.
+    """
+
+    start = re.search(
+        r"h\s*t\s*t\s*p\s*s?\s*:|w\s*w\s*w\s*\.|l\s*i\s*n\s*k\s*e\s*d\s*i\s*n\s*\.\s*c\s*o\s*m|g\s*i\s*t\s*h\s*u\s*b\s*\.\s*c\s*o\s*m",
+        line,
+        re.I,
+    )
+    if not start:
+        return ""
+    tokens = line[start.start():].split()
+    if not tokens:
+        return ""
+    url = tokens[0]
+    previous_token = tokens[0]
+    for token in tokens[1:]:
+        host_only = re.fullmatch(r"(?:https?:/*)?(?:www\.)?[\w-]+(?:\.[\w-]+)+", url, re.I)
+        # In a letter-spaced line (`v e r c e l . a p p`) single letters keep joining
+        # even after a complete host; after a whole host such as `linkedin.com`,
+        # the next field (`9 Denver`) does not.
+        letter_spaced = len(previous_token) <= 2
+        joins = (
+            url.endswith(("/", ".", "-", "_", ":"))
+            or token.startswith(("/", ".", "-", "_"))
+            or ((letter_spaced or not host_only) and re.fullmatch(r"[a-z0-9._:-]{1,8}/?", token) is not None)
+        )
+        if not joins:
+            break
+        url += token
+        previous_token = token
+    return url
+
+
 def extract_resume_contact(
     resume_text: str,
     candidate_name: str = "",
     extra_links: list[str] | None = None,
+    resume_filename: str = "",
 ) -> dict[str, Any]:
     text = clean_resume_source_text(resume_text)
     email = extract_resume_email(text)
-    phone = extract_resume_phone(text)
+    phone = extract_resume_phone(text, email)
     link_scan_text = text
     compact_link_lines = [
-        re.sub(r"\s+", "", line)
+        compacted
         for line in text.splitlines()
-        if re.search(r"h\s*t\s*t\s*p|linkedin|github", line, re.I)
+        if (compacted := compact_resume_link_text(line))
     ]
     if compact_link_lines:
         link_scan_text += "\n" + "\n".join(compact_link_lines)
@@ -5835,17 +7224,28 @@ def extract_resume_contact(
     )
     links: list[str] = []
     seen_link_keys: set[str] = set()
+    link_keys: list[str] = []
     for link in [normalize_resume_link(link) for link in list(extra_links or []) + extracted_links]:
         link_key = re.sub(r"^https?://(?:www\.)?", "", link.lower()).rstrip("/")
         if not link or not link_key or link_key in seen_link_keys:
             continue
+        if any(existing.startswith(link_key) for existing in link_keys):
+            # A cut-off copy (`linkedin.com/in/siew-seng-chiu-0`) of a link already kept.
+            continue
+        shorter_index = next((index for index, existing in enumerate(link_keys) if link_key.startswith(existing)), None)
         seen_link_keys.add(link_key)
+        if shorter_index is not None:
+            links[shorter_index] = link
+            link_keys[shorter_index] = link_key
+            continue
         links.append(link)
+        link_keys.append(link_key)
         if len(links) >= 5:
             break
 
     provided_name = normalize_text(candidate_name)
-    resume_name = infer_resume_name_from_text(text)
+    # The file name only confirms a name printed in the resume; it never replaces one.
+    resume_name = infer_resume_name_from_text(text, [resume_filename] if resume_filename else [])
     # The uploaded resume is the source of truth for the candidate identity.
     # The signed-in profile name is only a fallback when the document does not
     # expose a credible name (users may legitimately analyse another resume).
@@ -6248,8 +7648,20 @@ def extract_resume_evidence_sentences(resume_text: str, keywords: list[str], lim
                 "skilled in ",
                 "student currently ",
                 "the ability to ",
+                # Career objectives belong in the summary, not in Experience.
+                "aspiring ",
+                "eager to ",
+                "hoping to ",
+                "i am ",
+                "interested in ",
+                "looking for ",
+                "passionate about ",
+                "seeking ",
             )
         ):
+            continue
+        if sentence[:1].islower() and not starts_with_resume_action_verb(sentence[:1].upper() + sentence[1:]):
+            # `pipelines, from data preparation ...` is the tail of a wrapped sentence.
             continue
         if is_skill_inventory_sentence(sentence, sentence_tokens, action_terms):
             continue
@@ -6298,6 +7710,17 @@ def extract_education_lines(resume_text: str, education_markers: list[str]) -> l
         if len(sentence) < 16:
             continue
         if re.search(r"(?:19|20)\d{2}\s*-\s*(?:bachelor|master|phd|diploma|university|politeknik|polytechnic)", sentence, re.I):
+            continue
+        word_count = len(sentence.split())
+        if word_count > 24 or (
+            word_count > 14
+            and not EDUCATION_CREDENTIAL_PATTERN.search(sentence)
+            and not re.search(r"(?:19|20)\d{2}\s*-\s*(?:(?:19|20)\d{2}|present)", sentence, re.I)
+        ):
+            # `Student researcher at the University of ... and first author of ...` is a summary.
+            continue
+        if re.search(r"\buniversit(?:y|i)\s*'\s*s\b", sentence, re.I) and not EDUCATION_CREDENTIAL_PATTERN.search(sentence):
+            # A headline such as `University's Students` names no qualification or school.
             continue
         if any(term in normalized_sentence for term in education_terms):
             score = 0
@@ -6365,14 +7788,22 @@ RESUME_SECTION_HEADING_ALIASES: dict[str, tuple[str, ...]] = {
         "employment",
         "employment history",
         "experience",
+        "experiences",
+        "industrial training",
+        "industry experience",
         "internship",
         "internship experience",
+        "internship experiences",
         "internships",
         "professional experience",
+        "professional experiences",
         "relevant experience",
+        "relevant experiences",
         "work experience",
         "work experiences",
         "work history",
+        "working experience",
+        "working experiences",
     ),
     "education": (
         "academic background",
@@ -6384,13 +7815,19 @@ RESUME_SECTION_HEADING_ALIASES: dict[str, tuple[str, ...]] = {
     ),
     "projects": (
         "academic projects",
+        "course projects",
+        "featured projects",
         "key projects",
+        "notable projects",
         "personal projects",
         "project experience",
         "projects",
         "projects experience",
+        "relevant projects",
         "selected projects",
+        "side projects",
         "technical projects",
+        "university projects",
     ),
     "skills": (
         "core competencies",
@@ -6409,14 +7846,34 @@ RESUME_SECTION_HEADING_ALIASES: dict[str, tuple[str, ...]] = {
         "certification",
         "certifications",
         "certifications and training",
+        "certifications training",
+        "certifications and courses",
+        "certifications courses",
+        "courses and certifications",
+        "courses certifications",
         "licenses and certifications",
         "licenses certifications",
+        "training and certifications",
+        "training and courses",
+        "training and workshops",
+        "training courses",
+        "training workshops",
+        "trainings",
+        "workshop and training",
+        "workshop training",
+        "workshops",
+        "workshops and training",
+        "workshops training",
     ),
     "achievements": (
         "achievement",
         "achievements",
         "awards",
+        "achievements and awards",
+        "achievements and leadership",
         "awards and achievements",
+        "awards and honors",
+        "awards and honours",
         "honors",
         "honors and awards",
         "honours",
@@ -6424,9 +7881,19 @@ RESUME_SECTION_HEADING_ALIASES: dict[str, tuple[str, ...]] = {
     "other": (
         "activities",
         "additional information",
+        "availability",
         "co curricular activities",
         "contact",
+        "contact details",
+        "contact info",
+        "contact information",
         "extracurricular activities",
+        "internship availability",
+        "personal details",
+        "personal information",
+        "personal particulars",
+        "personal traits",
+        "work preference",
         "hobbies",
         "interests",
         "language",
@@ -6443,10 +7910,20 @@ RESUME_SECTION_HEADING_ALIASES: dict[str, tuple[str, ...]] = {
     ),
 }
 RESUME_SECTION_HEADING_LOOKUP = {
-    alias: section
+    heading: section
     for section, aliases in RESUME_SECTION_HEADING_ALIASES.items()
     for alias in aliases
+    # `AWARDS & ACHIEVEMENTS` loses its `&` when normalised.
+    for heading in (alias, alias.replace(" and ", " "))
 }
+# Letter-spaced headings can come out of a PDF split mid-word, as in
+# `ABOUT M E` or `EDUCA TION`, so headings are also looked up without spaces.
+RESUME_SECTION_HEADING_COMPACT_LOOKUP = {
+    alias.replace(" ", ""): section for alias, section in RESUME_SECTION_HEADING_LOOKUP.items()
+}
+# One-word headings that are also ordinary words; a wrapped line such as
+# `Training` only counts as a heading when it is written in capitals.
+RESUME_UPPERCASE_ONLY_HEADINGS = {"courses": "certifications", "training": "certifications"}
 RESUME_MONTH_PATTERN = (
     r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|"
     r"sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
@@ -6521,13 +7998,23 @@ EDUCATION_INSTITUTION_PATTERN = re.compile(
     r"smk|sjk|academy|akademi|campus|kampus)\b",
     re.I,
 )
+# `CGPA: 3.21`, `CGPA - 3 . 17` (letter-spaced PDFs), `GPA: 3.6/4.0`, `CGPA:3.25`.
+# A grade glued to more digits (`CGPA: 348/4,00`, an OCR misread) is not a grade.
 EDUCATION_GRADE_PATTERN = re.compile(
-    r"\b(c?gpa|cpa)\s*[:\-]?\s*(\d(?:\.\s?\d{1,2})?)(?:\s*/\s*(\d(?:\.\s?\d{1,2})?))?",
+    r"\b(c?gpa|cpa)\s*[:\-=]?\s*(\d(?:\s?\.\s?\d{1,2})?)(?!\d)(?:\s*/\s*(\d(?:\s?\.\s?\d{1,2})?))?",
     re.I,
 )
 EDUCATION_DETAIL_PATTERN = re.compile(
     r"\b(?:coursework|courses|thesis|dissertation|final year project|fyp|dean'?s list|honou?rs|awards?|awarded|study abroad|exchange|"
-    r"scholarship|achievement|activities|society|club|minor|major|specialization|specialisation)\b",
+    r"scholarship|achievement|activities|society|club|minor|major|specialization|specialisation|"
+    r"muet|ielts|toefl|band|results?)\b",
+    re.I,
+)
+# `Expected Graduation: 2027`, `Expected graduation May 2027`, `Graduation date: 2026`.
+EDUCATION_EXPECTED_GRADUATION_PATTERN = re.compile(
+    # The separator may be an OCR'd arrow or dash: `Expected Graduation « Nov 2026`.
+    rf"\b(expected\s+)?(?:graduation|completion)(?:\s+date)?\s*[:«»=~\-–]?\s*"
+    rf"(?P<date>(?:{RESUME_MONTH_PATTERN}\.?\s*)?(?:19|20)\d{{2}})\b",
     re.I,
 )
 RESUME_WORD_REPAIR_EXTRA_WORDS = {
@@ -6629,7 +8116,16 @@ def detect_resume_section_heading(line: str) -> str:
     stripped = normalize_text(line).strip(" :|-")
     if not stripped or len(stripped) > 48:
         return ""
-    return RESUME_SECTION_HEADING_LOOKUP.get(normalize_match_text(stripped), "")
+    normalized = normalize_match_text(stripped)
+    section = RESUME_SECTION_HEADING_LOOKUP.get(normalized, "")
+    if not section and " " in normalized:
+        section = RESUME_SECTION_HEADING_COMPACT_LOOKUP.get(normalized.replace(" ", ""), "")
+    if not section and stripped.isupper():
+        section = RESUME_UPPERCASE_ONLY_HEADINGS.get(normalized, "")
+    if not section and re.fullmatch(r"(?:co|extra)\s?curr?icc?ull?(?:um|ar)\s+activit(?:y|ies)", normalized):
+        # Misspelt headings such as `CO-CURICULLUM ACTIVITIES` or `EXTRA-CURICULLAR ACTIVITIES`.
+        section = "other"
+    return section
 
 
 def split_resume_into_sections(resume_text: str) -> dict[str, list[str]]:
@@ -6729,6 +8225,17 @@ def should_join_wrapped_resume_line(previous: str, current: str) -> bool:
         return True
     if re.search(r"[.!?]$", previous) or RESUME_DATE_RANGE_PATTERN.search(current):
         return False
+    if re.search(r"[A-Za-z]-$", previous) and current[:1].isalpha() and is_resume_bullet_text(previous, False):
+        # A hyphenated term broken at the line end, as in `Retrieval-` / `Augmented Generation`.
+        return True
+    if (
+        re.match(r"[A-Z][\w &/-]{2,30}:\s", previous)
+        and previous.count(",") >= 2
+        and "," in " ".join(current.split()[:5])
+    ):
+        # A labelled list wrapped mid-item: `Relevant Coursework: ..., Parallel` +
+        # `Distributed Data base, Machine Learning, ...` (the next word only looks like a verb).
+        return True
     # Only bullet prose wraps onto a following line; titles and stacks do not.
     if not is_resume_bullet_text(previous, False):
         return False
@@ -6774,7 +8281,11 @@ def build_resume_section_logical_lines(lines: list[str]) -> list[dict[str, Any]]
             and not blank_before
             and should_join_wrapped_resume_line(previous["text"], text)
         ):
-            separator = "" if previous["text"].endswith("-") and text[:1].islower() else " "
+            separator = (
+                ""
+                if previous["text"].endswith("-") and (text[:1].islower() or re.search(r"[A-Za-z]-$", previous["text"]))
+                else " "
+            )
             previous["text"] = previous["text"] + separator + text
         else:
             logical_lines.append({"text": text, "marker": bool(marker_match)})
@@ -6964,8 +8475,33 @@ def looks_like_technology_list(text: str) -> bool:
     return len(items) >= 2 and all(len(item.split()) <= 3 for item in items)
 
 
+# Skill-group labels from a Tech Stack block (`Frontend:`, `AI/Tools:`). Labels that projects use for
+# their own stack (`Tools:`, `Technologies:`) are deliberately not listed here.
+SKILL_GROUP_LINE_PATTERN = re.compile(
+    r"^(?:front[\s-]?end|back[\s-]?end|full[\s-]?stack|mobile|cloud|devops|databases?|"
+    r"(?:programming\s+)?languages?|frameworks?(?:\s*(?:and|&|/)\s*librar(?:y|ies))?|librar(?:y|ies)|"
+    r"ai\s*/\s*tools?|others?|soft\s+skills|hard\s+skills|technical\s+skills|skills|"
+    r"operating\s+systems?|platforms?|version\s+control)\s*:\s*(.*)$",
+    re.I,
+)
+
+
+def count_skill_group_lines(lines: list[str]) -> int:
+    count = 0
+    for line in lines:
+        match = SKILL_GROUP_LINE_PATTERN.match(normalize_text(line))
+        if match and (not match.group(1) or looks_like_technology_list(match.group(1))):
+            count += 1
+    return count
+
+
 def parse_structured_project_entries(lines: list[str], document_words: set[str]) -> list[dict[str, Any]]:
     if resume_section_has_contact_or_heading_leaks(lines):
+        return []
+    # In two-column PDFs a Tech Stack sidebar can land under the Projects heading. Its
+    # `Frontend:` / `Backend:` lines are not projects, and accepting them would hide the
+    # real projects, so leave the section to the sentence-based fallback.
+    if count_skill_group_lines(lines) >= 2:
         return []
     raw_entries = group_resume_section_entries(lines)
     if not raw_entries:
@@ -6986,14 +8522,29 @@ def parse_structured_project_entries(lines: list[str], document_words: set[str])
             return []
         if not separator:
             technologies = ""
+        extra_header = list(header[1:])
+        # `Dyslexia Screening App | TypeScript,` + `Python`: the stack wrapped onto the
+        # next line. The date split trims the trailing comma, so read it from the raw line.
+        wrapped_stack_end = header[0].strip()
+        while (
+            technologies
+            and re.search(r"(?:[,&/+]|\band)$", wrapped_stack_end)
+            and extra_header
+            and len(extra_header[0].split()) <= 6
+            and not extra_header[0].rstrip().endswith(".")
+        ):
+            continuation = extra_header.pop(0).strip()
+            joiner = ", " if wrapped_stack_end.endswith(",") else " "
+            technologies = technologies.strip().rstrip(",") + joiner + continuation
+            wrapped_stack_end = continuation
         descriptions: list[str] = []
-        for line in header[1:] + raw_entry["bullets"]:
+        for line in extra_header + raw_entry["bullets"]:
             label_match = technology_label.match(line)
             if label_match and not technologies:
                 technologies = label_match.group(1)
-            elif line in header[1:] and not technologies and looks_like_technology_list(line):
+            elif line in extra_header and not technologies and looks_like_technology_list(line):
                 technologies = line
-            elif line in header[1:] and not dates and RESUME_DATE_RANGE_PATTERN.fullmatch(line.strip()):
+            elif line in extra_header and not dates and RESUME_DATE_RANGE_PATTERN.fullmatch(line.strip()):
                 dates = format_resume_date_text(line)
             else:
                 descriptions.append(line)
@@ -7067,6 +8618,20 @@ def parse_structured_education_entries(lines: list[str], document_words: set[str
             if grade_match.group(3):
                 grade += f" / {grade_match.group(3).replace(' ', '')}"
             text = normalize_text(text[: grade_match.start()] + " " + text[grade_match.end():])
+            # `SMK Example, Town, CGPA: 3.75.` leaves `, .` behind, and `Current CGPA: 3.76`
+            # leaves `Current`; neither is a detail.
+            text = re.sub(r"[\s,;:|-]+\.?$", "", text)
+            text = re.sub(r"(?:^|\s)(?:current|latest|overall|cumulative|final)\s*$", "", text, flags=re.I).strip()
+        expected_graduation = ""
+        expected_match = EDUCATION_EXPECTED_GRADUATION_PATTERN.search(text)
+        if expected_match:
+            label = "Expected graduation" if expected_match.group(1) else "Graduation"
+            expected_graduation = f"{label}: {format_resume_date_text(expected_match.group('date'))}"
+            text = normalize_text(text[: expected_match.start()] + " | " + text[expected_match.end():]).strip(" |,;:-")
+            # `S (Expected Graduation: Nov 2026)` leaves empty brackets and OCR crumbs.
+            text = normalize_text(re.sub(r"\(\s*\|?\s*\)", " ", text)).strip(" |,;:-")
+            if len(re.sub(r"[^A-Za-z]", "", text)) < 3:
+                text = ""
         date_match = (
             RESUME_DATE_RANGE_PATTERN.search(text)
             or RESUME_SINGLE_DATE_PATTERN.search(text)
@@ -7075,6 +8640,13 @@ def parse_structured_education_entries(lines: list[str], document_words: set[str
         dates = format_resume_date_text(date_match.group(0)) if date_match else ""
         if date_match:
             text = normalize_text(text[: date_match.start()] + " | " + text[date_match.end():]).strip(" |,;:-")
+            # `STPM (2022 - 2023)` leaves empty brackets behind.
+            text = normalize_text(re.sub(r"\(\s*\|?\s*\)", " ", text)).strip(" |,;:-")
+        if expected_graduation:
+            if not dates:
+                dates = expected_graduation
+            elif current is not None and len(current["details"]) < 2:
+                current["details"].append(expected_graduation + ".")
 
         if (
             current is not None
@@ -7088,15 +8660,31 @@ def parse_structured_education_entries(lines: list[str], document_words: set[str
             continue
         credential, institution, leftovers = split_education_line_parts(text)
         if not credential and not institution:
+            if logical_line["marker"] and current is not None and not dates:
+                # A bullet under a qualification (`* Participation in SCI committee`,
+                # `* GPA: 3.6/4.0`) describes it; it is not another school or a stray column.
+                if grade and not current["grade"]:
+                    current["grade"] = grade
+                detail = polish_structured_resume_text(text, document_words) if text.strip(" |,;:-.") else ""
+                if detail and len(current["details"]) < 2:
+                    current["details"].append(detail)
+                continue
             if EDUCATION_DETAIL_PATTERN.search(text):
                 if current is None:
                     return []
+                if grade and not current["grade"]:
+                    # `CGPA: 2.33 MUET: Band 3.5` keeps both the grade and the detail.
+                    current["grade"] = grade
                 if len(current["details"]) < 2:
                     current["details"].append(polish_structured_resume_text(text, document_words))
                 continue
             if starts_with_resume_action_verb(text) and len(text.split()) >= 6:
                 return []
             location = ", ".join(leftovers)
+            if current is not None and location and current["details"]:
+                # After the bullets of a qualification a short line is an activity
+                # title (`Committee Member-Souvenir Management`), not its location.
+                continue
             if current is not None and location and len(location.split()) <= 4 and not re.search(r"\d", location):
                 if current["institution"]:
                     # A location line such as `Sibu, Sarawak`.
@@ -7158,6 +8746,13 @@ def parse_structured_education_entries(lines: list[str], document_words: set[str
     return clean_entries
 
 
+# Last words of a training or certificate title that a narrow column can push
+# onto a line of their own.
+CERTIFICATION_WRAPPED_TITLE_ENDINGS = frozenset(
+    {"bootcamp", "certificate", "certification", "conference", "course", "programme", "program", "seminar", "training", "workshop"}
+)
+
+
 def parse_structured_certification_lines(lines: list[str], document_words: set[str], limit: int = 5) -> list[str]:
     if resume_section_has_contact_or_heading_leaks(lines):
         return []
@@ -7169,7 +8764,33 @@ def parse_structured_certification_lines(lines: list[str], document_words: set[s
         if len(text.split()) > 25:
             # Long prose here usually means another column leaked into the section.
             return []
+        if items and not logical_line["marker"]:
+            previous = items[-1]
+            if (
+                re.fullmatch(r"[A-Za-z][\w&.' -]{1,40},?\s*(?:(?:19|20)\d{2})", text)
+                and not re.search(r"(?:19|20)\d{2}", previous)
+            ):
+                # `Advanced Java Programming` + `Coursera, 2024` is one course.
+                items[-1] = f"{previous} ({text})"
+                continue
+            if normalize_match_text(text) in CERTIFICATION_WRAPPED_TITLE_ENDINGS and not previous.endswith((".", ")")):
+                # A narrow column wraps `... Information Literacy` / `Programme`.
+                items[-1] = f"{previous} {text}"
+                continue
+            if (
+                starts_with_resume_action_verb(text)
+                and " - " not in previous
+                # A sentence (`Developed a food court ordering app.`), not a Title Case
+                # course name such as `Advanced Java Programming`.
+                and (text.endswith(".") or (len(text.split()) >= 4 and re.search(r"\s[a-z]", text)))
+            ):
+                # `TFE x SCENT Bootcamp` + `Developed a food court ordering app.` describes it.
+                items[-1] = f"{previous.rstrip(' .')} - {text}"
+                continue
         items.append(text)
+    if any(re.search(r"\b(?:and|or|of|for|in|with|to|the)$", item, re.I) for item in items):
+        # Two side-by-side columns read line by line (`Python for Data Science and`).
+        return []
     return unique_clean_values(items, limit)
 
 
@@ -7221,7 +8842,71 @@ def parse_structured_resume_sections(resume_text: str) -> dict[str, Any]:
         "remaining_text": join_sections(excluded_names),
         # Everything not claimed by a parsed section, for certification lookups.
         "unclaimed_text": join_sections(parsed_names),
+        # Headings the resume itself uses, e.g. to tell "no Projects section" apart
+        # from "a Projects section the parser could not read".
+        "section_names": [name for name in sections if name != "header"],
     }
+
+
+TERTIARY_QUALIFICATION_PATTERN = re.compile(r"\b(?:bachelor|master|diploma|degree|doctor|ph\.?\s?d|foundation)\b", re.I)
+
+
+def attach_grades_to_education_lines(education_lines: list[str], resume_text: str) -> list[str]:
+    """Add the resume's own CGPA/GPA to education lines found without the section parser.
+
+    A grade joins the qualification printed on the same line or up to four lines
+    above it. Otherwise one grade and one degree-level qualification belong
+    together (`Latest CGPA: 3 . 20` in a sidebar). When it is unclear which
+    qualification a grade belongs to, it is left out rather than shown under the
+    wrong one.
+    """
+
+    if not education_lines:
+        return education_lines
+    source_lines = [normalize_text(line) for line in clean_resume_source_text(resume_text).splitlines()]
+    grades: list[tuple[int, str]] = []
+    for index, line in enumerate(source_lines):
+        for match in EDUCATION_GRADE_PATTERN.finditer(line):
+            value = match.group(2).replace(" ", "")
+            if not re.fullmatch(r"[0-4](?:\.\d{1,2})?", value):
+                continue
+            grade = f"{match.group(1).upper()}: {value}"
+            if match.group(3):
+                grade += f" / {match.group(3).replace(' ', '')}"
+            grades.append((index, grade))
+    if not grades:
+        return education_lines
+
+    lines = list(education_lines)
+    used: set[int] = set()
+
+    def add_grade(position: int, grade: str) -> None:
+        lines[position] = f"{lines[position].rstrip(' .')} | {grade}."
+
+    for position, line in enumerate(lines):
+        if EDUCATION_GRADE_PATTERN.search(line):
+            continue
+        key = " ".join(normalize_match_text(line.split(" - ")[0]).split()[:4])
+        if len(key.split()) < 2:
+            continue
+        # The qualification can appear twice (summary and Education); look near each.
+        anchors = [index for index, source in enumerate(source_lines) if key in normalize_match_text(source)]
+        nearby = [
+            (grade_index - anchor, grade_index, grade)
+            for anchor in anchors
+            for grade_index, grade in grades
+            if grade_index not in used and 0 <= grade_index - anchor <= 4
+        ]
+        if nearby:
+            _, grade_index, grade = min(nearby)
+            used.add(grade_index)
+            add_grade(position, grade)
+
+    if not used and len(grades) == 1:
+        degree_positions = [position for position, line in enumerate(lines) if TERTIARY_QUALIFICATION_PATTERN.search(line)]
+        if len(degree_positions) == 1:
+            add_grade(degree_positions[0], grades[0][1])
+    return lines
 
 
 def format_structured_education_line(entry: dict[str, Any]) -> str:
@@ -7423,20 +9108,12 @@ def build_project_entries(resume_text: str, evidence_bullets: list[str], limit: 
 
 
 def has_explicit_experience_section(resume_text: str) -> bool:
-    experience_headings = {
-        "employment",
-        "employment history",
-        "experience",
-        "internship",
-        "professional experience",
-        "work experience",
-        "work history",
-    }
-    for raw_line in clean_resume_source_text(resume_text).splitlines():
-        normalized = normalize_match_text(raw_line)
-        if normalized in experience_headings:
-            return True
-    return False
+    # Same heading list as the section parser, so `EXPERIENCES` or
+    # `Industrial Training` count here too.
+    return any(
+        detect_resume_section_heading(raw_line) == "experience"
+        for raw_line in clean_resume_source_text(resume_text).splitlines()
+    )
 
 
 def has_achievement_signal(sentence: str) -> bool:
@@ -8701,6 +10378,30 @@ def build_feedback_report_pdf_buffer(report: dict[str, Any]) -> BytesIO:
     add_section(story, "Role Fit Explanation")
     story.append(paragraph(report.get("roleReason"), "note", "Selected role and recommendation are aligned.", 650))
 
+    progress = report.get("progress") if isinstance(report.get("progress"), dict) else {}
+    if progress.get("available"):
+        add_section(story, "Progress Since Your Last Check")
+        try:
+            score_change = float(progress.get("score_change") or 0)
+            score_text = (
+                f"{format_score_points(float(progress.get('previous_score') or 0))} to "
+                f"{format_score_points(float(progress.get('current_score') or 0))} "
+                f"({'+' if score_change > 0 else ''}{format_score_points(score_change)} points)"
+            )
+        except (TypeError, ValueError):
+            score_text = "Not available"
+        progress_rows = [
+            ["Readiness score", score_text],
+            ["Check for this role", clean_report_text(progress.get("check_number"), "-", 10)],
+            ["Now shown", ", ".join(clean_report_items(progress.get("keywords_now_matched"), "None", 8, 45))],
+            ["Still missing", ", ".join(clean_report_items(progress.get("keywords_still_missing"), "None", 8, 45))],
+            ["No longer found", ", ".join(clean_report_items(progress.get("keywords_no_longer_found"), "None", 8, 45))],
+            ["ATS issues fixed", ", ".join(clean_report_items(progress.get("ats_issues_fixed"), "None", 6, 70))],
+            ["ATS issues still open", ", ".join(clean_report_items(progress.get("ats_issues_still_open"), "None", 6, 70))],
+        ]
+        story.append(report_table(progress_rows, [1.9 * inch, 5.1 * inch]))
+        story.append(paragraph(progress.get("summary"), "note", max_length=420))
+
     recommendation_actions = recommendation_action_items()
     if recommendation_actions:
         add_section(story, "Priority Improvement Plan")
@@ -8744,6 +10445,22 @@ def build_feedback_report_pdf_buffer(report: dict[str, Any]) -> BytesIO:
     missing_keywords = ", ".join(clean_report_items(report.get("missingKeywords"), "No missing keywords", 10, 55))
     story.append(paragraph("Matched signals: " + matched_signals, "body", max_length=520))
     story.append(paragraph("Missing keywords: " + missing_keywords, "body", max_length=520))
+    related_skill_items = [
+        item for item in (report.get("semanticMatches") or [])[:6] if isinstance(item, dict) and item.get("concept")
+    ]
+    if related_skill_items:
+        related_text = "; ".join(
+            clean_report_text(item.get("concept"), "", 60)
+            + " (" + ", ".join(clean_report_items(item.get("evidence"), "", 3, 40)) + ")"
+            for item in related_skill_items
+        )
+        story.append(
+            paragraph(
+                "Proven by related skills: " + related_text + ". Write these terms exactly as well, because ATS filters match words literally.",
+                "body",
+                max_length=620,
+            )
+        )
     rewrite_hint = (
         "Rewrite project bullets to include missing keywords naturally, only where you have real evidence. "
         if clean_report_items(report.get("missingKeywords"), "", 1)
@@ -9003,7 +10720,7 @@ def build_sample_resume_role_profile(target_role: str) -> dict[str, Any]:
         certification = "Google UX Design Professional Certificate (2025)"
         education_focus = "User Experience Design"
         achievement = "Raised prototype task completion from 68% to 91% through two evidence-led design iterations."
-    elif any(term in normalized_role for term in ("cyber", "security analyst", "security engineer", "information security", "soc analyst")):
+    elif any(term in normalized_role for term in ("cyber", "security", "forensic", "internet safety", "soc analyst")):
         family = "Cybersecurity"
         skills = ["Network Security", "Linux", "Python", "SIEM", "Wireshark", "OWASP", "Vulnerability Assessment", "Incident Response", "Identity and Access Management"]
         focus = "security monitoring, vulnerability assessment, incident documentation, and defensive controls"
@@ -9037,7 +10754,7 @@ def build_sample_resume_role_profile(target_role: str) -> dict[str, Any]:
         certification = "AWS Certified Cloud Practitioner (2025)"
         education_focus = "Cloud Computing"
         achievement = "Cut deployment lead time by 64% through automated quality gates and repeatable release steps."
-    elif any(term in normalized_role for term in ("network", "infrastructure engineer", "systems administrator", "system administrator")):
+    elif any(term in normalized_role for term in ("network", "infrastructure", "systems administrator", "system administrator")):
         family = "Network / Infrastructure"
         skills = ["TCP/IP", "Routing", "Switching", "VLAN", "DNS", "DHCP", "Linux", "Windows Server", "Wireshark", "Network Troubleshooting"]
         focus = "network configuration, infrastructure monitoring, fault isolation, and technical documentation"
@@ -9088,7 +10805,7 @@ def build_sample_resume_role_profile(target_role: str) -> dict[str, Any]:
         certification = "ISTQB Certified Tester Foundation Level (2025)"
         education_focus = "Software Quality Assurance"
         achievement = "Doubled repeatable regression coverage by converting recurring UI and API checks into automated tests."
-    elif any(term in normalized_role for term in ("help desk", "service desk", "it support", "support specialist", "computer technician", "desktop support")):
+    elif any(term in normalized_role for term in ("help desk", "service desk", "it support", "support specialist", "support engineer", "support technician", "user services", "computer technician", "desktop support")):
         family = "IT Support"
         skills = ["Windows", "Linux", "Microsoft 365", "Active Directory", "Hardware Troubleshooting", "Networking", "Ticketing Systems", "Remote Support", "Technical Documentation"]
         focus = "user support, systematic troubleshooting, ticket ownership, account administration, and clear documentation"
@@ -9122,7 +10839,7 @@ def build_sample_resume_role_profile(target_role: str) -> dict[str, Any]:
         certification = "Microsoft Certified: Power BI Data Analyst Associate (2025)"
         education_focus = "Data Science"
         achievement = "Reduced monthly reporting preparation time by 58% with a reproducible data-cleaning pipeline."
-    elif any(term in normalized_role for term in ("software", "developer", "programmer", "web", "frontend", "backend", "full stack", "mobile")):
+    elif any(term in normalized_role for term in ("software", "developer", "programmer", "programming", "java", "web", "frontend", "backend", "full stack", "mobile")):
         family = "Software Development"
         skills = ["Java", "Python", "HTML", "CSS", "JavaScript", "SQL", "Git", "REST API", "Software Testing", "Debugging", "System Design"]
         focus = "software development, database-backed applications, API integration, testing, and maintainable design"
@@ -9212,7 +10929,13 @@ def build_sample_resume_payload(
         "selected_role_review_required",
     }
     no_suitable_role_sample = reason_code == "auto_detected_no_suitable_role"
-    if selected_role_sample:
+    if reason_code == "low_match_learning_example":
+        reason_note = (
+            f"EXAMPLE ONLY: {role} scored {score_text}, below {generation_threshold:.0f}/100. This fictional "
+            "resume shows the kind of evidence a stronger resume for this role includes. Your own draft is shown separately."
+        )
+        sample_reason = f"{role} scored {score_text}, below the {generation_threshold:.0f}/100 learning-example threshold."
+    elif selected_role_sample:
         reason_note = (
             f"EXAMPLE ONLY: the selected {role} role scored {score_text}, below the applicable "
             f"{generation_threshold:.0f}/100 review threshold. The uploaded resume was not rewritten "
@@ -9313,6 +11036,89 @@ def build_sample_resume_payload(
     return draft
 
 
+LOW_MATCH_EXAMPLE_LIMIT = 3
+LOW_MATCH_NOTE_WITH_SELECTED = (
+    "Your selected role and the three recommended roles all scored below 40%, so example resumes for these "
+    "roles are shown below. Read them to see what stronger evidence looks like, and add only what is true for you."
+)
+LOW_MATCH_NOTE_RECOMMENDED = (
+    "The three recommended roles all scored below 40%, so example resumes for these roles are shown below. "
+    "Read them to see what stronger evidence looks like, and add only what is true for you."
+)
+
+
+def build_low_match_role_examples(analysis: dict[str, Any]) -> dict[str, Any] | None:
+    """Fictional example resumes for the selected role and the Top 3 roles when all of them score below 40.
+
+    Roles that share a sample family (for example three software roles) share one example.
+    """
+
+    role_recommendation = (
+        analysis.get("role_recommendation") if isinstance(analysis.get("role_recommendation"), dict) else {}
+    )
+    candidates: list[tuple[str, float]] = []
+    selected_label = normalize_text(
+        str(role_recommendation.get("selected_role") or analysis.get("selected_role") or "")
+    )
+    has_selected_role = is_explicit_resume_generation_role(selected_label)
+    if has_selected_role:
+        try:
+            candidates.append((selected_label, float(role_recommendation.get("selected_score"))))
+        except (TypeError, ValueError):
+            return None
+    raw_matches = analysis.get("top_role_matches") or role_recommendation.get("top_role_matches") or []
+    top_count = 0
+    for match in list(raw_matches)[:3] if isinstance(raw_matches, list) else []:
+        if not isinstance(match, dict):
+            continue
+        name = normalize_text(str(match.get("role") or match.get("database_role") or ""))
+        raw_score = match.get("score") if match.get("score") is not None else match.get("confidence_score")
+        try:
+            score = float(raw_score)
+        except (TypeError, ValueError):
+            continue
+        if name:
+            candidates.append((name, score))
+            top_count += 1
+    if not top_count or any(score >= LOW_MATCH_EXAMPLE_THRESHOLD for _, score in candidates):
+        return None
+
+    examples: list[dict[str, Any]] = []
+    by_family: dict[str, dict[str, Any]] = {}
+    for name, score in candidates:
+        family = build_sample_resume_role_profile(name)["family"]
+        if family in by_family:
+            if name.lower() not in {role.lower() for role in by_family[family]["roles"]}:
+                by_family[family]["roles"].append(name)
+            continue
+        if len(examples) >= LOW_MATCH_EXAMPLE_LIMIT:
+            continue
+        sample = build_sample_resume_payload(
+            analysis,
+            name,
+            score,
+            reason_code="low_match_learning_example",
+            evidence_score=score,
+            generation_threshold=LOW_MATCH_EXAMPLE_THRESHOLD,
+            selection_mode="low_match_learning_example",
+        )
+        example = {
+            "role": name,
+            "roles": [name],
+            "family": family,
+            "score": round(score, 1),
+            "html": sample["html"],
+            "plain_text": sample["plain_text"],
+        }
+        by_family[family] = example
+        examples.append(example)
+    return {
+        "threshold": LOW_MATCH_EXAMPLE_THRESHOLD,
+        "note": LOW_MATCH_NOTE_WITH_SELECTED if has_selected_role else LOW_MATCH_NOTE_RECOMMENDED,
+        "examples": examples,
+    }
+
+
 def build_generated_resume_payload(
     analysis: dict[str, Any],
     resume_text: str,
@@ -9381,8 +11187,9 @@ def build_generated_resume_payload(
     display_matched_signals = unique_clean_values([format_resume_keyword(signal) for signal in matched_signals], 12)
     display_missing_keywords = unique_clean_values([format_resume_keyword(keyword) for keyword in missing_keywords], 10)
 
-    contact = extract_resume_contact(resume_source, candidate_name, contact_links)
-    filename_name = infer_resume_name_from_filename(str(safe_analysis.get("uploaded_resume_name") or ""))
+    uploaded_resume_name = str(safe_analysis.get("uploaded_resume_name") or "")
+    contact = extract_resume_contact(resume_source, candidate_name, contact_links, uploaded_resume_name)
+    filename_name = infer_resume_name_from_filename(uploaded_resume_name)
     current_contact_name = normalize_text(str(contact.get("name") or ""))
     if filename_name and (not current_contact_name or current_contact_name == "Candidate Name"):
         contact["name"] = filename_name
@@ -9398,7 +11205,10 @@ def build_generated_resume_payload(
     if education_entries:
         education_lines = [format_structured_education_line(entry) for entry in education_entries]
     else:
-        education_lines = extract_education_lines(resume_source, list(resume_summary.get("education_markers") or []))
+        education_lines = attach_grades_to_education_lines(
+            extract_education_lines(resume_source, list(resume_summary.get("education_markers") or [])),
+            resume_source,
+        )
     evidence_bullets = extract_resume_evidence_sentences(
         evidence_source,
         skills + matched_signals + important_keywords,
@@ -9407,6 +11217,10 @@ def build_generated_resume_payload(
     experience_bullets, fallback_project_bullets = split_project_and_experience_bullets(evidence_bullets)
     if project_entries:
         project_bullets = [format_structured_project_line(entry) for entry in project_entries]
+    elif experience_entries and "projects" not in structured_sections.get("section_names", []):
+        # The layout was read reliably and the resume has no Projects section, so the
+        # leftover summary, skill or interest lines are not projects.
+        project_bullets = []
     else:
         project_bullets = build_project_entries(
             evidence_source,
@@ -9528,6 +11342,9 @@ def build_generated_resume_payload(
     }
     draft["plain_text"] = build_generated_resume_plain_text(draft)
     draft["html"] = build_generated_resume_html(draft)
+    role_examples = build_low_match_role_examples(safe_analysis)
+    if role_examples:
+        draft["role_examples"] = role_examples
     return draft
 
 
@@ -9636,6 +11453,37 @@ def send_auth_pin():
         response["dev_pin"] = pin
 
     return jsonify(response)
+
+
+@app.post("/auth/pin/check")
+def check_auth_pin():
+    """Let the sign-up and reset forms confirm a typed PIN without using it up."""
+    payload = request.get_json(silent=True) or {}
+    email = normalize_email(payload.get("email", ""))
+    purpose = normalize_pin_purpose(payload.get("purpose", ""))
+    verification_pin = normalize_pin(payload.get("verification_pin", payload.get("pin", "")))
+
+    if not email or not is_valid_email(email):
+        return jsonify({"detail": "Please provide a valid email address"}), 400
+    if purpose not in EMAIL_PIN_PURPOSES:
+        return jsonify({"detail": "Unsupported PIN purpose"}), 400
+    if len(verification_pin) != EMAIL_PIN_LENGTH:
+        return jsonify({"detail": f"Enter the {EMAIL_PIN_LENGTH}-digit PIN."}), 400
+
+    try:
+        enforce_email_pin_rate_limits(
+            "attempt",
+            email,
+            get_request_client_ip(),
+            purpose,
+        )
+        pin_ok, pin_detail = consume_email_pin(email, purpose, verification_pin, consume=False)
+    except EmailPinRateLimitError as error:
+        return build_rate_limit_response(error)
+    except DatabaseErrors:
+        return jsonify({"detail": "Database error while checking the PIN"}), 500
+
+    return jsonify({"valid": pin_ok, "detail": pin_detail})
 
 
 @app.post("/users/register")
@@ -11345,6 +13193,7 @@ def api_index():
                 "GET /health",
                 "POST /analyze-file",
                 "POST /auth/pin/send",
+                "POST /auth/pin/check",
                 "POST /users/register",
                 "POST /users/login",
                 "POST /users/logout",
@@ -11566,7 +13415,14 @@ def _analyze_file():
         if role_recommendation.get("human_review_required")
         else "ROLE MATCH AVAILABLE"
     )
-    analysis["resume_contact"] = extract_resume_contact(resume_text)
+    analysis["resume_contact"] = extract_resume_contact(resume_text, resume_filename=resume_file.filename or "")
+    # Adaptive feedback: compare with this user's last check for the same role.
+    # The comparison is optional, so a database problem only skips it.
+    try:
+        previous_record = fetch_previous_role_analysis(session_user_id, target_role)
+    except DatabaseErrors:
+        previous_record = None
+    analysis["progress"] = build_progress_since_last_check(analysis, previous_record)
     analysis["recommendation_module"] = build_part8_recommendation_module(analysis)
     mark_phase("report")
 

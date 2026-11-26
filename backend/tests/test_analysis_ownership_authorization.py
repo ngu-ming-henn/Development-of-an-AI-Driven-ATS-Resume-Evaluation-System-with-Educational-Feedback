@@ -174,6 +174,7 @@ class AnalysisOwnershipAuthorizationTests(unittest.TestCase):
             patch.object(app_module, "build_role_recommendation", return_value={"top_role_matches": []}),
             patch.object(app_module, "build_analysis_payload", return_value=minimal_analysis),
             patch.object(app_module, "extract_resume_contact", return_value={}),
+            patch.object(app_module, "fetch_previous_role_analysis", return_value=None),
             patch.object(app_module, "build_part8_recommendation_module", return_value={}),
             patch.object(app_module, "persist_analysis", return_value=501) as persist_analysis,
             patch.object(app_module, "update_accuracy_testing_workbook", return_value={}),
