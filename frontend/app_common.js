@@ -295,6 +295,8 @@
     "Practical improvement tips": "Tip penambahbaikan praktikal",
     "Role match": "Padanan peranan",
     "Practical tips": "Tip praktikal",
+    "Three parts of your report. Tap one to see a sample.": "Tiga bahagian laporan anda. Ketik satu untuk melihat contoh.",
+    "The same sections your own report shows, with fictional data.": "Bahagian yang sama seperti laporan anda sendiri, dengan data rekaan.",
     "From the built-in sample report": "Daripada contoh laporan terbina dalam",
     "Quick tour": "Lawatan pantas",
     "Quick tour: how to check your resume": "Lawatan pantas: cara menyemak resume anda",
