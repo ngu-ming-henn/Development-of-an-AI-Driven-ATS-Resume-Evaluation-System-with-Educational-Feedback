@@ -293,6 +293,8 @@
     "Role-based matching": "Padanan mengikut peranan",
     "ATS format feedback": "Maklum balas format ATS",
     "Practical improvement tips": "Tip penambahbaikan praktikal",
+    "Role match": "Padanan peranan",
+    "Practical tips": "Tip praktikal",
     "From the built-in sample report": "Daripada contoh laporan terbina dalam",
     "Quick tour": "Lawatan pantas",
     "Quick tour: how to check your resume": "Lawatan pantas: cara menyemak resume anda",
