@@ -168,6 +168,17 @@ class TourAndStartTests(unittest.TestCase):
         self.assertIn("var(--career-tour-interval, 4000ms)", HOME)
         self.assertNotIn("STEP_MS = 6000", HOME)
 
+    def test_tour_loops_back_to_step_one(self):
+        start = HOME.index("(function initCareerTour()")
+        tour = HOME[start:HOME.index("(function initFlowSection()", start)]
+        # No stop on the last card: after step 5 goTo wraps round to step 1.
+        self.assertNotIn("if (active === cards.length - 1) setPlaying(false);", tour)
+        self.assertIn('timer = window.setTimeout(() => goTo(active + 1, "next"), STEP_MS);', tour)
+        self.assertIn("const next = (index + cards.length) % cards.length;", tour)
+        # The step count is not announced while it plays by itself.
+        self.assertIn('if (count) count.setAttribute("aria-live", playing ? "off" : "polite");', tour)
+        self.assertIn('id="careerTourCount" aria-live="polite"', HOME)
+
     def test_home_opens_at_the_top(self):
         script_at = HOME.index('history.scrollRestoration = "manual"')
         self.assertLess(script_at, HOME.index("</head>"))

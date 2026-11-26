@@ -4350,11 +4350,14 @@ html[data-theme="dark"] .career-proof-list li,html[data-theme="dark"] .career-pr
     });
   })();
 
-  // Quick tour in the hero: four stacked step cards. Back/Next, the dots, the
-  // arrow keys or a swipe change the step; Play runs the steps like a short
-  // video and stops on the last card. The tour plays once by itself when it
-  // first comes into view, pauses while the pointer or focus is on the cards,
-  // and never moves on its own for people who prefer reduced motion.
+  // Quick tour in the hero: five stacked step cards. Back/Next, the dots, the
+  // arrow keys or a swipe change the step; Play runs the steps in a loop
+  // (after step 5 it starts again at step 1). The tour starts playing by
+  // itself when it first comes into view, waits while it is off screen,
+  // pauses while the pointer or focus is on the cards, stops when the visitor
+  // takes over (Back/Next/dots/swipe/Pause), and never moves on its own for
+  // people who prefer reduced motion. While it plays by itself the step count
+  // is not announced, so screen readers are not interrupted every 4 seconds.
   (function initCareerTour() {
     const tour = document.getElementById("careerTour");
     const deck = document.getElementById("careerTourDeck");
@@ -4416,17 +4419,15 @@ html[data-theme="dark"] .career-proof-list li,html[data-theme="dark"] .career-pr
       const running = playing && !held && inView && !document.hidden;
       tour.classList.toggle("is-playing", running);
       if (!running) return;
-      timer = window.setTimeout(() => {
-        goTo(active + 1, "next");
-        // Like a video, the tour ends on the last card with its call to action.
-        if (active === cards.length - 1) setPlaying(false);
-      }, STEP_MS);
+      // The next step; after the last card the tour starts again at step 1.
+      timer = window.setTimeout(() => goTo(active + 1, "next"), STEP_MS);
     }
 
     function setPlaying(value) {
       playing = Boolean(value) && !motionQuery.matches;
       if (playButton) playButton.setAttribute("aria-pressed", String(playing));
       if (playLabel) playLabel.textContent = playing ? "Pause tour" : "Play tour";
+      if (count) count.setAttribute("aria-live", playing ? "off" : "polite");
       schedule();
     }
 
@@ -4470,7 +4471,7 @@ html[data-theme="dark"] .career-proof-list li,html[data-theme="dark"] .career-pr
           setPlaying(false);
           return;
         }
-        // Replay from the first step once the tour has reached the end.
+        // Play on the last card starts again from step 1 straight away.
         if (active === cards.length - 1) goTo(0, "next");
         setPlaying(true);
       });
