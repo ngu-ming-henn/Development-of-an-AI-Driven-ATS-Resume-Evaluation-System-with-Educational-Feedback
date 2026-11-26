@@ -337,6 +337,20 @@
         .career-proof-list li { display: inline-flex; align-items: center; gap: 5px; color: #496073; font-size: 12px; font-weight: 700; }
         .career-proof-check { color: var(--career-teal); font-size: 15px; line-height: 1; font-weight: 900; }
         .career-proof-short { display: none; }
+        .career-phone-note { display: none; }
+        /* The three checks are circled ticks that light up in turn, joined by a
+           dashed line with a light running along it: a row on tablets and
+           computers, a column on phones (see the phone styles). */
+        .career-proof-check::after { content: "✓"; position: absolute; inset: -1px; display: grid; place-items: center; border-radius: inherit; background: var(--career-teal-deep); color: #fff; opacity: 0; animation: careerRailTick 4.8s ease-out infinite; }
+        .career-proof-list li:nth-child(2) .career-proof-check::after { animation-delay: 1.6s; }
+        .career-proof-list li:nth-child(3) .career-proof-check::after { animation-delay: 3.2s; }
+        @media (min-width: 701px) {
+            .career-proof-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 540px; gap: 0; padding-top: 24px; }
+            .career-proof-list li { position: relative; flex-direction: column; gap: 9px; line-height: 1.3; text-align: center; }
+            .career-proof-check { position: relative; z-index: 1; display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #cfe3f5; border-radius: 99px; background: #fff; font-size: 14px; box-shadow: 0 4px 10px rgba(22,48,77,.08); }
+            .career-proof-list li:not(:last-child)::after { content: ""; position: absolute; top: 9px; left: calc(50% + 23px); width: calc(100% - 46px); height: 12px; background-image: radial-gradient(closest-side, rgba(8,127,236,.95), rgba(8,127,236,.3) 60%, rgba(8,127,236,0)), repeating-linear-gradient(to right, #c3daef 0 5px, rgba(195,218,239,0) 5px 10px); background-size: 36px 12px, 10px 2px; background-repeat: no-repeat, repeat-x; background-position: -30% 50%, 0 50%; animation: careerRailRunX 4.8s ease-in-out infinite; }
+            .career-proof-list li:nth-child(2)::after { animation-delay: 1.6s; }
+        }
         .career-visual { position: relative; padding: 34px 28px 28px; border: 1px solid #dfeaf6; border-radius: 32px; background: #f3f9ff; }
         .career-visual-caption { display: inline-flex; align-items: center; gap: 8px; color: #4c6671; font-size: 11px; font-weight: 700; letter-spacing: .04em; }
         .career-caption-dot { width: 7px; height: 7px; border-radius: 100%; background: #5e9d88; }
@@ -460,6 +474,7 @@
         /* Phone check column: a tick lights up, then the light runs down the line. */
         @keyframes careerRailTick { 0% { opacity: 0; transform: scale(.6); box-shadow: 0 0 0 0 rgba(0,102,204,.3); } 6% { opacity: 1; transform: scale(1.14); } 14% { transform: scale(1); box-shadow: 0 0 0 7px rgba(0,102,204,0); } 30% { opacity: 1; transform: scale(1); } 42%, 100% { opacity: 0; transform: scale(1); box-shadow: 0 0 0 0 rgba(0,102,204,0); } }
         @keyframes careerRailRun { 0%, 4% { background-position: 50% -30%, 50% 0; } 36%, 100% { background-position: 50% 130%, 50% 0; } }
+        @keyframes careerRailRunX { 0%, 4% { background-position: -30% 50%, 0 50%; } 36%, 100% { background-position: 130% 50%, 0 50%; } }
         .career-section { padding-block: clamp(96px, 10vw, 156px); scroll-margin-top: 90px; }
         .career-section h2 { margin: 0; font-size: clamp(2.45rem, 4.2vw, 4.1rem); line-height: 1.12; }
         .career-section h2 em { color: var(--career-teal); font-style: normal; }
@@ -784,6 +799,18 @@
         body.motion-ready [data-reveal="right"] { transform: translate3d(34px,0,0); }
         body.motion-ready [data-reveal].is-visible { opacity: 1; filter: blur(0); transform: translate3d(0,0,0); }
         @keyframes careerOrbitDrift { to { transform: rotate(360deg); } }
+        /* Two-column screens zig-zag: How it works and Write with evidence put their
+           picture on the left and their text on the right (and slide in from those
+           sides). The reading order in the page stays text first. */
+        @media (min-width: 1001px) {
+            .career-intelligence-copy { order: 2; }
+            .career-orbit-wrap { order: 1; }
+            .career-writing-grid { grid-template-columns: 1.18fr .82fr; }
+            .career-writing-grid > [data-reveal="left"] { order: 2; }
+            .career-writing-examples { order: 1; }
+            body.motion-ready .career-intelligence-copy:not(.is-visible), body.motion-ready .career-writing-grid > [data-reveal="left"]:not(.is-visible) { transform: translate3d(34px,0,0); }
+            body.motion-ready .career-orbit-wrap:not(.is-visible), body.motion-ready .career-writing-examples:not(.is-visible) { transform: translate3d(-34px,0,0); }
+        }
         @media (max-width: 1000px) {
             .career-nav-inner { grid-template-columns: minmax(0, 1fr) auto auto; gap: 18px; }
             .career-nav-links { gap: 18px; }
@@ -840,22 +867,22 @@
                dashed line to the next one (one 4.8 s loop; still for reduced motion). */
             .career-proof-list li:not(:last-child)::after { content: ""; flex: 1 1 auto; width: 12px; min-height: 16px; margin: 3px 0 10px; background-image: radial-gradient(closest-side, rgba(8,127,236,.95), rgba(8,127,236,.3) 60%, rgba(8,127,236,0)), repeating-linear-gradient(to bottom, #c3daef 0 5px, rgba(195,218,239,0) 5px 10px); background-size: 12px 36px, 2px 10px; background-repeat: no-repeat, repeat-y; background-position: 50% -30%, 50% 0; animation: careerRailRun 4.8s ease-in-out infinite; }
             .career-proof-list li:nth-child(2)::after { animation-delay: 1.6s; }
-            .career-proof-check::after { content: "✓"; position: absolute; inset: -1px; display: grid; place-items: center; border-radius: inherit; background: var(--career-teal-deep); color: #fff; opacity: 0; animation: careerRailTick 4.8s ease-out infinite; }
-            .career-proof-list li:nth-child(2) .career-proof-check::after { animation-delay: 1.6s; }
-            .career-proof-list li:nth-child(3) .career-proof-check::after { animation-delay: 3.2s; }
             /* The buttons sit right under the tour, so the tour's own button and its
                sample-data line (step 3 already says "fictional data") are not repeated. */
             .career-tour-cta, .career-visual-disclaimer { display: none; }
             /* Less text and no repeated sample-report links on phones: the hero keeps
                one link; an open feedback row shows its title and screen; the sample
                preview keeps its title; the draft section keeps its intro. */
-            .career-flow-intro > p:not(.career-eyebrow),
+            .career-flow-intro > p:not(.career-eyebrow):not(.career-phone-note),
             .career-flow-row .career-flow-copy > p, .career-flow-row .career-feature-link,
             .career-flow-section.is-minimized .career-flow-row.is-open .career-flow-copy > p,
             .career-flow-section.is-minimized .career-flow-row.is-open .career-feature-link,
-            .career-sample-copy > p:not(.career-eyebrow), .career-sample-copy .career-text-link,
-            .career-draft-points p, .career-draft-actions { display: none; }
+            .career-sample-copy > p:not(.career-eyebrow):not(.career-phone-note), .career-sample-copy .career-text-link,
+            .career-draft-points p, .career-draft-actions,
+            .career-intelligence-copy > p + p:not(.career-eyebrow), .career-writing-note, .career-draft-advice { display: none; }
             .career-sample-copy h2 { margin-bottom: 0; }
+            /* One short line instead of the long explanation (Feedback, Sample results). */
+            .career-flow-intro > p.career-phone-note, .career-sample-copy > p.career-phone-note { display: block; max-width: 34ch; margin: 14px 0 0; font-size: 15px; line-height: 1.6; }
             /* The draft's three points become three ticked tiles in one box. */
             .career-draft-points { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 24px; padding: 16px 8px 14px; border: 1px solid #dceaf6; border-radius: 16px; background: #fff; }
             .career-draft-points li { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 8px; text-align: center; }
@@ -1052,6 +1079,11 @@ html[data-theme="dark"] .career-upload-hint.text-error{color:#ff7b80}
 html[data-theme="dark"] .career-proof-list{border-top-color:var(--career-line)}
 html[data-theme="dark"] .career-proof-list li{color:#9eb8cd}
 html[data-theme="dark"] .career-proof-check{color:var(--career-teal-text, var(--career-teal))}
+html[data-theme="dark"] .career-proof-check::after{background-image:none;background-color:var(--career-teal-deep);color:#fff}
+@media (min-width: 701px){
+html[data-theme="dark"] .career-proof-check{border-color:#293f52;background-image:none;background-color:#1f252c;box-shadow:0 4px 10px rgba(22,48,77,.08)}
+html[data-theme="dark"] .career-proof-list li:not(:last-child)::after{background-image:radial-gradient(closest-side, rgba(8,127,236,.95), rgba(8,127,236,.3) 60%, rgba(8,127,236,0)), repeating-linear-gradient(to right, #152e43 0 5px, rgba(195,218,239,0) 5px 10px)}
+}
 html[data-theme="dark"] .career-visual{border-color:#303c48;background-image:none;background-color:#161b21}
 html[data-theme="dark"] .career-visual-caption{color:#9bb7c3}
 html[data-theme="dark"] .career-caption-dot{background-image:none;background-color:#184b3c}
@@ -1288,7 +1320,6 @@ html[data-theme="dark"] :is(#evaluationModal,#authModal) input:not([type="file"]
 html[data-theme="dark"] .career-hero-content > .career-proof-list{border-color:#303c48;background-image:none;background-color:#161b21}
 html[data-theme="dark"] .career-proof-check{border-color:#293f52;background-image:none;background-color:#1f252c;box-shadow:0 4px 10px rgba(22,48,77,.08)}
 html[data-theme="dark"] .career-proof-list li:not(:last-child)::after{background-image:radial-gradient(closest-side, rgba(8,127,236,.95), rgba(8,127,236,.3) 60%, rgba(8,127,236,0)), repeating-linear-gradient(to bottom, #152e43 0 5px, rgba(195,218,239,0) 5px 10px)}
-html[data-theme="dark"] .career-proof-check::after{background-image:none;background-color:var(--career-teal-deep);color:#fff}
 html[data-theme="dark"] .career-draft-points{border-color:#2e3d49;background-image:none;background-color:#1f252c}
 html[data-theme="dark"] .career-report-preview-score{border-left-color:currentcolor}
 html[data-theme="dark"] .career-report-preview-overview{border-top-color:#323d45}
@@ -1318,8 +1349,13 @@ html[data-theme="dark"] .career-proof-list li,html[data-theme="dark"] .career-pr
   html[data-theme="dark"] .career-writing-chips button[data-part="tool"] i { background-color: #3fbf86; }
   html[data-theme="dark"] .career-writing-chips button[data-part="result"] i { background-color: #e9a54b; }
   html[data-theme="dark"] .career-writing-chips button[data-part="task"] i { background-color: #a48bf5; }
-  /* Phone check column: a brighter line and running light on the dark panel. */
-  html[data-theme="dark"] .career-proof-list li:not(:last-child)::after { background-image: radial-gradient(closest-side, rgba(102,178,255,.95), rgba(102,178,255,.3) 60%, rgba(102,178,255,0)), repeating-linear-gradient(to bottom, #2b4a66 0 5px, rgba(43,74,102,0) 5px 10px); }
+  /* Hero checks: a brighter line and running light on dark (column on phones, row elsewhere). */
+  @media (max-width: 700px) {
+    html[data-theme="dark"] .career-proof-list li:not(:last-child)::after { background-image: radial-gradient(closest-side, rgba(102,178,255,.95), rgba(102,178,255,.3) 60%, rgba(102,178,255,0)), repeating-linear-gradient(to bottom, #2b4a66 0 5px, rgba(43,74,102,0) 5px 10px); }
+  }
+  @media (min-width: 701px) {
+    html[data-theme="dark"] .career-proof-list li:not(:last-child)::after { background-image: radial-gradient(closest-side, rgba(102,178,255,.95), rgba(102,178,255,.3) 60%, rgba(102,178,255,0)), repeating-linear-gradient(to right, #2b4a66 0 5px, rgba(43,74,102,0) 5px 10px); }
+  }
 }
 </style>
 </head>
@@ -1519,6 +1555,7 @@ html[data-theme="dark"] .career-proof-list li,html[data-theme="dark"] .career-pr
           <p class="career-eyebrow"><span class="career-eyebrow-rule"></span> Inside your report</p>
           <h2 id="flow-heading">Feedback with a <em>clear purpose.</em></h2>
           <p>These panels use the built-in fictional sample's role comparison, score evidence, and next edits. Open the linked report to see the exact screens.</p>
+          <p class="career-phone-note">Three parts of your report. Tap one to see a sample.</p>
         </div>
         <button class="career-flow-toggle" id="flowToggle" type="button" aria-expanded="false" aria-controls="flowList">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
@@ -1601,6 +1638,7 @@ html[data-theme="dark"] .career-proof-list li,html[data-theme="dark"] .career-pr
       <div class="career-sample-copy" data-reveal="left">
         <p class="career-eyebrow"><span class="career-eyebrow-rule"></span> See the kind of feedback you will get</p>
         <h2 id="sample-heading">Preview the report interface.</h2>
+        <p class="career-phone-note">The same sections your own report shows, with fictional data.</p>
         <p>This preview uses the same fictional sample and section names as the results page. Your own report will use your uploaded resume and the role you choose or the one the system suggests.</p>
         <a class="career-text-link" href="analysis_result.html?sample=1">Open the full sample report <span aria-hidden="true">↗</span></a>
         <p class="career-sample-caveat"><span class="career-info-mark" aria-hidden="true">i</span> Scores describe evidence in the resume. They do not predict hiring decisions.</p>
