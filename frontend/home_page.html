@@ -10,6 +10,32 @@
 <link rel="stylesheet" href="account_workspace.css">
 <script src="runtime_config.js"></script>
 <script src="app_common.js"></script>
+<script>
+  // The home page always opens at the top. Phone browsers otherwise put a reloaded
+  // or reopened page back where it was (for example on the tour cards), and a
+  // reload keeps the last header link (#resume-draft-preview) in the address.
+  // A link from another page to a section (home_page.html#how-it-works) still
+  // opens that section.
+  (function startHomeAtTop() {
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+    const navigation = window.performance && performance.getEntriesByType ? performance.getEntriesByType("navigation")[0] : null;
+    const returning = navigation && (navigation.type === "reload" || navigation.type === "back_forward");
+    if (!returning || !location.hash) return;
+    history.replaceState(history.state, "", location.pathname + location.search);
+    let userMoved = false;
+    ["wheel", "touchstart", "keydown"].forEach((type) => window.addEventListener(type, () => { userMoved = true; }, { once: true, passive: true }));
+    function toTop() {
+      if (userMoved) return;
+      const root = document.documentElement;
+      const smooth = root.style.scrollBehavior;
+      root.style.scrollBehavior = "auto";
+      window.scrollTo(0, 0);
+      root.style.scrollBehavior = smooth;
+    }
+    document.addEventListener("DOMContentLoaded", toTop, { once: true });
+    window.addEventListener("load", toTop, { once: true });
+  })();
+</script>
 <style>
         *, *::before, *::after { box-sizing: border-box; }
         [hidden] { display: none !important; }
@@ -402,7 +428,7 @@
         .career-tour-dots button span { position: relative; display: block; width: 8px; height: 8px; overflow: hidden; border-radius: 99px; background: #c4d8ea; transition: width .3s ease, background-color .3s ease; }
         .career-tour-dots button[aria-current="step"] span { width: 24px; background: var(--career-teal); }
         .career-tour.is-playing .career-tour-dots button[aria-current="step"] span { background: #cfe3f7; }
-        .career-tour.is-playing .career-tour-dots button[aria-current="step"] span::after { content: ""; position: absolute; inset: 0; background: var(--career-teal); transform-origin: left; animation: careerTourTimer var(--career-tour-interval, 6000ms) linear both; }
+        .career-tour.is-playing .career-tour-dots button[aria-current="step"] span::after { content: ""; position: absolute; inset: 0; background: var(--career-teal); transform-origin: left; animation: careerTourTimer var(--career-tour-interval, 4000ms) linear both; }
         .career-tour-play:focus-visible, .career-tour-nav:focus-visible, .career-tour-dots button:focus-visible { outline: 3px solid rgba(0,102,204,.35); outline-offset: 2px; }
         /* Each step plays its own short animation when it comes to the front. */
         .career-tour-card.is-active .career-tour-file { animation: careerTourDrop .7s cubic-bezier(.2,.8,.2,1) both; }
@@ -780,14 +806,47 @@
             .career-nav-links a { min-height: 32px; padding: 5px 9px; font-size: 11px; }
             .career-nav-links a.career-resume-report-link { min-height: 30px; padding: 4px 7px; font-size: 11px; }
             .career-nav-actions { grid-column: 2; grid-row: 1; justify-content: flex-end; gap: 8px; }
-            .career-hero-grid { padding-block: 47px 60px; gap: 37px; }
             .career-hero h1 { font-size: clamp(2.65rem, 12vw, 4rem); }
             .career-hero-actions { align-items: stretch; gap: 7px; }
             .career-button { min-height: 46px; font-size: 13px; }
-            /* Three equal tiles instead of a ragged wrapped line. */
-            .career-proof-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-top: 18px; margin-top: 26px; }
-            .career-proof-list li { flex-direction: column; justify-content: flex-start; gap: 7px; padding: 11px 6px 10px; border: 1px solid #dceaf6; border-radius: 13px; background: #f7fbff; font-size: 11px; line-height: 1.3; text-align: center; }
-            .career-proof-check { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 99px; background: #e1f0ff; font-size: 12px; }
+            /* Phone hero (tablets and computers keep theirs): the title and text
+               first, then the three checks as a slim column beside the quick tour,
+               then the buttons and the sign-in note under the tour. The text
+               column's wrapper steps aside (display: contents) so its parts can
+               take their own places in the hero grid. The check column is as wide
+               as its longest word, so the Malay labels fit too. */
+            .career-hero-grid { grid-template-columns: minmax(66px, min-content) minmax(0, 1fr); grid-template-areas: "eyebrow eyebrow" "title title" "lead lead" "proof tour" "proof actions" "proof hint"; align-items: start; gap: 0 10px; padding-block: 47px 60px; }
+            .career-hero-content { display: contents; }
+            .career-hero-content > .career-eyebrow { grid-area: eyebrow; }
+            .career-hero-content > h1 { grid-area: title; }
+            .career-hero-content > .career-lead { grid-area: lead; }
+            .career-hero-content > .career-hero-actions { grid-area: actions; margin-top: 16px; }
+            .career-hero-content > .career-upload-hint { grid-area: hint; margin-top: 10px; }
+            .career-hero-grid > .career-tour { grid-area: tour; width: auto; min-width: 0; margin: 30px 0 0; }
+            /* The three checks run down the column, top to bottom, joined by a
+               dashed line that fills the space between them. */
+            .career-hero-content > .career-proof-list { grid-area: proof; flex-direction: column; flex-wrap: nowrap; align-self: stretch; gap: 0; margin: 30px 0 0; padding: 18px 6px; border: 1px solid #dfeaf6; border-radius: 22px; background: #f3f9ff; }
+            .career-proof-list li { flex: 1 1 auto; flex-direction: column; gap: 7px; padding: 0 2px; font-size: 10.5px; line-height: 1.25; text-align: center; overflow-wrap: break-word; }
+            .career-proof-list li:last-child { flex: none; }
+            .career-proof-list li:not(:last-child)::after { content: ""; flex: 1 1 auto; min-height: 16px; margin: 3px 0 10px; border-left: 2px dashed #c3daef; }
+            .career-proof-check { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid #cfe3f5; border-radius: 99px; background: #fff; font-size: 13px; box-shadow: 0 4px 10px rgba(22,48,77,.08); }
+            /* The buttons sit right under the tour, so the tour's own button and its
+               sample-data line (step 3 already says "fictional data") are not repeated. */
+            .career-tour-cta, .career-visual-disclaimer { display: none; }
+            /* Less text and no repeated sample-report links on phones: the hero keeps
+               one link; an open feedback row shows its title and screen; the sample
+               preview keeps its title; the draft section keeps its intro. */
+            .career-flow-intro > p:not(.career-eyebrow),
+            .career-flow-row .career-flow-copy > p, .career-flow-row .career-feature-link,
+            .career-flow-section.is-minimized .career-flow-row.is-open .career-flow-copy > p,
+            .career-flow-section.is-minimized .career-flow-row.is-open .career-feature-link,
+            .career-sample-copy > p:not(.career-eyebrow), .career-sample-copy .career-text-link,
+            .career-draft-points p, .career-draft-actions { display: none; }
+            .career-sample-copy h2 { margin-bottom: 0; }
+            /* The draft's three points become three ticked tiles in one box. */
+            .career-draft-points { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 24px; padding: 16px 8px 14px; border: 1px solid #dceaf6; border-radius: 16px; background: #fff; }
+            .career-draft-points li { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 8px; text-align: center; }
+            .career-draft-points strong { display: block; font-size: 11.5px; line-height: 1.3; }
             .career-section { padding-block: 78px; }
             .career-intelligence-grid { gap: 44px; }
             .career-flow-row { grid-template-columns: 1fr; gap: 30px; padding: 55px 0; }
@@ -800,7 +859,7 @@
             .career-flow-section.is-minimized.has-open-row .career-flow-tile { padding: 16px 18px; }
             .career-flow-section.is-minimized .career-flow-row.is-open { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; padding: 0 16px 18px; }
             .career-flow-section.is-minimized .career-flow-row.is-open .career-flow-tile { margin: 0 -16px 16px; }
-            .career-flow-section.is-minimized .career-flow-row.is-open .career-feature-visual { grid-column: 1; grid-row: auto; margin-top: 18px; }
+            .career-flow-section.is-minimized .career-flow-row.is-open .career-feature-visual { grid-column: 1; grid-row: auto; margin-top: 0; }
             .career-flow-row.is-reversed .career-flow-copy, .career-flow-row.is-reversed .career-feature-visual { grid-column: auto; grid-row: auto; }
             .career-feature-visual { width: min(100%, 650px); }
             .career-report-preview-quick, .career-report-preview-overview { grid-template-columns: 1fr; }
@@ -869,6 +928,34 @@
             .career-orbit-point-1 { top: 4%; left: 42%; }
             .career-orbit-point-2 { top: 49%; right: 0; }
             .career-orbit-point-3 { bottom: 5%; left: 0; }
+            /* The tour shares the row with the check column, so it is tighter:
+               smaller titles, and Back/Next show only their arrows (each keeps its
+               aria-label). */
+            .career-hero-grid > .career-tour { padding: 14px 10px; border-radius: 22px; }
+            .career-tour-top, .career-tour-top-actions { flex-wrap: wrap; gap: 6px 8px; }
+            .career-tour-play { min-height: 30px; padding: 4px 10px 4px 8px; white-space: nowrap; }
+            .career-tour-deck { margin-top: 12px; padding-top: 18px; }
+            .career-tour-card[data-tour-position="1"] { transform: translate(6px, -9px) rotate(2deg) scale(.97); }
+            .career-tour-card[data-tour-position="2"] { transform: translate(-6px, -15px) rotate(-2.5deg) scale(.94); }
+            .career-tour-card .career-visual-report-bar { padding: 9px 12px; }
+            .career-tour-card .career-visual-report-body { padding: 15px 13px 16px; }
+            .career-tour-title { margin: 4px 0 10px; font-size: 20px; }
+            .career-tour-text { font-size: 12px; line-height: 1.55; }
+            .career-tour-upload { margin-top: 14px; padding: 16px 10px 14px; }
+            .career-tour-search { padding: 9px 10px; font-size: 12px; }
+            .career-tour-controls { gap: 4px; margin-top: 14px; }
+            .career-tour-nav { width: 38px; min-width: 38px; padding: 0; font-size: 0; }
+            .career-tour-nav span { font-size: 22px; }
+            .career-tour-dots { gap: 0; }
+            .career-tour-dots button { width: 20px; }
+            .career-tour-dots button[aria-current="step"] span { width: 18px; }
+        }
+        /* Very narrow phones: one column again (checks, tour, buttons). */
+        @media (max-width: 359px) {
+            .career-hero-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "eyebrow" "title" "lead" "proof" "tour" "actions" "hint"; }
+            .career-hero-content > .career-proof-list { gap: 6px; margin-top: 26px; padding: 0; border: 0; background: none; }
+            .career-proof-list li, .career-proof-list li:last-child { flex: none; flex-direction: row; justify-content: flex-start; gap: 8px; padding: 8px 11px; border: 1px solid #dceaf6; border-radius: 13px; background: #f7fbff; text-align: left; }
+            .career-proof-list li:not(:last-child)::after { display: none; }
         }
         @media (prefers-reduced-motion: reduce) {
             html { scroll-behavior: auto; }
@@ -887,10 +974,6 @@
             .career-brand-name small { font-size: 9px; }
             .career-brand-name strong { font-size: 12px; }
             .career-nav-inner { column-gap: 7px; }
-        }
-        @media (max-width: 330px) {
-            .career-proof-list { grid-template-columns: 1fr; }
-            .career-proof-list li { flex-direction: row; justify-content: flex-start; padding: 8px 11px; text-align: left; }
         }
     </style>
 <style id="darkThemeGenerated">
@@ -1185,11 +1268,17 @@ html[data-theme="dark"] :is(#evaluationModal,#authModal,#privacyPolicyModal,#ter
 html[data-theme="dark"] :is(#evaluationModal,#authModal,#privacyPolicyModal,#termsOfServiceModal,#researchCreditsModal,#universityPartnersModal) button[aria-label^="Close"]:hover{background-image:none;background-color:#1d292d}
 html[data-theme="dark"] :is(#evaluationModal,#authModal) input:not([type="file"]):focus-visible{border-color:var(--career-teal);box-shadow:0 0 0 3px rgba(23,107,137,.14)}
 @media (max-width: 700px){
-html[data-theme="dark"] .career-proof-list li{border-color:#2e3d49;background-image:none;background-color:#15191f}
-html[data-theme="dark"] .career-proof-check{background-image:none;background-color:#15222e}
+html[data-theme="dark"] .career-hero-content > .career-proof-list{border-color:#303c48;background-image:none;background-color:#161b21}
+html[data-theme="dark"] .career-proof-list li:not(:last-child)::after{border-left-color:#284158}
+html[data-theme="dark"] .career-proof-check{border-color:#293f52;background-image:none;background-color:#1f252c;box-shadow:0 4px 10px rgba(22,48,77,.08)}
+html[data-theme="dark"] .career-draft-points{border-color:#2e3d49;background-image:none;background-color:#1f252c}
 html[data-theme="dark"] .career-report-preview-score{border-left-color:currentcolor}
 html[data-theme="dark"] .career-report-preview-overview{border-top-color:#323d45}
 html[data-theme="dark"] .career-report-preview-overview .career-ui-metric{border-color:#323c44;background-image:none;background-color:#14191f}
+}
+@media (max-width: 359px){
+html[data-theme="dark"] .career-hero-content > .career-proof-list{border-color:currentcolor;background-image:none;background-color:transparent}
+html[data-theme="dark"] .career-proof-list li,html[data-theme="dark"] .career-proof-list li:last-child{border-color:#2e3d49;background-image:none;background-color:#15191f}
 }
 }
 </style>
@@ -4219,7 +4308,7 @@ html[data-theme="dark"] .career-report-preview-overview .career-ui-metric{border
     const playLabel = playButton ? playButton.querySelector("[data-tour-play-label]") : null;
     const startButton = tour.querySelector("[data-tour-start]");
     const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const STEP_MS = 6000;
+    const STEP_MS = 4000;
     const LEAVE_MS = 460;
     let active = 0;
     let playing = false;
