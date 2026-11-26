@@ -1,12 +1,13 @@
 """Phone home layout and shorter report text.
 
 Phones (max-width 700px) get their own home hero: the title first, the three
-checks as a column beside the quick tour, and the buttons under the tour. The
-repeated sample-report links and long explanations are hidden on phones only,
-so tablets and computers keep them. The quick tour moves every 4 seconds and
-the home page always opens at the top. On the report page (every screen size)
-lines that only repeat a heading, a badge or a list are gone, while review
-warnings stay.
+checks as an animated column as tall as the quick tour beside it, and the
+buttons across the full width under both. The repeated sample-report links,
+the sign-in note and long explanations are hidden on phones only, so tablets
+and computers keep them. The quick tour moves every 4 seconds and the home
+page always opens at the top. On the report page (every screen size) lines
+that only repeat a heading, a badge or a list are gone, while review warnings
+stay.
 
 These checks read the page source.
 """
@@ -16,6 +17,7 @@ from pathlib import Path
 WEB_DIR = Path(__file__).resolve().parents[2]
 HOME = (WEB_DIR / "frontend" / "home_page.html").read_text(encoding="utf-8")
 REPORT = (WEB_DIR / "frontend" / "analysis_result.html").read_text(encoding="utf-8")
+COMMON = (WEB_DIR / "frontend" / "app_common.js").read_text(encoding="utf-8")
 HOME_LIGHT_CSS = HOME[HOME.index("<style>"):HOME.index("</style>")]
 
 
@@ -43,9 +45,9 @@ NARROW_CSS = "\n".join(media_blocks(HOME_LIGHT_CSS, "(max-width: 480px)"))
 
 
 class PhoneHeroTests(unittest.TestCase):
-    def test_checks_sit_beside_the_tour_and_buttons_under_it(self):
+    def test_checks_sit_beside_the_tour_and_buttons_under_both(self):
         self.assertIn(
-            'grid-template-areas: "eyebrow eyebrow" "title title" "lead lead" "proof tour" "proof actions" "proof hint"',
+            'grid-template-areas: "eyebrow eyebrow" "title title" "lead lead" "proof tour" "actions actions" "hint hint"',
             PHONE_CSS,
         )
         self.assertIn(".career-hero-content { display: contents; }", PHONE_CSS)
@@ -53,6 +55,35 @@ class PhoneHeroTests(unittest.TestCase):
         self.assertIn(".career-hero-grid > .career-tour { grid-area: tour;", PHONE_CSS)
         # The column grows to its longest word, so the Malay labels fit.
         self.assertIn("grid-template-columns: minmax(66px, min-content) minmax(0, 1fr)", PHONE_CSS)
+
+    def test_sign_in_note_shows_on_phones_only_for_errors(self):
+        self.assertIn(".career-hero-content > .career-upload-hint:not(.text-error) { display: none; }", PHONE_CSS)
+        self.assertIn('uploadHint.className = isError ? "career-upload-hint text-error" : "career-upload-hint";', HOME)
+
+    def test_phones_show_short_labels_and_keep_the_full_ones_for_screen_readers(self):
+        for full, short, malay in (
+            ("Role-based matching", "Role match", "Padanan peranan"),
+            ("ATS format feedback", "ATS format", "Format ATS"),
+            ("Practical improvement tips", "Practical tips", "Tip praktikal"),
+        ):
+            with self.subTest(short=short):
+                self.assertIn(
+                    f'<span class="career-proof-label">{full}</span><span class="career-proof-short" aria-hidden="true">{short}</span>',
+                    HOME,
+                )
+                self.assertIn(f'"{short}": "{malay}"', COMMON)
+        self.assertIn(".career-proof-short { display: none; }", HOME_LIGHT_CSS)
+        self.assertIn(".career-proof-short { display: block; }", PHONE_CSS)
+        self.assertIn(".career-proof-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);", PHONE_CSS)
+
+    def test_check_column_is_animated_except_for_reduced_motion(self):
+        self.assertIn("@keyframes careerRailTick", HOME_LIGHT_CSS)
+        self.assertIn("@keyframes careerRailRun", HOME_LIGHT_CSS)
+        self.assertIn("animation: careerRailRun 4.8s ease-in-out infinite;", PHONE_CSS)
+        self.assertIn("animation: careerRailTick 4.8s ease-out infinite;", PHONE_CSS)
+        self.assertIn(".career-proof-list li:nth-child(3) .career-proof-check::after { animation-delay: 3.2s; }", PHONE_CSS)
+        reduced = "\n".join(media_blocks(HOME_LIGHT_CSS, "(prefers-reduced-motion: reduce)"))
+        self.assertIn(".career-proof-check::after, .career-proof-list li::after { animation: none !important; }", reduced)
 
     def test_tour_button_and_sample_line_are_not_repeated_on_phones(self):
         self.assertIn(".career-tour-cta, .career-visual-disclaimer { display: none; }", PHONE_CSS)
@@ -62,6 +93,8 @@ class PhoneHeroTests(unittest.TestCase):
 
     def test_narrow_phones_fit_the_tour_controls(self):
         self.assertIn(".career-tour-nav { width: 38px; min-width: 38px; padding: 0; font-size: 0; }", NARROW_CSS)
+        # Play/Pause is a round icon there; its words stay for screen readers.
+        self.assertIn(".career-tour-play [data-tour-play-label] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);", NARROW_CSS)
         self.assertIn('id="careerTourBack" type="button" aria-label="Previous step"', HOME)
         self.assertIn('id="careerTourNext" type="button" aria-label="Next step"', HOME)
         very_narrow = "\n".join(media_blocks(HOME_LIGHT_CSS, "(max-width: 359px)"))
