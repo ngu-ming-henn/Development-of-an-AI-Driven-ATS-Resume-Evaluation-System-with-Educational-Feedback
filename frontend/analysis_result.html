@@ -414,7 +414,7 @@
         .report-export-card h3 { color: #fff; }
         .report-export-card .report-eyebrow { color: #acd8e5; }
         .report-export-card p:not(.report-eyebrow) { color: #d8eaf0; }
-        .report-export-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .75rem; margin-top: 1.75rem; }
+        .report-export-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .75rem; }
         .report-action { display: inline-flex; align-items: center; justify-content: center; min-height: 3rem; padding: .75rem 1rem; border: 1px solid transparent; border-radius: 11px; font-family: Inter,sans-serif; font-size: .88rem; line-height: 1.25; font-weight: 750; text-align: center; cursor: pointer; transition: transform .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease; }
         .report-action:hover:not(:disabled) { transform: translateY(-2px); }
         .report-action:active:not(:disabled) { transform: translateY(0); }
@@ -1316,7 +1316,6 @@ Top role matches will appear after analysis.
 <div class="max-w-3xl">
 <p class="text-xs uppercase tracking-widest font-bold text-secondary mb-2">Personal improvement plan</p>
 <h2 class="text-2xl sm:text-3xl font-extrabold text-primary tracking-tight">Priority Improvement Plan</h2>
-<p class="text-sm sm:text-base text-on-surface-variant mt-3 leading-relaxed" id="recommendationPlanSummary">Run an analysis to see the recommended next actions for the selected role.</p>
 </div>
 <div class="report-plan-tools"><span class="px-3 py-1 rounded-full bg-surface-container-high text-primary text-xs font-bold" id="recommendationPlanBadge">Waiting for analysis</span><button class="report-collapse-toggle" type="button" data-collapse-toggle="plan" data-collapse-mode="items" data-collapse-default="always" aria-controls="priorityActionList" aria-expanded="true" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span data-collapse-label>Minimize</span></button></div>
 </div>
@@ -1386,7 +1385,6 @@ Recommendation actions will appear after analysis.
 <div class="report-workspace-intro">
 <p class="report-eyebrow">Put your feedback to work</p>
 <h2 class="report-section-title">Your files and next steps</h2>
-<p>Check the file used for this analysis, build an updated draft, or save the full feedback report.</p>
 </div>
 <div class="submission-card">
 <div class="submission-card-header">
@@ -1440,7 +1438,6 @@ Generate Optimized Resume
 <div>
 <p class="report-eyebrow">Keep a copy</p>
 <h3>Review or save your feedback</h3>
-<p class="text-sm leading-relaxed">Preview the complete report here, or save a PDF with your ATS checks, matched evidence, and improvement plan.</p>
 </div>
 <div class="report-export-actions">
 <button class="report-action report-action-light" id="exportResumeBtn" type="button">
@@ -2792,6 +2789,15 @@ Download PDF
         }
     }
 
+    // For a line that only matters in some results: empty text hides the line.
+    function setOptionalText(id, value) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = value || "";
+            element.hidden = !value;
+        }
+    }
+
     function getAtsReadinessCopy(score, resumeQuality, scoreBreakdown) {
         const safeResumeQuality = resumeQuality || {};
         const safeBreakdown = scoreBreakdown || {};
@@ -3136,7 +3142,6 @@ Download PDF
         const actionList = document.getElementById("priorityActionList");
         const safeModule = module && typeof module === "object" ? module : {};
         if (context.empty) {
-            setText("recommendationPlanSummary", "Run an analysis to see the recommended next actions for the selected role.");
             setText("recommendationPlanBadge", "Waiting for analysis");
             renderKeywordPills("resumeStrategyKeywordList", [], "Keyword targets pending.", "bg-error-container text-on-error-container");
             renderKeywordPills("resumeStrategyEvidenceList", [], "Matched evidence pending.", "bg-secondary-container/20 text-on-secondary-container");
@@ -3156,14 +3161,8 @@ Download PDF
         const actions = Array.isArray(safeModule.priority_actions) && safeModule.priority_actions.length
             ? safeModule.priority_actions.filter(Boolean).slice(0, 5)
             : fallbackActions;
-        const recommendedRole = safeModule.recommended_role || strategy.target_role || context.recommendedRole || "the recommended role";
-        const summary = safeModule.summary || (
-            actions.length
-                ? "Recommended role: " + recommendedRole + ". Priority: " + (actions[0].title || "review the resume evidence") + "."
-                : "Run an analysis to generate role recommendation actions."
-        );
-
-        setText("recommendationPlanSummary", summary);
+        // No summary line here: the role is in Role Fit, the priority is the first
+        // row below, and the keywords are in the strategy card.
         setText("recommendationPlanBadge", safeModule.status === "ready" ? "Ready for user action" : "Generated from analysis");
 
         renderKeywordPills(
@@ -3671,20 +3670,17 @@ Download PDF
             return buildSampleResumePreview(preview.sampleDocuments);
         }
         if (!preview || !preview.dataUrl) {
+            // Without the original file, show the saved text only (no note about the
+            // missing file); with no text either, leave the preview out.
             const text = String(extractedText || "").trim();
+            if (!text) return '';
             const label = isExcerpt ? "Extracted resume excerpt" : "Extracted resume text";
-            const description = text
-                ? (isExcerpt
-                    ? "The original PDF or image is unavailable here. This is the excerpt saved with the report; upload the file again to see its pages."
-                    : "The original PDF or image is unavailable here. This text was extracted during analysis and may differ from the page layout.")
-                : "The original PDF or image is unavailable for this report. Upload the file again to see its pages.";
             return (
                 '<div class="rounded-xl border border-outline-variant/70 bg-surface-container-low p-4">' +
                     '<p class="text-xs uppercase tracking-widest text-secondary font-bold mb-3">Resume preview</p>' +
-                    '<p class="mb-3 text-xs leading-relaxed text-on-surface-variant">' + escapeHtml(description) + '</p>' +
-                    (text ? '<div class="max-h-[34rem] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-outline-variant/60 bg-white p-5 text-sm leading-relaxed text-on-surface">' +
+                    '<div class="max-h-[34rem] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-outline-variant/60 bg-white p-5 text-sm leading-relaxed text-on-surface">' +
                         '<strong class="mb-3 block text-xs uppercase tracking-widest text-secondary">' + label + '</strong>' + escapeHtml(text) +
-                    '</div>' : '') +
+                    '</div>' +
                 '</div>'
             );
         }
@@ -5112,28 +5108,32 @@ Download PDF
                 ? Math.round(guidanceContext.selectedMatchScore) + "/100"
                 : "below the review threshold";
             setText("roleFitHeadline", "Review Required: Not a Match for " + (guidanceContext.roleName || selectedRole || "Selected Job"));
-            setText("roleRecommendationSummary", "Selected-role evidence is " + selectedScoreText + ". Treat this result as NOT MATCH. The resume builder will show a separate fictional example for the selected field instead of inventing experience.");
+            setOptionalText("roleRecommendationSummary", "Selected-role evidence is " + selectedScoreText + ". Treat this result as NOT MATCH. The resume builder will show a separate fictional example for the selected field instead of inventing experience.");
             setText("roleDecisionBadge", "REVIEW REQUIRED · NOT MATCH");
             setText("topRoleMatchesTitle", "Top 3 Resume-Matched Roles");
             setText("topRoleMatchesBadge", "Evidence comparisons");
         } else if (guidanceContext.mode === "autoNoSuitableRole") {
             setText("roleFitHeadline", "No Suitable CS Role Confirmed");
-            setText("roleRecommendationSummary", (roleReason || "The available evidence is below the safe recommendation threshold.") + " " + (closestRole ? closestRole + " is only the closest evidence comparison." : "Human review is required."));
+            setOptionalText("roleRecommendationSummary", (roleReason || "The available evidence is below the safe recommendation threshold.") + " " + (closestRole ? closestRole + " is only the closest evidence comparison." : "Human review is required."));
             setText("roleDecisionBadge", "REVIEW REQUIRED");
             setText("topRoleMatchesTitle", "Top 3 Closest Evidence Comparisons");
             setText("topRoleMatchesBadge", "Not recommendations");
         } else if (guidanceContext.mode === "autoDetectedRole") {
             setText("roleFitHeadline", "Top Detected Role: " + (guidanceContext.roleName || recommendedRole));
-            setText("roleRecommendationSummary", "No job was selected, so examples and notes use the Top 1 detected role from the resume.");
+            setOptionalText("roleRecommendationSummary", "No job was selected, so examples and notes use the Top 1 detected role from the resume.");
             setText("roleDecisionBadge", "Auto-detected role");
             setText("topRoleMatchesTitle", "Top 1 Detected Role");
             setText("topRoleMatchesBadge", "Auto preview");
         } else {
             setText("roleFitHeadline", roleIsDifferent && selectedRole ? "Recommended: " + recommendedRole + " over " + selectedRole : "Recommended: " + recommendedRole);
-            setText(
+            // A confirmed role needs no extra line: the headline and the badge say it.
+            // Only a different recommendation keeps its reason.
+            setOptionalText(
                 "roleRecommendationSummary",
-                (roleReason || "The selected role and recommended database role are aligned for this resume.") +
-                    (roleIsDifferent ? " The role comparison only chooses the closest database role; the final readiness score also includes resume evidence and ATS format quality." : "")
+                roleIsDifferent
+                    ? (roleReason || "The resume evidence matches another database role more strongly.") +
+                        " The role comparison only chooses the closest database role; the final readiness score also includes resume evidence and ATS format quality."
+                    : ""
             );
             setText(
                 "roleDecisionBadge",
@@ -5162,19 +5162,21 @@ Download PDF
                 : "Used for the final readiness score."
         );
         if (humanReviewRequired) {
-            setText("selectedRoleScoreDisplay", selectedRole ? "Selected role requires review and is recorded as NOT MATCH." : "No job was selected; no suitable role was confirmed.");
+            setOptionalText("selectedRoleScoreDisplay", selectedRole ? "Selected role requires review and is recorded as NOT MATCH." : "No job was selected; no suitable role was confirmed.");
             setText("recommendedRoleReasonDisplay", "Closest evidence only: " + (closestRole || "not available") + ". This is not a confirmed recommendation.");
             setText("recommendedRoleScoreDisplay", "Human review required before choosing a target role.");
         } else if (roleIsDifferent) {
-            setText("selectedRoleScoreDisplay", "You selected this role. The Top 3 list below shows why another database role matched stronger.");
+            setOptionalText("selectedRoleScoreDisplay", "");
             setText("recommendedRoleReasonDisplay", "Used for the final ATS score because the resume evidence matches this database role more strongly.");
             setText("recommendedRoleScoreDisplay", "Final comparison role used in this result.");
         } else {
-            setText("selectedRoleScoreDisplay", selectedDatabaseRole ? "Selected role confirmed as the database match. The Top 3 list below shows nearby alternatives." : "The Top 3 list below shows the closest database roles.");
+            setOptionalText("selectedRoleScoreDisplay", "");
             setText("recommendedRoleReasonDisplay", "Used for the final ATS score because it matches the selected role and resume evidence.");
             setText("recommendedRoleScoreDisplay", "Final comparison role used in this result.");
         }
-        setText(
+        // The usual case needs no line here (the card title and the role above say
+        // it); a fictional-example warning stays.
+        setOptionalText(
             "futureAtsResumeText",
             exampleDecision.reason === "selected_role_review_required"
                 ? "Your Top 3 matches remain evidence comparisons. Because evidence for " +
@@ -5183,7 +5185,7 @@ Download PDF
                     ", the builder will show a clearly labelled fictional example for that target field instead of inventing experience."
                 : sampleResumeOnly
                     ? "No suitable CS role was confirmed. The builder will show a clearly labelled " + (fallbackSampleRole || exampleDecision.targetRole || "technology") + " fallback learning example; it is not a job recommendation."
-                    : "Generate an ATS resume draft for " + recommendedRole + " using the missing keywords, score evidence, and feedback from this analysis."
+                    : ""
         );
         const generatorReadyMessage = sampleResumeOnly
             ? "Ready to show a fictional " + (exampleDecision.targetRole || "target-role") + " example. Your original analysis and Top 3 matches remain unchanged."
