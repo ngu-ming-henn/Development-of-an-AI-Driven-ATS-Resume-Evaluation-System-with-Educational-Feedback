@@ -13183,6 +13183,21 @@ def account_workspace_stylesheet():
     return serve_frontend_page("account_workspace.css")
 
 
+# Browser tab and home-screen icons (the site's blue "U" mark). They rarely
+# change, so browsers may keep them for a day.
+SITE_ICON_FILES = ("favicon.svg", "favicon.ico", "apple-touch-icon.png")
+
+
+@app.get("/favicon.svg")
+@app.get("/favicon.ico")
+@app.get("/apple-touch-icon.png")
+def site_icon():
+    file_name = request.path.lstrip("/")
+    if file_name not in SITE_ICON_FILES:
+        return jsonify({"detail": "Not found"}), 404
+    return send_from_directory(FRONTEND_DIR, file_name, max_age=86400)
+
+
 @app.get("/api")
 def api_index():
     return jsonify(

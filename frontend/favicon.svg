@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>UTS CS Career Navigator</title>
+  <!-- The site's brand mark: the blue tile with the white U and two light lines. -->
+  <rect width="64" height="64" rx="18" fill="#087fec"/>
+  <g transform="translate(10.5 10.5) scale(1.34)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 7v10c0 6 3.4 9 9 9s9-3 9-9V7" stroke="#fff" stroke-width="3"/>
+    <path d="M12 11h8M12 15h8" stroke="#B7ECF2" stroke-width="2.2"/>
+  </g>
+</svg>
