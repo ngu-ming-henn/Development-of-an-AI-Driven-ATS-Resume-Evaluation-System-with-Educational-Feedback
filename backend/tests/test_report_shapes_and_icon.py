@@ -96,9 +96,20 @@ class ReportShapeTests(unittest.TestCase):
         self.assertIn('const openAttribute = listOpen && index === 0 ? " open" : "";', roles)
         self.assertIn(".role-match-grid { grid-template-columns: minmax(0, 1fr); gap: 0;", REPORT)
 
-    def test_sample_ribbon_and_role_route(self):
-        self.assertIn(".report-sample-banner { display: flex;", REPORT)
-        self.assertIn("repeating-linear-gradient(135deg, #e6f2ff 0 12px, #f6faff 12px 24px)", REPORT)
+    def test_report_top_has_no_cards_and_a_full_width_band(self):
+        # Sample notice, score, progress and next edits sit in one open area.
+        top = REPORT[REPORT.index('<div class="report-top">'):REPORT.index('<nav class="report-tabs"')]
+        for block in ('id="reportSampleBanner"', 'class="report-hero"', 'id="reportProgress"', 'class="report-quick"'):
+            self.assertIn(block, top)
+        self.assertIn("padding: 0; border: 0; border-radius: 0; background: none; color: #16466f;", REPORT)
+        self.assertIn(".report-progress, .report-quick { margin: 0; padding: clamp(1.4rem,3vw,2rem) 0; border: 0; border-top: 1px solid #d3e3f2;", REPORT)
+        self.assertIn("overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: none; }", REPORT)
+        # The band is painted on the page, so it reaches both screen edges
+        # while the report body still clips sideways slide-ins.
+        self.assertIn("body { background-image: radial-gradient(440px circle at 6% 170px,", REPORT)
+        self.assertIn("        .report-main { overflow-x: clip; }", REPORT)
+
+    def test_role_route(self):
         self.assertIn('#selectedDatabaseRoleDisplay::before { content: "\\2192";', REPORT)
 
 
