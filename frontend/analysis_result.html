@@ -913,35 +913,50 @@
             .progress-track-gain, .progress-track-mark.is-now, .role-match-bar > span, .report-top::after { animation: none; }
         }
         /* The top of the report (sample notice, score, progress, next edits) has no
-           cards: it sits on a soft band painted on the page itself, so it reaches
-           both edges of the screen and fades out below the next edits; thin lines
-           separate the blocks. */
-        .report-top { position: relative; isolation: isolate; padding-bottom: .25rem; }
-        body { background-image: radial-gradient(440px circle at 6% 170px, rgba(8,127,236,.09), rgba(8,127,236,0)), radial-gradient(400px circle at 95% 620px, rgba(47,168,116,.07), rgba(47,168,116,0)), linear-gradient(180deg, #eaf4ff 0, #f4f8fd 1100px, rgba(244,248,253,0) 1700px), linear-gradient(0deg, #e1eefc 0, #eef5fd 45%, rgba(238,245,253,0) 100%); background-size: auto, auto, 100% 1700px, 100% 1200px; background-position: 0 0, 0 0, 0 0, 0 100%; background-repeat: no-repeat; }
+           cards. Like the home page, blocks are told apart by full-width
+           background bands instead of lines (bands are set further down). */
+        .report-top { position: relative; isolation: isolate; padding-bottom: 0; }
         .report-hero { align-items: start; min-height: 0; padding: clamp(1.25rem,3vw,2.25rem) 0 clamp(1.5rem,3vw,2.5rem); overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: none; }
         /* The hero's glow and ring move onto the band, inside the screen edges. */
         .report-hero::before, .report-hero::after { display: none; }
         .report-hero .report-score-card { min-height: 0; padding-top: 0; padding-bottom: 0; }
         .report-hero > div:first-child { padding-top: .35rem; }
         .report-top::after { content: ""; position: absolute; z-index: -1; top: -9rem; right: 0; width: 27rem; height: 27rem; border: 1px solid rgba(8,127,236,.16); border-radius: 50%; background: radial-gradient(circle, rgba(8,127,236,.07), rgba(8,127,236,.02) 45%, rgba(8,127,236,0) 72%); pointer-events: none; animation: reportHeroRingDrift 14s ease-in-out infinite alternate; }
-        .report-progress, .report-quick { margin: 0; padding: clamp(1.4rem,3vw,2rem) 0; border: 0; border-top: 1px solid #d3e3f2; border-radius: 0; background: none; box-shadow: none; }
+        .report-progress, .report-quick { margin: 0; padding: clamp(1.75rem,3.5vw,2.5rem) 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
         .report-tabs { margin-top: 1.25rem; margin-bottom: 2.5rem; }
         @media (max-width: 700px) {
             .report-top::after { top: -6rem; width: 16rem; height: 16rem; }
             .report-hero { padding: 1rem 0 1.5rem; }
-            .report-progress, .report-quick { padding: 1.4rem 0; }
+            .report-progress, .report-quick { padding: 1.75rem 0; }
             .report-tabs { margin-bottom: 1.75rem; }
         }
-        /* Sections are split by lines that run across the whole screen (the top
-           area, then each section below the tabs). Sections fade up into place
-           without sliding sideways, so nothing ever widens the page. */
+        /* Blocks are told apart by background bands that run across the whole
+           screen, as on the home page (no lines): light blue behind the score,
+           then white and pale blue in turn, and light blue again above the
+           footer. The score card has no side line either. */
         .report-reveal[data-reveal-side="left"], .report-reveal[data-reveal-side="right"] { --reveal-x: 0px; }
-        .report-shell .report-section { position: relative; margin: 0; padding: clamp(2rem,4vw,3rem) 0; }
+        /* The page itself is white (not the grey page colour), so white and pale
+           blue bands take turns, as on the home page. */
+        body.bg-background { background-color: #fff; }
+        .report-hero .report-score-card { border-left: 0; border-top: 0; }
+        .report-shell .report-section { position: relative; isolation: isolate; margin: 0; padding: clamp(2.5rem,4.5vw,3.5rem) 0; }
         .report-shell #overview { padding-top: 0; }
-        .report-quick { position: relative; }
-        .report-shell .report-section:not(#overview)::before, .report-quick::after { content: ""; position: absolute; left: calc(50% - 50vw); right: calc(50% - 50vw); height: 1px; background: linear-gradient(90deg, rgba(201,220,238,0), #c9dcee 12%, #c9dcee 88%, rgba(201,220,238,0)); pointer-events: none; }
-        .report-shell .report-section:not(#overview)::before { top: 0; }
-        .report-quick::after { bottom: 0; }
+        .report-progress, .report-quick { position: relative; isolation: isolate; }
+        .report-top::before, .report-progress::before, .report-quick::before, #job-match::before, #ats-checks::before, #resume-draft::before { content: ""; position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(50% - 50vw); right: calc(50% - 50vw); pointer-events: none; }
+        /* The score band starts right under the menu bar (the page's 48px top gap). */
+        .report-top::before { z-index: -2; top: -48px; background: radial-gradient(440px circle at 6% 170px, rgba(8,127,236,.1), rgba(8,127,236,0)), radial-gradient(420px circle at 94% 75%, rgba(47,168,116,.07), rgba(47,168,116,0)), linear-gradient(180deg, #e4f0fe 0, #edf5ff 100%); }
+        .report-progress::before { background: #fff; }
+        .report-quick::before, #job-match::before, #ats-checks::before { background: #f3f8fe; }
+        /* First check (no progress block): the next edits sit on white instead. */
+        .report-progress[hidden] + .report-quick::before { background: #fff; }
+        /* The last section turns light blue again before the footer (it also
+           covers the page's bottom gap). */
+        #resume-draft::before { bottom: -5rem; background: linear-gradient(180deg, #fff 0, #fff 30%, #e6f1fe 100%); }
+        /* Sections fade up without moving their band: the contents animate, the
+           section itself stays put. */
+        .report-section.report-reveal { opacity: 1; filter: none; transform: none; transition: none; }
+        .report-section.report-reveal > * { opacity: 0; filter: blur(8px); transform: translate3d(0,22px,0); transition: opacity .75s ease, filter .75s ease, transform .75s cubic-bezier(.2,.8,.2,1); }
+        .report-section.report-reveal.is-visible > * { opacity: 1; filter: none; transform: none; }
         .report-shell .report-section-title { margin-bottom: 1.4rem; }
         /* Your files and next steps: one panel split by lines - the file on top,
            the draft builder and the copy (dark) side by side underneath. */
@@ -955,10 +970,9 @@
             .report-workspace-panel .report-build-card { border-right: 0; border-bottom: 1px solid var(--studio-border); }
         }
         @media print {
-            .report-top::after { display: none; }
-            body { background-image: none; }
+            .report-top::after, .report-top::before, .report-progress::before, .report-quick::before, #job-match::before, #ats-checks::before, #resume-draft::before { display: none; }
             .report-hero::before, .report-hero::after { animation: none !important; }
-            .report-reveal { opacity: 1 !important; filter: none !important; transform: none !important; }
+            .report-reveal, .report-reveal > * { opacity: 1 !important; filter: none !important; transform: none !important; }
             .report-collapse-toggle, .report-score-hint { display: none !important; }
             .flow-list > *, .tick-flow > li > .tick-mark { opacity: 1 !important; transform: none !important; animation: none !important; }
             .ats-meter-track > span, .score-part-track > span { transform: none !important; animation: none !important; }
@@ -1265,11 +1279,16 @@ html[data-theme="dark"] .report-shell #selectedRoleCard{border-color:currentcolo
 html[data-theme="dark"] #selectedChoiceDisplay{background-image:none;background-color:#191e24}
 html[data-theme="dark"] #selectedDatabaseRoleDisplay{color:var(--studio-ink)}
 html[data-theme="dark"] #selectedDatabaseRoleDisplay::before{color:var(--studio-teal-text, var(--studio-teal))}
-html[data-theme="dark"] body{background-image:radial-gradient(440px circle at 6% 170px, rgba(8,127,236,.09), rgba(8,127,236,0)), radial-gradient(400px circle at 95% 620px, rgba(47,168,116,.07), rgba(47,168,116,0)), linear-gradient(180deg, #131e2b 0, #161b21 1100px, rgba(244,248,253,0) 1700px), linear-gradient(0deg, #16222f 0, #151d26 45%, rgba(238,245,253,0) 100%)}
 html[data-theme="dark"] .report-hero{border-color:currentcolor;background-image:none;background-color:transparent;box-shadow:none}
 html[data-theme="dark"] .report-top::after{border-color:rgba(8,127,236,.16);background-image:radial-gradient(circle, rgba(8,127,236,.07), rgba(8,127,236,.02) 45%, rgba(8,127,236,0) 72%);background-color:transparent}
-html[data-theme="dark"] .report-progress,html[data-theme="dark"] .report-quick{border-color:currentcolor;border-top-color:#2d3e4e;background-image:none;background-color:transparent;box-shadow:none}
-html[data-theme="dark"] .report-shell .report-section:not(#overview)::before,html[data-theme="dark"] .report-quick::after{background-image:linear-gradient(90deg, rgba(201,220,238,0), #192d3f 12%, #192d3f 88%, rgba(201,220,238,0));background-color:transparent}
+html[data-theme="dark"] .report-progress,html[data-theme="dark"] .report-quick{border-color:currentcolor;background-image:none;background-color:transparent;box-shadow:none}
+html[data-theme="dark"] body.bg-background{background-color:#1f252c}
+html[data-theme="dark"] .report-hero .report-score-card{border-left-color:currentcolor;border-top-color:currentcolor}
+html[data-theme="dark"] .report-top::before{background-image:radial-gradient(440px circle at 6% 170px, rgba(8,127,236,.1), rgba(8,127,236,0)), radial-gradient(420px circle at 94% 75%, rgba(47,168,116,.07), rgba(47,168,116,0)), linear-gradient(180deg, #15212e 0, #141d28 100%);background-color:transparent}
+html[data-theme="dark"] .report-progress::before{background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .report-quick::before,html[data-theme="dark"] #job-match::before,html[data-theme="dark"] #ats-checks::before{background-image:none;background-color:#161b21}
+html[data-theme="dark"] .report-progress[hidden] + .report-quick::before{background-image:none;background-color:#1f252c}
+html[data-theme="dark"] #resume-draft::before{background-image:linear-gradient(180deg, #1f252c 0, #1f252c 30%, #15202d 100%);background-color:transparent}
 html[data-theme="dark"] .report-workspace-panel{border-color:var(--studio-border);background-image:none;background-color:#1f252c;box-shadow:0 12px 36px rgba(22,35,56,.05)}
 html[data-theme="dark"] .report-workspace-panel .submission-card{border-color:currentcolor;border-bottom-color:var(--studio-border);box-shadow:none}
 html[data-theme="dark"] .report-workspace-panel .report-work-card{border-color:currentcolor;box-shadow:none}
