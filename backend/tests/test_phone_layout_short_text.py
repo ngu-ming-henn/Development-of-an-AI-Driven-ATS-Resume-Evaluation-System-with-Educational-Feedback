@@ -79,10 +79,10 @@ class PhoneHeroTests(unittest.TestCase):
     def test_check_column_is_animated_except_for_reduced_motion(self):
         self.assertIn("@keyframes careerRailTick", HOME_LIGHT_CSS)
         self.assertIn("@keyframes careerRailRun", HOME_LIGHT_CSS)
-        self.assertIn("animation: careerRailRun 4.8s ease-in-out infinite;", PHONE_CSS)
+        self.assertIn("animation: careerRailRun 12s linear infinite;", PHONE_CSS)
         # The ticks light up in turn on every screen size.
-        self.assertIn("animation: careerRailTick 4.8s ease-out infinite;", HOME_LIGHT_CSS)
-        self.assertIn(".career-proof-list li:nth-child(3) .career-proof-check::after { animation-delay: 3.2s; }", HOME_LIGHT_CSS)
+        self.assertIn("animation: careerRailTick 12s linear infinite;", HOME_LIGHT_CSS)
+        self.assertIn(".career-proof-list li:nth-child(3) .career-proof-check::after { animation-delay: 8s; }", HOME_LIGHT_CSS)
         reduced = "\n".join(media_blocks(HOME_LIGHT_CSS, "(prefers-reduced-motion: reduce)"))
         self.assertIn(".career-proof-check::after, .career-proof-list li::after { animation: none !important; }", reduced)
 
@@ -92,8 +92,18 @@ class WideScreenTests(unittest.TestCase):
         wide = "\n".join(media_blocks(HOME_LIGHT_CSS, "(min-width: 701px)"))
         self.assertIn(".career-proof-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));", wide)
         self.assertIn("repeating-linear-gradient(to right, #c3daef 0 5px", wide)
-        self.assertIn("animation: careerRailRunX 4.8s ease-in-out infinite;", wide)
+        self.assertIn("animation: careerRailRunX 12s linear infinite;", wide)
         self.assertIn("@keyframes careerRailRunX", HOME_LIGHT_CSS)
+
+    def test_check_row_keeps_the_tour_beat(self):
+        # 3 ticks x 4 s = one 12 s loop; the light crosses a line in 4 s (a third).
+        self.assertIn("const STEP_MS = 4000;", HOME)
+        self.assertIn("33.333%, 100% { background-position: 130% 50%, 0 50%; }", HOME_LIGHT_CSS)
+        self.assertIn(".career-proof-list li:nth-child(2)::after { animation-delay: 4s; }", HOME_LIGHT_CSS)
+        start = HOME.index("(function initCareerTour()")
+        tour = HOME[start:HOME.index("(function initFlowSection()", start)]
+        self.assertIn("const offset = (railStep % 3) * STEP_MS;", tour)
+        self.assertIn("syncCheckRow();", tour)
 
     def test_two_column_sections_zig_zag(self):
         two_columns = "\n".join(media_blocks(HOME_LIGHT_CSS, "(min-width: 1001px)"))
@@ -173,7 +183,7 @@ class TourAndStartTests(unittest.TestCase):
         tour = HOME[start:HOME.index("(function initFlowSection()", start)]
         # No stop on the last card: after step 5 goTo wraps round to step 1.
         self.assertNotIn("if (active === cards.length - 1) setPlaying(false);", tour)
-        self.assertIn('timer = window.setTimeout(() => goTo(active + 1, "next"), STEP_MS);', tour)
+        self.assertIn('railStep += 1;\n        goTo(active + 1, "next");\n      }, STEP_MS);', tour)
         self.assertIn("const next = (index + cards.length) % cards.length;", tour)
         # The step count is not announced while it plays by itself.
         self.assertIn('if (count) count.setAttribute("aria-live", playing ? "off" : "polite");', tour)
