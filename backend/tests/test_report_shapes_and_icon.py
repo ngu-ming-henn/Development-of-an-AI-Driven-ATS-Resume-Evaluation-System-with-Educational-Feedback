@@ -104,10 +104,29 @@ class ReportShapeTests(unittest.TestCase):
         self.assertIn("padding: 0; border: 0; border-radius: 0; background: none; color: #16466f;", REPORT)
         self.assertIn(".report-progress, .report-quick { margin: 0; padding: clamp(1.4rem,3vw,2rem) 0; border: 0; border-top: 1px solid #d3e3f2;", REPORT)
         self.assertIn("overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: none; }", REPORT)
-        # The band is painted on the page, so it reaches both screen edges
-        # while the report body still clips sideways slide-ins.
+        # The band is painted on the page (blue at the top, white in the middle,
+        # blue again above the footer), so it reaches both screen edges.
         self.assertIn("body { background-image: radial-gradient(440px circle at 6% 170px,", REPORT)
-        self.assertIn("        .report-main { overflow-x: clip; }", REPORT)
+        self.assertIn("linear-gradient(0deg, #e1eefc 0, #eef5fd 45%, rgba(238,245,253,0) 100%); background-size: auto, auto, 100% 1700px, 100% 1200px; background-position: 0 0, 0 0, 0 0, 0 100%;", REPORT)
+
+    def test_sections_are_split_by_full_width_lines(self):
+        self.assertIn(".report-shell .report-section:not(#overview)::before, .report-quick::after { content: \"\"; position: absolute; left: calc(50% - 50vw); right: calc(50% - 50vw); height: 1px;", REPORT)
+        # Sections fade up without sliding sideways, so nothing widens the page
+        # and the report body no longer needs to clip sideways.
+        self.assertIn('.report-reveal[data-reveal-side="left"], .report-reveal[data-reveal-side="right"] { --reveal-x: 0px; }', REPORT)
+        self.assertNotIn("        .report-main { overflow-x: clip; }", REPORT)
+        self.assertIn("html { scroll-behavior: smooth; overflow-x: clip; }", REPORT)
+
+    def test_tracks_are_one_smooth_bar(self):
+        self.assertIn("border-radius: 999px; background: #e2ecf6; }", REPORT)
+        self.assertNotIn("repeating-linear-gradient(90deg, #e2ecf6 0 calc(10% - 2px)", REPORT)
+
+    def test_files_and_next_steps_is_one_split_panel(self):
+        panel = REPORT[REPORT.index('<div class="report-workspace-panel">'):REPORT.index('id="generatedResumePanel"')]
+        self.assertIn('<div class="submission-card">', panel)
+        self.assertIn('<div class="report-workspace-grid">', panel)
+        self.assertIn(".report-workspace-panel .report-build-card { border-right: 1px solid var(--studio-border); }", REPORT)
+        self.assertIn(".report-workspace-panel .report-work-card { border: 0; border-radius: 0; box-shadow: none; }", REPORT)
 
     def test_role_route(self):
         self.assertIn('#selectedDatabaseRoleDisplay::before { content: "\\2192";', REPORT)
