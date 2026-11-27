@@ -2,6 +2,9 @@
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>UTS CS Career Navigator - Analysis Report</title>
+<link rel="icon" href="favicon.ico" sizes="32x32">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="tailwind.css">
 <link rel="stylesheet" href="account_workspace.css">
@@ -829,6 +832,88 @@
             .report-score-meter > span, .report-score-hint svg, .quick-edit-chevron, .related-skill-chevron, .ats-issue-chevron, .ats-how-chevron, .report-summary-more > summary svg, .evidence-tile { transition: none; }
             .quick-edit-details[open] .quick-edit-body, .related-skill[open] .related-skill-ask, .ats-issue-details[open] .ats-issue-text, .ats-how[open] p, .report-summary-more[open] > :not(summary) { animation: none; }
         }
+        /* Fewer boxes: each block gets a shape that fits what it shows instead of a
+           card inside a card - a striped sample ribbon, a score track and two
+           plain lists for progress, numbered timelines for the edits and the
+           plan, a ranked bar chart for the Top 3 roles and a one-line role route. */
+        .report-sample-banner { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .8rem; margin-bottom: 1.25rem; padding: .5rem 1rem .5rem .5rem; border: 0; border-radius: 999px; background: repeating-linear-gradient(135deg, #e6f2ff 0 12px, #f6faff 12px 24px); box-shadow: inset 0 0 0 1px #cfe3f7; color: #16466f; font-size: .86rem; line-height: 1.45; }
+        .report-sample-banner strong { flex: none; padding: .3rem .75rem; border-radius: 999px; background: #0b5cad; color: #fff; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; }
+        /* Progress: the old and new score on a 0-100 track, then what got better and what is left. */
+        .report-progress-score { display: grid; gap: .9rem; }
+        .progress-numbers { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem .9rem; }
+        .progress-track { position: relative; max-width: 34rem; height: .7rem; margin: .2rem .6rem .3rem; border-radius: 999px; background: repeating-linear-gradient(90deg, #e2ecf6 0 calc(10% - 2px), #f8fbfe calc(10% - 2px) 10%); }
+        .progress-track-gain { position: absolute; top: 0; bottom: 0; left: var(--gain-start); width: var(--gain-size); border-radius: 999px; background: #2fa874; transform-origin: left; animation: reportBarFill .9s .25s cubic-bezier(.22,1,.36,1) both; }
+        .progress-track-gain[data-trend="declined"] { background: #d9534f; transform-origin: right; }
+        .progress-track-gain[data-trend="unchanged"] { display: none; }
+        .progress-track-mark { position: absolute; top: 50%; width: 1.2rem; height: 1.2rem; border-radius: 50%; transform: translate(-50%, -50%); }
+        .progress-track-mark.is-before { left: var(--from); border: 2px solid #9fb3c8; background: #fff; }
+        .progress-track-mark.is-now { left: var(--to); border: 3px solid #fff; background: var(--studio-teal); box-shadow: 0 2px 10px rgba(8,127,236,.35); animation: progressMarkMove 1.1s .25s cubic-bezier(.22,1,.36,1) both; }
+        .progress-track-mark.is-now[data-trend="improved"] { background: #1f9d63; box-shadow: 0 2px 10px rgba(31,157,99,.35); }
+        .progress-track-mark.is-now[data-trend="declined"] { background: #c8423d; box-shadow: 0 2px 10px rgba(200,66,61,.3); }
+        @keyframes progressMarkMove { from { left: var(--from); } }
+        .progress-ledger { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.1rem 2.5rem; margin-top: 1.3rem; padding-top: 1.2rem; border-top: 1px dashed #cfe0ef; }
+        .progress-ledger-title { display: flex; align-items: center; gap: .5rem; margin: 0 0 .7rem; color: var(--studio-ink); font-size: .95rem; font-weight: 800; }
+        .progress-ledger-title::before { content: ""; flex: none; width: .6rem; height: .6rem; border-radius: 50%; background: #2fa874; }
+        .progress-ledger-title[data-tone="warn"]::before { background: #e39a3b; }
+        .progress-ledger ul { display: grid; gap: .85rem; margin: 0; padding: 0; list-style: none; }
+        .progress-ledger li { display: grid; grid-template-columns: 1.5rem minmax(0, 1fr); gap: .65rem; align-items: start; }
+        .progress-ledger-icon { display: grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: #dcf5ea; color: #0b6b43; font-size: .78rem; font-weight: 900; line-height: 1; }
+        .progress-ledger li[data-tone="warn"] .progress-ledger-icon { background: #fff1d6; color: #7a4b00; }
+        .progress-ledger li[data-tone="bad"] .progress-ledger-icon { background: #fde5e5; color: #a1262b; }
+        .progress-ledger li h3 { margin: .15rem 0 0; color: var(--studio-muted); font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+        .progress-ledger .progress-chips { margin-top: .4rem; }
+        .progress-ledger .progress-empty { margin-top: .2rem; }
+        /* Next edits and the improvement plan: numbers on a dashed line, no card per item. */
+        .report-quick-list, #priorityActionList.priority-action-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+        .report-quick-list article, .priority-action-grid > .priority-action { position: relative; overflow: visible; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+        .report-quick-list article:not(:last-child)::before, .priority-action-grid > .priority-action:not(:last-child)::before { content: ""; position: absolute; left: 1.2rem; top: 3.3rem; bottom: -.3rem; width: 2px; margin-left: -1px; background: repeating-linear-gradient(to bottom, #b9d6f2 0 5px, rgba(185,214,242,0) 5px 10px); }
+        .quick-edit-summary, .priority-action-summary { grid-template-columns: 2.4rem minmax(0, 1fr) auto; gap: 1rem; padding: .9rem .75rem .9rem 0; border-radius: 14px; }
+        .report-quick-list .quick-edit-number, .report-shell .priority-action-number { grid-column: 1; grid-row: 1; display: grid; place-items: center; width: 2.4rem; height: 2.4rem; padding: 0; border: 2px solid #9cc9f2; border-radius: 50%; background: #fff; color: var(--studio-teal-dark); font-family: Manrope, Inter, sans-serif; font-size: 1rem; font-weight: 800; letter-spacing: 0; }
+        .report-quick-list article:first-child .quick-edit-number, .report-shell .priority-action-grid > .priority-action:first-child .priority-action-number { border-color: var(--studio-teal); background: var(--studio-teal); color: #fff; box-shadow: 0 0 0 5px rgba(8,127,236,.14); }
+        .quick-edit-summary h3, .priority-action-title { grid-column: 2; grid-row: 1; }
+        .quick-edit-chevron, .priority-action-chevron { grid-column: 3; grid-row: 1; }
+        .quick-edit-summary h3 { margin: 0; font-size: 1.02rem; }
+        .quick-edit-body, .priority-action-body { padding: 0 .75rem 1.1rem calc(2.4rem + 1rem); }
+        @media (hover: hover) { .quick-edit-summary:hover h3, .priority-action-summary:hover .priority-action-title { color: var(--studio-teal-dark); } }
+        /* Top 3 roles: a ranked bar chart, one row per role; the role used for the score is marked. */
+        .role-match-grid { grid-template-columns: minmax(0, 1fr); gap: 0; border-top: 1px solid var(--studio-border); }
+        .role-match { position: relative; overflow: visible; border-bottom: 1px solid var(--studio-border); }
+        .role-match[data-final="true"] { background: linear-gradient(90deg, rgba(8,127,236,.08), rgba(8,127,236,0) 75%); }
+        .role-match[data-final="true"]::before { content: ""; position: absolute; left: 0; top: .75rem; bottom: .75rem; width: 3px; border-radius: 3px; background: var(--studio-teal); }
+        .role-match-summary { grid-template-columns: 2.2rem minmax(8rem, 15rem) minmax(0, 1fr) 5.2rem auto; gap: .8rem 1.1rem; padding: 1rem .75rem 1rem 1rem; }
+        .role-match-rank { display: grid; place-items: center; width: 2.2rem; height: 2.2rem; border-radius: 50%; background: #eef4fa; color: var(--studio-ink); font-family: Manrope, Inter, sans-serif; font-size: .95rem; font-weight: 800; }
+        .role-match[data-final="true"] .role-match-rank { background: var(--studio-teal); color: #fff; }
+        .role-match-bar { position: relative; height: .6rem; overflow: hidden; border-radius: 999px; background: repeating-linear-gradient(90deg, #e2ecf6 0 calc(10% - 2px), #f8fbfe calc(10% - 2px) 10%); }
+        .role-match-bar > span { position: absolute; top: 0; bottom: 0; left: 0; width: var(--role-score); border-radius: inherit; background: #9cc4ea; transform-origin: left; animation: reportBarFill .9s cubic-bezier(.22,1,.36,1) both; }
+        .role-match[data-final="true"] .role-match-bar > span { background: var(--studio-teal); }
+        .role-match-score { justify-self: end; font-family: Manrope, Inter, sans-serif; font-size: 1rem; }
+        .role-match-body { display: grid; gap: .8rem; padding: 0 1rem 1.15rem calc(1rem + 2.2rem + 1.1rem); }
+        .role-match-reason { margin: 0; }
+        .role-match-evidence { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem 1.5rem; }
+        .role-match-label { margin: 0 0 .45rem; color: var(--studio-muted); font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        /* The role you chose and the database role it maps to, on one line. */
+        .report-shell #selectedRoleCard { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; padding: 0; border: 0; background: none; }
+        #selectedRoleCard > p:first-child { flex-basis: 100%; margin: 0; }
+        #selectedChoiceDisplay { display: inline-flex; padding: .4rem .9rem; border-radius: 999px; background: #eef4fa; font-size: 1rem; line-height: 1.3; }
+        #selectedDatabaseRoleDisplay { display: inline-flex; align-items: center; gap: .65rem; margin: 0; color: var(--studio-ink); font-size: .95rem; font-weight: 700; }
+        #selectedDatabaseRoleDisplay::before { content: "\2192"; color: var(--studio-teal); font-size: 1.15rem; font-weight: 800; }
+        #selectedRoleScoreDisplay { flex-basis: 100%; margin: .15rem 0 0; }
+        @media (max-width: 700px) {
+            .report-sample-banner { border-radius: 16px; }
+            .progress-ledger { grid-template-columns: 1fr; }
+            .quick-edit-summary, .priority-action-summary { gap: .8rem; padding: .8rem .5rem .8rem 0; }
+            .role-match-summary { grid-template-columns: 2rem minmax(0, 1fr) auto auto; grid-template-areas: "rank name score chevron" ". bar bar bar"; gap: .55rem .75rem; padding: .9rem .5rem .9rem .75rem; }
+            .role-match-rank { grid-area: rank; width: 2rem; height: 2rem; }
+            .role-match-name { grid-area: name; }
+            .role-match-bar { grid-area: bar; }
+            .role-match-score { grid-area: score; }
+            .role-match-chevron { grid-area: chevron; }
+            .role-match-body { padding: 0 .75rem 1rem; }
+            .role-match-evidence { grid-template-columns: 1fr; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .progress-track-gain, .progress-track-mark.is-now, .role-match-bar > span { animation: none; }
+        }
         @media print {
             .report-hero::before, .report-hero::after { animation: none !important; }
             .report-reveal { opacity: 1 !important; filter: none !important; transform: none !important; }
@@ -1100,6 +1185,44 @@ html[data-theme="dark"] .evidence-tile:focus-visible{outline-color:rgba(8,127,23
 html[data-theme="dark"] .evidence-tile-detail{border-color:var(--studio-border);background-image:none;background-color:#14191f;color:var(--studio-muted)}
 html[data-theme="dark"] .evidence-tile-detail strong{color:var(--studio-ink)}
 }
+html[data-theme="dark"] .report-sample-banner{border-color:currentcolor;background-image:repeating-linear-gradient(135deg, #14202d 0 12px, #151a20 12px 24px);background-color:transparent;box-shadow:inset 0 0 0 1px #293f53;color:#94c6f6}
+html[data-theme="dark"] .report-sample-banner strong{background-image:none;background-color:#0b5cad;color:#fff}
+html[data-theme="dark"] .progress-track{background-image:repeating-linear-gradient(90deg, #1e2831 0 calc(10% - 2px), #14191f calc(10% - 2px) 10%);background-color:transparent}
+html[data-theme="dark"] .progress-track-gain{background-image:none;background-color:#1f4a35}
+html[data-theme="dark"] .progress-track-gain[data-trend="declined"]{background-image:none;background-color:#d9534f}
+html[data-theme="dark"] .progress-track-mark.is-before{border-color:#344b62;background-image:none;background-color:#1f252c}
+html[data-theme="dark"] .progress-track-mark.is-now{border-color:#2f363f;background-image:none;background-color:var(--studio-teal);box-shadow:0 2px 10px rgba(8,127,236,.35)}
+html[data-theme="dark"] .progress-track-mark.is-now[data-trend="improved"]{background-image:none;background-color:#1f9d63;box-shadow:0 2px 10px rgba(31,157,99,.35)}
+html[data-theme="dark"] .progress-track-mark.is-now[data-trend="declined"]{background-image:none;background-color:#c8423d;box-shadow:0 2px 10px rgba(200,66,61,.3)}
+html[data-theme="dark"] .progress-ledger{border-top-color:#2d3f4f}
+html[data-theme="dark"] .progress-ledger-title{color:var(--studio-ink)}
+html[data-theme="dark"] .progress-ledger-title::before{background-image:none;background-color:#1f4a35}
+html[data-theme="dark"] .progress-ledger-title[data-tone="warn"]::before{background-image:none;background-color:#4c3211}
+html[data-theme="dark"] .progress-ledger-icon{background-image:none;background-color:#11251d;color:#78ca9c}
+html[data-theme="dark"] .progress-ledger li[data-tone="warn"] .progress-ledger-icon{background-image:none;background-color:#241c0c;color:#e0ab6f}
+html[data-theme="dark"] .progress-ledger li[data-tone="bad"] .progress-ledger-icon{background-image:none;background-color:#2f1c1c;color:#ff8883}
+html[data-theme="dark"] .progress-ledger li h3{color:var(--studio-muted)}
+html[data-theme="dark"] .report-quick-list article,html[data-theme="dark"] .priority-action-grid > .priority-action{border-color:currentcolor;background-image:none;background-color:transparent;box-shadow:none}
+html[data-theme="dark"] .report-quick-list article:not(:last-child)::before,html[data-theme="dark"] .priority-action-grid > .priority-action:not(:last-child)::before{background-image:repeating-linear-gradient(to bottom, #102f49 0 5px, rgba(185,214,242,0) 5px 10px);background-color:transparent}
+html[data-theme="dark"] .report-quick-list .quick-edit-number,html[data-theme="dark"] .report-shell .priority-action-number{border-color:#2d465d;background-image:none;background-color:#1f252c;color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+html[data-theme="dark"] .report-quick-list article:first-child .quick-edit-number,html[data-theme="dark"] .report-shell .priority-action-grid > .priority-action:first-child .priority-action-number{border-color:var(--studio-teal);background-image:none;background-color:var(--studio-teal);color:#fff;box-shadow:0 0 0 5px rgba(8,127,236,.14)}
+@media (hover: hover){
+html[data-theme="dark"] .quick-edit-summary:hover h3,html[data-theme="dark"] .priority-action-summary:hover .priority-action-title{color:var(--studio-teal-dark-text, var(--studio-teal-dark))}
+}
+html[data-theme="dark"] .role-match-grid{border-top-color:var(--studio-border)}
+html[data-theme="dark"] .role-match{border-bottom-color:var(--studio-border)}
+html[data-theme="dark"] .role-match[data-final="true"]{background-image:linear-gradient(90deg, rgba(8,127,236,.08), rgba(8,127,236,0) 75%);background-color:transparent}
+html[data-theme="dark"] .role-match[data-final="true"]::before{background-image:none;background-color:var(--studio-teal)}
+html[data-theme="dark"] .role-match-rank{background-image:none;background-color:#191e24;color:var(--studio-ink)}
+html[data-theme="dark"] .role-match[data-final="true"] .role-match-rank{background-image:none;background-color:var(--studio-teal);color:#fff}
+html[data-theme="dark"] .role-match-bar{background-image:repeating-linear-gradient(90deg, #1e2831 0 calc(10% - 2px), #14191f calc(10% - 2px) 10%);background-color:transparent}
+html[data-theme="dark"] .role-match-bar > span{background-image:none;background-color:#16344f}
+html[data-theme="dark"] .role-match[data-final="true"] .role-match-bar > span{background-image:none;background-color:var(--studio-teal)}
+html[data-theme="dark"] .role-match-label{color:var(--studio-muted)}
+html[data-theme="dark"] .report-shell #selectedRoleCard{border-color:currentcolor;background-image:none;background-color:transparent}
+html[data-theme="dark"] #selectedChoiceDisplay{background-image:none;background-color:#191e24}
+html[data-theme="dark"] #selectedDatabaseRoleDisplay{color:var(--studio-ink)}
+html[data-theme="dark"] #selectedDatabaseRoleDisplay::before{color:var(--studio-teal-text, var(--studio-teal))}
 }
 </style>
 <style id="darkThemeTweaks">
@@ -1111,12 +1234,17 @@ html[data-theme="dark"] .evidence-tile-detail strong{color:var(--studio-ink)}
     --studio-teal-dark: #0d6fd6; --studio-teal-dark-text: #66b2ff;
   }
   /* The light theme paints these with the ink colour, which is light here. */
-  html[data-theme="dark"] .report-shell :is(.priority-action-number, .role-match-rank, .role-match-badge).bg-primary { background-color: #0d6fd6; color: #fff; }
+  html[data-theme="dark"] .report-shell .role-match-badge.bg-primary { background-color: #0d6fd6; color: #fff; }
   html[data-theme="dark"] .tick-flow > li > .tick-mark { background: #183252; color: #8cc4ff; }
   /* Amber bars (weakest score part, medium ATS risk) stay bright enough to read. */
   html[data-theme="dark"] :is(.ats-meter[data-risk="medium"] .ats-meter-track, .score-part[data-weakest="true"] .score-part-track) > span { background-color: #e39a3b; }
   /* The summary card stays a deep blue panel, a little lighter than the page. */
   html[data-theme="dark"] .report-summary-card { background-color: #132a40; border-color: #27455f; }
+  /* Score tracks (progress, Top 3 roles): segments that show on the dark panel. */
+  html[data-theme="dark"] :is(.progress-track, .role-match-bar) { background-image: repeating-linear-gradient(90deg, #2b3743 0 calc(10% - 2px), #1a2128 calc(10% - 2px) 10%); }
+  html[data-theme="dark"] .role-match-bar > span { background-color: #3f77ad; }
+  html[data-theme="dark"] .role-match[data-final="true"] .role-match-bar > span { background-color: var(--studio-teal); }
+  html[data-theme="dark"] .progress-track-mark.is-before { background-color: #1f252c; border-color: #7d92a6; }
 }
 </style>
 </head>
@@ -2887,9 +3015,12 @@ Download PDF
             return;
         }
 
-        // Cards start closed (number, role and score) on phones and tablets.
-        const openAttribute = isCollapseTargetOpen("topRoleMatchesList") ? " open" : "";
+        // A ranked bar chart: each row is the rank, the role, a score bar and the
+        // score; tap a row for its evidence. Rows start closed on phones and
+        // tablets; wide screens open the first row (the role used for the score).
+        const listOpen = isCollapseTargetOpen("topRoleMatchesList");
         container.innerHTML = cleanMatches.map((item, index) => {
+            const openAttribute = listOpen && index === 0 ? " open" : "";
             const rawScore = item.score === null || item.score === undefined || item.score === "" ? Number.NaN : Number(item.score);
             const score = Number.isFinite(rawScore) ? clampPercent(rawScore) : 0;
             const roundedScore = Math.round(score * 10) / 10;
@@ -2906,12 +3037,6 @@ Download PDF
                 : safeContext.mode === "autoDetectedRole"
                 ? "Top detected role from resume evidence."
                 : (item.reason || "Ranked from resume keywords, weighted role requirements, and TF-IDF text similarity.");
-            const cardClass = isFinal
-                ? "border-secondary/40 bg-secondary-container/10"
-                : "border-outline-variant/70 bg-surface-container-low";
-            const rankClass = isFinal
-                ? "bg-primary text-on-primary"
-                : "bg-surface-container-high text-primary";
             const badges = [
                 isFinal
                     ? '<span class="role-match-badge px-2.5 py-1 rounded-full bg-primary text-on-primary text-[11px] font-bold">' +
@@ -2924,31 +3049,29 @@ Download PDF
                 ? matchedKeywords.map((keyword) => '<span class="px-2.5 py-1 rounded-full bg-secondary-container/20 text-on-secondary-container text-[11px] font-bold">' + escapeHtml(keyword) + '</span>').join("")
                 : '<span class="text-xs text-on-surface-variant">No strong matched keywords.</span>';
             const missingMarkup = missingKeywords.length
-                ? '<div class="mt-3"><p class="text-[11px] uppercase tracking-widest text-on-surface-variant mb-2">Improve with</p><div class="flex flex-wrap gap-1.5">' +
+                ? '<div><p class="role-match-label">Improve with</p><div class="flex flex-wrap gap-1.5">' +
                     missingKeywords.map((keyword) => '<span class="px-2.5 py-1 rounded-full bg-error-container text-on-error-container text-[11px] font-bold">' + escapeHtml(keyword) + '</span>').join("") +
                   '</div></div>'
-                : '<p class="mt-3 text-xs text-on-surface-variant">No major missing keyword gaps for this role.</p>';
+                : '<div><p class="role-match-label">Improve with</p><p class="text-xs text-on-surface-variant">No major missing keyword gaps for this role.</p></div>';
 
             return (
-                '<article class="role-match rounded-xl border ' + cardClass + '">' +
+                '<article class="role-match"' + (isFinal ? ' data-final="true"' : "") + ' style="--role-score:' + score + '%">' +
                     '<details class="role-match-details report-collapse-item"' + openAttribute + '>' +
                     '<summary class="role-match-summary">' +
-                        '<span class="role-match-rank inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-extrabold ' + rankClass + '">' + escapeHtml(rank) + '</span>' +
+                        '<span class="role-match-rank">' + escapeHtml(rank) + '</span>' +
                         '<h4 class="role-match-name text-primary">' + escapeHtml(roleName) + '<small>' + escapeHtml(confidenceLabel) + '</small></h4>' +
+                        '<span class="role-match-bar" aria-hidden="true"><span></span></span>' +
                         '<strong class="role-match-score text-primary">' + escapeHtml(scoreLabel) + '</strong>' +
                         '<svg class="role-match-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
                     '</summary>' +
                     '<div class="role-match-body">' +
                     (badges ? '<div class="flex flex-wrap gap-1.5">' + badges + '</div>' : "") +
-                    '<p class="mt-3 text-xs text-on-surface-variant leading-relaxed">' + escapeHtml(reasonText) + '</p>' +
-                    '<div class="mt-4 h-1.5 rounded-full bg-surface-container-high overflow-hidden" aria-hidden="true">' +
-                        '<div class="h-full rounded-full bg-secondary" style="width:' + score + '%"></div>' +
+                    '<p class="role-match-reason text-xs text-on-surface-variant leading-relaxed">' + escapeHtml(reasonText) + '</p>' +
+                    '<div class="role-match-evidence">' +
+                        '<div><p class="role-match-label">Matched evidence</p>' +
+                        '<div class="flex flex-wrap gap-1.5">' + matchedMarkup + '</div></div>' +
+                        missingMarkup +
                     '</div>' +
-                    '<div class="mt-4">' +
-                        '<p class="text-[11px] uppercase tracking-widest text-on-surface-variant mb-2">Matched evidence</p>' +
-                        '<div class="flex flex-wrap gap-1.5">' + matchedMarkup + '</div>' +
-                    '</div>' +
-                    missingMarkup +
                     '</div>' +
                     '</details>' +
                 '</article>'
@@ -3278,27 +3401,46 @@ Download PDF
             .concat(Array.isArray(progress.ats_issues_new) ? progress.ats_issues_new : []);
         const lost = Array.isArray(progress.keywords_no_longer_found) ? progress.keywords_no_longer_found.filter(Boolean) : [];
 
+        // A 0-100 track: the old score is a hollow marker, the new one slides to its
+        // place, and the gap between them is the change.
+        const fromScore = clampPercent(Number(progress.previous_score) || 0);
+        const toScore = clampPercent(Number(progress.current_score) || 0);
+        const track =
+            '<div class="progress-track" role="img" aria-label="' + escapeHtml("Score moved from " + formatProgressPoints(progress.previous_score) + " to " + formatProgressPoints(progress.current_score) + " out of 100") + '"' +
+                ' style="--from:' + fromScore + '%;--to:' + toScore + '%;--gain-start:' + Math.min(fromScore, toScore) + '%;--gain-size:' + Math.abs(toScore - fromScore) + '%">' +
+                '<span class="progress-track-gain" data-trend="' + trend + '"></span>' +
+                '<span class="progress-track-mark is-before"></span>' +
+                '<span class="progress-track-mark is-now" data-trend="' + trend + '"></span>' +
+            '</div>';
+        // Two plain lists instead of boxes: what got better, and what is left.
+        const ledgerRow = (label, items, tone, emptyText, icon) => (
+            '<li data-tone="' + tone + '"><span class="progress-ledger-icon" aria-hidden="true">' + icon + '</span>' +
+                '<div><h3>' + escapeHtml(label) + '</h3>' + buildProgressChips(items, tone, emptyText) + '</div></li>'
+        );
+        const better =
+            ledgerRow("Now shown in your resume", progress.keywords_now_matched, "good", "None yet", "&#10003;") +
+            ledgerRow("ATS issues fixed", atsFixed, "good", "None", "&#10003;");
+        const toDo =
+            ledgerRow("Still missing", progress.keywords_still_missing, "warn", "None", "!") +
+            (atsOpen.length ? ledgerRow("ATS issues still open", atsOpen, "warn", "None", "!") : "") +
+            (lost.length ? ledgerRow("No longer found", lost, "bad", "None", "&darr;") : "");
+
         body.innerHTML =
             '<div class="report-progress-score">' +
-                '<span class="progress-from">' + escapeHtml(formatProgressPoints(progress.previous_score)) + '</span>' +
-                '<span aria-hidden="true">&rarr;</span>' +
-                '<span class="progress-to">' + escapeHtml(formatProgressPoints(progress.current_score)) + '</span>' +
-                '<span class="progress-delta" data-trend="' + trend + '">' + escapeHtml(deltaText) + '</span>' +
+                '<div class="progress-numbers">' +
+                    '<span class="progress-from">' + escapeHtml(formatProgressPoints(progress.previous_score)) + '</span>' +
+                    '<span aria-hidden="true">&rarr;</span>' +
+                    '<span class="progress-to">' + escapeHtml(formatProgressPoints(progress.current_score)) + '</span>' +
+                    '<span class="progress-delta" data-trend="' + trend + '">' + escapeHtml(deltaText) + '</span>' +
+                '</div>' +
+                track +
             '</div>' +
             '<p class="report-progress-summary">' + escapeHtml(progress.summary || "") + '</p>' +
             componentMarkup +
-            '<div class="report-progress-grid">' +
-                '<article><h3>Now shown in your resume</h3>' + buildProgressChips(progress.keywords_now_matched, "good", "None yet") + '</article>' +
-                '<article><h3>Still missing</h3>' + buildProgressChips(progress.keywords_still_missing, "warn", "None") + '</article>' +
-                (lost.length
-                    ? '<article><h3>No longer found</h3>' + buildProgressChips(lost, "bad", "None") + '</article>'
-                    : '<article><h3>ATS issues fixed</h3>' + buildProgressChips(atsFixed, "good", "None") + '</article>') +
-            '</div>' +
-            (atsOpen.length
-                ? '<div class="report-progress-grid"><article><h3>ATS issues still open</h3>' + buildProgressChips(atsOpen, "warn", "None") + '</article>' +
-                    (lost.length ? '<article><h3>ATS issues fixed</h3>' + buildProgressChips(atsFixed, "good", "None") + '</article>' : "") +
-                  '</div>'
-                : "");
+            '<div class="progress-ledger">' +
+                '<section><h3 class="progress-ledger-title" data-tone="good">' + escapeHtml("Better now") + '</h3><ul>' + better + '</ul></section>' +
+                '<section><h3 class="progress-ledger-title" data-tone="warn">' + escapeHtml("Still to do") + '</h3><ul>' + toDo + '</ul></section>' +
+            '</div>';
     }
 
     // Semantic matching: requirements proven by the specific tools the resume names.
@@ -3362,13 +3504,13 @@ Download PDF
             syncCollapseToggle("quickActionList", false);
             return;
         }
-        // Phones start with the number and title only; tap an edit (or Show details)
-        // for how to do it.
+        // A numbered timeline (1, 2, 3 on one line). Phones start with the number
+        // and title only; tap an edit (or Show details) for how to do it.
         const openAttribute = isCollapseTargetOpen("quickActionList") ? " open" : "";
         list.innerHTML = quickActions.map((item, index) => (
             '<article class="quick-edit"><details class="quick-edit-details report-collapse-item"' + openAttribute + '>' +
                 '<summary class="quick-edit-summary">' +
-                    '<span class="quick-edit-number">' + String(index + 1).padStart(2, "0") + ' / EDIT</span>' +
+                    '<span class="quick-edit-number" aria-hidden="true">' + (index + 1) + '</span>' +
                     '<h3>' + escapeHtml(item.title) + '</h3>' +
                     '<svg class="quick-edit-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
                 '</summary>' +
