@@ -458,10 +458,6 @@
         .report-reveal.is-visible { opacity: 1; filter: blur(0); transform: translate3d(0,0,0); }
         .report-reveal[data-reveal-side="left"] { --reveal-x: -24px; }
         .report-reveal[data-reveal-side="right"] { --reveal-x: 24px; }
-        /* Sections that have not scrolled into view yet start 24px to the side; clip
-           that offset so it never widens the page on tablets and small laptops.
-           clip (unlike hidden) keeps the sticky report tabs working. */
-        .report-main { overflow-x: clip; }
         @media (max-width: 980px) {
             .report-quick { grid-template-columns: 1fr; gap: 1.3rem; }
             .report-quick h2 { max-width: none; }
@@ -845,7 +841,7 @@
         /* Progress: the old and new score on a 0-100 track, then what got better and what is left. */
         .report-progress-score { display: grid; gap: .9rem; }
         .progress-numbers { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem .9rem; }
-        .progress-track { position: relative; max-width: 34rem; height: .7rem; margin: .2rem .6rem .3rem; border-radius: 999px; background: repeating-linear-gradient(90deg, #e2ecf6 0 calc(10% - 2px), #f8fbfe calc(10% - 2px) 10%); }
+        .progress-track { position: relative; max-width: 34rem; height: .7rem; margin: .2rem .6rem .3rem; border-radius: 999px; background: #e2ecf6; }
         .progress-track-gain { position: absolute; top: 0; bottom: 0; left: var(--gain-start); width: var(--gain-size); border-radius: 999px; background: #2fa874; transform-origin: left; animation: reportBarFill .9s .25s cubic-bezier(.22,1,.36,1) both; }
         .progress-track-gain[data-trend="declined"] { background: #d9534f; transform-origin: right; }
         .progress-track-gain[data-trend="unchanged"] { display: none; }
@@ -887,7 +883,7 @@
         .role-match-summary { grid-template-columns: 2.2rem minmax(8rem, 15rem) minmax(0, 1fr) 5.2rem auto; gap: .8rem 1.1rem; padding: 1rem .75rem 1rem 1rem; }
         .role-match-rank { display: grid; place-items: center; width: 2.2rem; height: 2.2rem; border-radius: 50%; background: #eef4fa; color: var(--studio-ink); font-family: Manrope, Inter, sans-serif; font-size: .95rem; font-weight: 800; }
         .role-match[data-final="true"] .role-match-rank { background: var(--studio-teal); color: #fff; }
-        .role-match-bar { position: relative; height: .6rem; overflow: hidden; border-radius: 999px; background: repeating-linear-gradient(90deg, #e2ecf6 0 calc(10% - 2px), #f8fbfe calc(10% - 2px) 10%); }
+        .role-match-bar { position: relative; height: .6rem; overflow: hidden; border-radius: 999px; background: #e2ecf6; }
         .role-match-bar > span { position: absolute; top: 0; bottom: 0; left: 0; width: var(--role-score); border-radius: inherit; background: #9cc4ea; transform-origin: left; animation: reportBarFill .9s cubic-bezier(.22,1,.36,1) both; }
         .role-match[data-final="true"] .role-match-bar > span { background: var(--studio-teal); }
         .role-match-score { justify-self: end; font-family: Manrope, Inter, sans-serif; font-size: 1rem; }
@@ -922,7 +918,7 @@
            both edges of the screen and fades out below the next edits; thin lines
            separate the blocks. */
         .report-top { position: relative; isolation: isolate; padding-bottom: .25rem; }
-        body { background-image: radial-gradient(440px circle at 6% 170px, rgba(8,127,236,.09), rgba(8,127,236,0)), radial-gradient(400px circle at 95% 620px, rgba(47,168,116,.07), rgba(47,168,116,0)), linear-gradient(180deg, #eaf4ff 0, #f4f8fd 1100px, rgba(244,248,253,0) 1700px); background-repeat: no-repeat; }
+        body { background-image: radial-gradient(440px circle at 6% 170px, rgba(8,127,236,.09), rgba(8,127,236,0)), radial-gradient(400px circle at 95% 620px, rgba(47,168,116,.07), rgba(47,168,116,0)), linear-gradient(180deg, #eaf4ff 0, #f4f8fd 1100px, rgba(244,248,253,0) 1700px), linear-gradient(0deg, #e1eefc 0, #eef5fd 45%, rgba(238,245,253,0) 100%); background-size: auto, auto, 100% 1700px, 100% 1200px; background-position: 0 0, 0 0, 0 0, 0 100%; background-repeat: no-repeat; }
         .report-hero { align-items: start; min-height: 0; padding: clamp(1.25rem,3vw,2.25rem) 0 clamp(1.5rem,3vw,2.5rem); overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: none; }
         /* The hero's glow and ring move onto the band, inside the screen edges. */
         .report-hero::before, .report-hero::after { display: none; }
@@ -936,6 +932,28 @@
             .report-hero { padding: 1rem 0 1.5rem; }
             .report-progress, .report-quick { padding: 1.4rem 0; }
             .report-tabs { margin-bottom: 1.75rem; }
+        }
+        /* Sections are split by lines that run across the whole screen (the top
+           area, then each section below the tabs). Sections fade up into place
+           without sliding sideways, so nothing ever widens the page. */
+        .report-reveal[data-reveal-side="left"], .report-reveal[data-reveal-side="right"] { --reveal-x: 0px; }
+        .report-shell .report-section { position: relative; margin: 0; padding: clamp(2rem,4vw,3rem) 0; }
+        .report-shell #overview { padding-top: 0; }
+        .report-quick { position: relative; }
+        .report-shell .report-section:not(#overview)::before, .report-quick::after { content: ""; position: absolute; left: calc(50% - 50vw); right: calc(50% - 50vw); height: 1px; background: linear-gradient(90deg, rgba(201,220,238,0), #c9dcee 12%, #c9dcee 88%, rgba(201,220,238,0)); pointer-events: none; }
+        .report-shell .report-section:not(#overview)::before { top: 0; }
+        .report-quick::after { bottom: 0; }
+        .report-shell .report-section-title { margin-bottom: 1.4rem; }
+        /* Your files and next steps: one panel split by lines - the file on top,
+           the draft builder and the copy (dark) side by side underneath. */
+        .report-workspace-panel { overflow: hidden; border: 1px solid var(--studio-border); border-radius: 22px; background: #fff; box-shadow: 0 12px 36px rgba(22,35,56,.05); }
+        .report-workspace-panel .submission-card { border: 0; border-bottom: 1px solid var(--studio-border); border-radius: 0; box-shadow: none; }
+        .report-workspace-panel .report-workspace-grid { gap: 0; margin-top: 0; }
+        .report-workspace-panel .report-work-card { border: 0; border-radius: 0; box-shadow: none; }
+        .report-workspace-panel .report-build-card { border-right: 1px solid var(--studio-border); }
+        @media (max-width: 700px) {
+            .report-workspace-panel { border-radius: 18px; }
+            .report-workspace-panel .report-build-card { border-right: 0; border-bottom: 1px solid var(--studio-border); }
         }
         @media print {
             .report-top::after { display: none; }
@@ -1212,7 +1230,7 @@ html[data-theme="dark"] .evidence-tile-detail strong{color:var(--studio-ink)}
 }
 html[data-theme="dark"] .report-sample-banner{border-color:currentcolor;background-image:none;background-color:transparent;color:#94c6f6}
 html[data-theme="dark"] .report-sample-banner strong{background-image:none;background-color:#0b5cad;color:#fff}
-html[data-theme="dark"] .progress-track{background-image:repeating-linear-gradient(90deg, #1e2831 0 calc(10% - 2px), #14191f calc(10% - 2px) 10%);background-color:transparent}
+html[data-theme="dark"] .progress-track{background-image:none;background-color:#1e2831}
 html[data-theme="dark"] .progress-track-gain{background-image:none;background-color:#1f4a35}
 html[data-theme="dark"] .progress-track-gain[data-trend="declined"]{background-image:none;background-color:#d9534f}
 html[data-theme="dark"] .progress-track-mark.is-before{border-color:#344b62;background-image:none;background-color:#1f252c}
@@ -1240,7 +1258,7 @@ html[data-theme="dark"] .role-match[data-final="true"]{background-image:linear-g
 html[data-theme="dark"] .role-match[data-final="true"]::before{background-image:none;background-color:var(--studio-teal)}
 html[data-theme="dark"] .role-match-rank{background-image:none;background-color:#191e24;color:var(--studio-ink)}
 html[data-theme="dark"] .role-match[data-final="true"] .role-match-rank{background-image:none;background-color:var(--studio-teal);color:#fff}
-html[data-theme="dark"] .role-match-bar{background-image:repeating-linear-gradient(90deg, #1e2831 0 calc(10% - 2px), #14191f calc(10% - 2px) 10%);background-color:transparent}
+html[data-theme="dark"] .role-match-bar{background-image:none;background-color:#1e2831}
 html[data-theme="dark"] .role-match-bar > span{background-image:none;background-color:#16344f}
 html[data-theme="dark"] .role-match[data-final="true"] .role-match-bar > span{background-image:none;background-color:var(--studio-teal)}
 html[data-theme="dark"] .role-match-label{color:var(--studio-muted)}
@@ -1248,10 +1266,18 @@ html[data-theme="dark"] .report-shell #selectedRoleCard{border-color:currentcolo
 html[data-theme="dark"] #selectedChoiceDisplay{background-image:none;background-color:#191e24}
 html[data-theme="dark"] #selectedDatabaseRoleDisplay{color:var(--studio-ink)}
 html[data-theme="dark"] #selectedDatabaseRoleDisplay::before{color:var(--studio-teal-text, var(--studio-teal))}
-html[data-theme="dark"] body{background-image:radial-gradient(440px circle at 6% 170px, rgba(8,127,236,.09), rgba(8,127,236,0)), radial-gradient(400px circle at 95% 620px, rgba(47,168,116,.07), rgba(47,168,116,0)), linear-gradient(180deg, #131e2b 0, #161b21 1100px, rgba(244,248,253,0) 1700px)}
+html[data-theme="dark"] body{background-image:radial-gradient(440px circle at 6% 170px, rgba(8,127,236,.09), rgba(8,127,236,0)), radial-gradient(400px circle at 95% 620px, rgba(47,168,116,.07), rgba(47,168,116,0)), linear-gradient(180deg, #131e2b 0, #161b21 1100px, rgba(244,248,253,0) 1700px), linear-gradient(0deg, #16222f 0, #151d26 45%, rgba(238,245,253,0) 100%)}
 html[data-theme="dark"] .report-hero{border-color:currentcolor;background-image:none;background-color:transparent;box-shadow:none}
 html[data-theme="dark"] .report-top::after{border-color:rgba(8,127,236,.16);background-image:radial-gradient(circle, rgba(8,127,236,.07), rgba(8,127,236,.02) 45%, rgba(8,127,236,0) 72%);background-color:transparent}
 html[data-theme="dark"] .report-progress,html[data-theme="dark"] .report-quick{border-color:currentcolor;border-top-color:#2d3e4e;background-image:none;background-color:transparent;box-shadow:none}
+html[data-theme="dark"] .report-shell .report-section:not(#overview)::before,html[data-theme="dark"] .report-quick::after{background-image:linear-gradient(90deg, rgba(201,220,238,0), #192d3f 12%, #192d3f 88%, rgba(201,220,238,0));background-color:transparent}
+html[data-theme="dark"] .report-workspace-panel{border-color:var(--studio-border);background-image:none;background-color:#1f252c;box-shadow:0 12px 36px rgba(22,35,56,.05)}
+html[data-theme="dark"] .report-workspace-panel .submission-card{border-color:currentcolor;border-bottom-color:var(--studio-border);box-shadow:none}
+html[data-theme="dark"] .report-workspace-panel .report-work-card{border-color:currentcolor;box-shadow:none}
+html[data-theme="dark"] .report-workspace-panel .report-build-card{border-right-color:var(--studio-border)}
+@media (max-width: 700px){
+html[data-theme="dark"] .report-workspace-panel .report-build-card{border-right-color:currentcolor;border-bottom-color:var(--studio-border)}
+}
 }
 </style>
 <style id="darkThemeTweaks">
@@ -1270,7 +1296,7 @@ html[data-theme="dark"] .report-progress,html[data-theme="dark"] .report-quick{b
   /* The summary card stays a deep blue panel, a little lighter than the page. */
   html[data-theme="dark"] .report-summary-card { background-color: #132a40; border-color: #27455f; }
   /* Score tracks (progress, Top 3 roles): segments that show on the dark panel. */
-  html[data-theme="dark"] :is(.progress-track, .role-match-bar) { background-image: repeating-linear-gradient(90deg, #2b3743 0 calc(10% - 2px), #1a2128 calc(10% - 2px) 10%); }
+  html[data-theme="dark"] :is(.progress-track, .role-match-bar) { background-color: #2b3743; }
   html[data-theme="dark"] .role-match-bar > span { background-color: #3f77ad; }
   html[data-theme="dark"] .role-match[data-final="true"] .role-match-bar > span { background-color: var(--studio-teal); }
   html[data-theme="dark"] .progress-track-mark.is-before { background-color: #1f252c; border-color: #7d92a6; }
@@ -1543,6 +1569,8 @@ Recommendation actions will appear after analysis.
 <p class="report-eyebrow">Put your feedback to work</p>
 <h2 class="report-section-title">Your files and next steps</h2>
 </div>
+<!-- One panel split by lines: the file reviewed on top, the draft builder and the copy side by side. -->
+<div class="report-workspace-panel">
 <div class="submission-card">
 <div class="submission-card-header">
 <div>
@@ -1604,6 +1632,7 @@ Download PDF report
 Preview report
 </button>
 <a class="report-back-link" href="home_page.html">Back to home <span aria-hidden="true">&rarr;</span></a>
+</div>
 </div>
 </div>
 </div>
