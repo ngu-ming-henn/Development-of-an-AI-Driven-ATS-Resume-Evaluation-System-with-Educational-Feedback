@@ -102,17 +102,27 @@ class ReportShapeTests(unittest.TestCase):
         for block in ('id="reportSampleBanner"', 'class="report-hero"', 'id="reportProgress"', 'class="report-quick"'):
             self.assertIn(block, top)
         self.assertIn("padding: 0; border: 0; border-radius: 0; background: none; color: #16466f;", REPORT)
-        self.assertIn(".report-progress, .report-quick { margin: 0; padding: clamp(1.4rem,3vw,2rem) 0; border: 0; border-top: 1px solid #d3e3f2;", REPORT)
+        self.assertIn(".report-progress, .report-quick { margin: 0; padding: clamp(1.75rem,3.5vw,2.5rem) 0; border: 0; border-radius: 0; background: none; box-shadow: none; }", REPORT)
         self.assertIn("overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: none; }", REPORT)
-        # The band is painted on the page (blue at the top, white in the middle,
-        # blue again above the footer), so it reaches both screen edges.
-        self.assertIn("body { background-image: radial-gradient(440px circle at 6% 170px,", REPORT)
-        self.assertIn("linear-gradient(0deg, #e1eefc 0, #eef5fd 45%, rgba(238,245,253,0) 100%); background-size: auto, auto, 100% 1700px, 100% 1200px; background-position: 0 0, 0 0, 0 0, 0 100%;", REPORT)
+        # No side line between the title and the score.
+        self.assertIn(".report-hero .report-score-card { border-left: 0; border-top: 0; }", REPORT)
 
-    def test_sections_are_split_by_full_width_lines(self):
-        self.assertIn(".report-shell .report-section:not(#overview)::before, .report-quick::after { content: \"\"; position: absolute; left: calc(50% - 50vw); right: calc(50% - 50vw); height: 1px;", REPORT)
-        # Sections fade up without sliding sideways, so nothing widens the page
-        # and the report body no longer needs to clip sideways.
+    def test_sections_are_split_by_background_bands(self):
+        # Like the home page: full-width bands take turns (blue behind the score,
+        # then white and pale blue), and no lines run between the blocks.
+        self.assertIn(".report-top::before, .report-progress::before, .report-quick::before, #job-match::before, #ats-checks::before, #resume-draft::before { content: \"\"; position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(50% - 50vw); right: calc(50% - 50vw);", REPORT)
+        self.assertIn(".report-top::before { z-index: -2; top: -48px; background:", REPORT)
+        self.assertIn(".report-progress::before { background: #fff; }", REPORT)
+        self.assertIn(".report-quick::before, #job-match::before, #ats-checks::before { background: #f3f8fe; }", REPORT)
+        self.assertIn(".report-progress[hidden] + .report-quick::before { background: #fff; }", REPORT)
+        self.assertIn("#resume-draft::before { bottom: -5rem; background: linear-gradient(180deg, #fff 0, #fff 30%, #e6f1fe 100%); }", REPORT)
+        self.assertIn("body.bg-background { background-color: #fff; }", REPORT)
+        self.assertNotIn(".report-quick::after", REPORT)
+        self.assertNotIn("border-top: 1px solid #d3e3f2", REPORT)
+        # The contents fade up; the section (and its band) stays put. Nothing
+        # slides sideways, so the page never widens.
+        self.assertIn(".report-section.report-reveal { opacity: 1; filter: none; transform: none; transition: none; }", REPORT)
+        self.assertIn(".report-section.report-reveal.is-visible > * { opacity: 1; filter: none; transform: none; }", REPORT)
         self.assertIn('.report-reveal[data-reveal-side="left"], .report-reveal[data-reveal-side="right"] { --reveal-x: 0px; }', REPORT)
         self.assertNotIn("        .report-main { overflow-x: clip; }", REPORT)
         self.assertIn("html { scroll-behavior: smooth; overflow-x: clip; }", REPORT)
